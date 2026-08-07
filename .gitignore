@@ -1,0 +1,4 @@
+.archive/
+__pycache__/
+.agent/
+JOB_FILES/
