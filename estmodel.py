@@ -6,6 +6,8 @@
 import numpy as np
 from scipy.linalg import expm
 import concurrent.futures
+import multiprocessing
+from functools import lru_cache
 
 from matplotlib.pyplot import figure, close
 from matplotlib.backends.backend_pdf import PdfPages
@@ -16,34 +18,7 @@ from time import ctime
 from est_data import EstDataSet
 import fit as fit_module
 
-VALID_METHODS = [
-    "Baldwin",
-    "Matrix",
-    "NoEx",
-    "Matrix_3st_Linear",
-    "Matrix_3st_Triangle",
-]
-
-# Per-method flat-parameter layout: (global keys, per-residue keys, per-residue defaults)
-PARAM_LAYOUT = {
-    "NoEx": ([], ["dGs", "r1s", "r2as"], [0.0, 1.0, 10.0]),
-    "Baldwin": (
-        ["kab", "kba"],
-        ["dGs", "dws", "r1s", "r2as", "r2bs"],
-        [0.0, 0.1, 1.0, 10.0, 20.0],
-    ),
-    "Matrix_3st_Linear": (
-        ["kab", "kba", "kbc", "kcb"],
-        ["dGs", "dws", "dwCs", "r1s", "r2as", "r2bs", "r2cs"],
-        [0.0, 0.1, 0.2, 1.0, 10.0, 20.0, 20.0],
-    ),
-    "Matrix_3st_Triangle": (
-        ["kab", "kba", "kbc", "kcb", "kca", "kac"],
-        ["dGs", "dws", "dwCs", "r1s", "r2as", "r2bs", "r2cs"],
-        [0.0, 0.1, 0.2, 1.0, 10.0, 20.0, 20.0],
-    ),
-}
-PARAM_LAYOUT["Matrix"] = PARAM_LAYOUT["Baldwin"]
+from fit import PARAM_LAYOUT, VALID_METHODS
 
 # Per-residue labels for text logs (padding matches legacy output format)
 RES_LOG_LABELS = {
@@ -76,18 +51,21 @@ def fast_gaussian(x, mu, sigma):
     return (1.0 / (np.sqrt(2 * np.pi) * sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
+@lru_cache(maxsize=128)
 def b1_weights(v1, v1err):
     """B1 inhomogeneity sampling: (angular frequencies, normalized weights)."""
     w1 = v1 * 2.0 * np.pi
     w1err = v1err * 2.0 * np.pi
     if w1err == 0:
-        return np.array([w1]), np.array([1.0])
-    wxs = np.linspace(-2.0 * w1err + w1, 2.0 * w1err + w1, 10)
-    weights = fast_gaussian(wxs, w1, w1err)
-    s = np.sum(weights)
-    if s == 0 or np.isnan(s):
-        return wxs, np.ones_like(wxs) / len(wxs)
-    return wxs, weights / s
+        wxs, weights = np.array([w1]), np.array([1.0])
+    else:
+        wxs = np.linspace(-2.0 * w1err + w1, 2.0 * w1err + w1, 10)
+        weights = fast_gaussian(wxs, w1, w1err)
+        s = np.sum(weights)
+        weights = np.ones_like(wxs) / len(wxs) if s == 0 or np.isnan(s) else weights / s
+    wxs.setflags(write=False)
+    weights.setflags(write=False)
+    return wxs, weights
 
 
 def matrix_calc_worker_chunk(args):
@@ -98,10 +76,8 @@ def matrix_calc_worker_chunk(args):
     """
     kab, kba, dG, dw, R1, R2a, R2b, offsets, T, v1, v1err, B0 = args
 
-    R1a = R1b = R1
     wG = dG * B0 * 2.0 * np.pi
     wE = (dG + dw) * B0 * 2.0 * np.pi
-    wy = 0.0
 
     kex = kab + kba
     pB, pA = (kab / kex, kba / kex) if kex != 0 else (0.0, 1.0)
@@ -111,25 +87,24 @@ def matrix_calc_worker_chunk(args):
     startM = np.array([0, 0, 0, pA, 0, 0, pB], dtype=float)
 
     results = []
-    for dRF in offsets:
-        wRF = dRF * B0 * 2.0 * np.pi
-        wa = wG - wRF
-        wb = wE - wRF
-        preIcal = 0.0
-        for wx, w in zip(wxs, weights):
-            # Basis: [1, MxA, MyA, MzA, MxB, MyB, MzB]
-            Alist = [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, -kab - R2a, -wa, wy, kba, 0, 0],
-                [0, wa, -kab - R2a, -wx, 0, kba, 0],
-                [2 * R1a * pA, -wy, wx, -kab - R1a, 0, 0, kba],
-                [0, kab, 0, 0, -kba - R2b, -wb, wy],
-                [0, 0, kab, 0, wb, -kba - R2b, -wx],
-                [2 * R1b * pB, 0, 0, kab, -wy, wx, -kba - R1b],
-            ]
-            endM = np.dot(expm(np.array(Alist, dtype=float) * T), startM)
-            preIcal += w * endM[3] / refM
-        results.append(max(0.0, preIcal))
+    offsets = np.asarray(offsets, dtype=float)
+    for start in range(0, len(offsets), 200):
+        wRF = offsets[start : start + 200, np.newaxis] * B0 * 2.0 * np.pi
+        wa, wb = wG - wRF, wE - wRF
+        # Basis: [1, MxA, MyA, MzA, MxB, MyB, MzB]. Bound batch memory.
+        a = np.zeros((len(wRF), len(wxs), 7, 7))
+        a[..., 1, 1] = a[..., 2, 2] = -kab - R2a
+        a[..., 4, 4] = a[..., 5, 5] = -kba - R2b
+        a[..., 3, 3], a[..., 6, 6] = -kab - R1, -kba - R1
+        a[..., 1, 2], a[..., 2, 1] = -wa, wa
+        a[..., 4, 5], a[..., 5, 4] = -wb, wb
+        a[..., 2, 3] = a[..., 5, 6] = -wxs
+        a[..., 3, 2] = a[..., 6, 5] = wxs
+        a[..., 1, 4] = a[..., 2, 5] = a[..., 3, 6] = kba
+        a[..., 4, 1] = a[..., 5, 2] = a[..., 6, 3] = kab
+        a[..., 3, 0], a[..., 6, 0] = 2 * R1 * pA, 2 * R1 * pB
+        endM = expm(a * T) @ startM
+        results.extend(np.maximum(0.0, np.sum(weights * endM[..., 3] / refM, axis=1)))
     return results
 
 
@@ -146,6 +121,7 @@ class est_model:
         self.nvar = 0
 
         self.executor = None  # ProcessPoolExecutor for the Matrix method
+        self._fit_data = None
 
     # --- Calculation models ---
 
@@ -301,10 +277,11 @@ class est_model:
         return max(0.0, preIcal)
 
     def matrix_calc(self, kab, kba, dG, dw, R1, R2a, R2b, dRF, T, v1, v1err, B0):
-        """2-state numerical propagation for a single offset."""
-        return matrix_calc_worker_chunk(
-            (kab, kba, dG, dw, R1, R2a, R2b, [dRF], T, v1, v1err, B0)
-        )[0]
+        """2-state numerical propagation for scalar or array offsets."""
+        values = matrix_calc_worker_chunk(
+            (kab, kba, dG, dw, R1, R2a, R2b, np.atleast_1d(dRF), T, v1, v1err, B0)
+        )
+        return np.array(values) if np.ndim(dRF) else values[0]
 
     def Baldwin(self, kab, kba, dG, dw, R1, R2a, R2b, dRF, T, v1, v1err, B0):
         """Vectorized Baldwin analytical 2-state model. dRF scalar or array."""
@@ -378,7 +355,9 @@ class est_model:
         method_val = (
             initConf.get("Method", "Baldwin") if initConf is not None else self.method
         )
-        self.method = method_val if method_val in VALID_METHODS else "Baldwin"
+        if method_val not in VALID_METHODS:
+            raise ValueError(f"Unknown calculation method: {method_val!r}")
+        self.method = method_val
         if self.verbose:
             print(f"Selected method: {self.method}")
 
@@ -426,20 +405,17 @@ class est_model:
                 P["dGs"][i], P["r1s"][i], P["r2as"][i], dRF, *a
             )
         if self.method == "Matrix":
-            vals = [
-                self.matrix_calc(
-                    P["kab"],
-                    P["kba"],
-                    P["dGs"][i],
-                    P["dws"][i],
-                    P["r1s"][i],
-                    P["r2as"][i],
-                    P["r2bs"][i],
-                    o,
-                    *a,
-                )
-                for o in np.atleast_1d(dRF)
-            ]
+            return self.matrix_calc(
+                P["kab"],
+                P["kba"],
+                P["dGs"][i],
+                P["dws"][i],
+                P["r1s"][i],
+                P["r2as"][i],
+                P["r2bs"][i],
+                dRF,
+                *a,
+            )
         elif self.method == "Matrix_3st_Linear":
             vals = [
                 self.matrix_calc_3st_linear(
@@ -485,6 +461,39 @@ class est_model:
 
     # --- Fitting ---
 
+    def _prepare_data(self):
+        data = []
+        for i, res in enumerate(self.dataset.res):
+            if res.active:
+                for es in res.estSpecs:
+                    offsets = np.asarray(es.offset, dtype=float)
+                    observed = np.asarray(es.int, dtype=float)
+                    std = np.asarray(es.intstd, dtype=float)
+                    if (
+                        offsets.ndim != 1
+                        or offsets.size == 0
+                        or observed.shape != offsets.shape
+                        or std.shape != offsets.shape
+                        or not all(
+                            np.isfinite(a).all() for a in (offsets, observed, std)
+                        )
+                        or np.any(std < 0)
+                        or not np.isfinite([es.T, es.v1, es.v1err, es.field]).all()
+                    ):
+                        raise ValueError(
+                            f"Invalid spectrum data for residue {res.label}."
+                        )
+                    data.append(
+                        (
+                            i,
+                            es,
+                            offsets,
+                            observed,
+                            np.where(std == 0, 1.0, std),
+                        )
+                    )
+        return data
+
     def errFunc(self, p_flat):
         try:
             P = self.seParam(p_flat)
@@ -506,57 +515,46 @@ class est_model:
             )
             return np.full(n_residuals, 1e6, dtype=float)
 
-        active = [(i, res) for i, res in enumerate(self.dataset.res) if res.active]
-
-        # Chunked multiprocessing path for the (slow) 2-state Matrix method
-        CHUNK_SIZE = 50
-        total_offsets = sum(
-            len(res.estSpecs[0].offset) for _, res in active if res.estSpecs
-        )
-        use_parallel = (
-            self.method == "Matrix"
-            and self.executor is not None
-            and total_offsets > 200
-        )
+        data = self._fit_data if self._fit_data is not None else self._prepare_data()
+        use_parallel = self.method == "Matrix" and self.executor is not None
 
         if use_parallel:
             tasks = []
-            for i, res in active:
-                for es in res.estSpecs:
-                    for k in range(0, len(es.offset), CHUNK_SIZE):
-                        tasks.append(
-                            (
-                                P["kab"],
-                                P["kba"],
-                                P["dGs"][i],
-                                P["dws"][i],
-                                P["r1s"][i],
-                                P["r2as"][i],
-                                P["r2bs"][i],
-                                es.offset[k : k + CHUNK_SIZE],
-                                es.T,
-                                es.v1,
-                                es.v1err,
-                                es.field,
-                            )
+            for i, es, offsets, _, _ in data:
+                for k in range(0, len(offsets), 200):
+                    tasks.append(
+                        (
+                            P["kab"],
+                            P["kba"],
+                            P["dGs"][i],
+                            P["dws"][i],
+                            P["r1s"][i],
+                            P["r2as"][i],
+                            P["r2bs"][i],
+                            offsets[k : k + 200],
+                            es.T,
+                            es.v1,
+                            es.v1err,
+                            es.field,
                         )
+                    )
             chunk_results = list(self.executor.map(matrix_calc_worker_chunk, tasks))
-            results_iter = iter([x for chunk in chunk_results for x in chunk])
+            predictions = (
+                np.concatenate(chunk_results) if chunk_results else np.array([])
+            )
 
         residuals_list = []
-        for i, res in active:
-            for es in res.estSpecs:
-                offsets = np.array(es.offset)
-                if use_parallel:
-                    est_calc = np.array([next(results_iter) for _ in offsets])
-                else:
-                    est_calc = self.calc(P, i, offsets, es)
-                est_calc = np.nan_to_num(est_calc, nan=1e6, posinf=1e6, neginf=-1e6)
-                std_devs = np.array(es.intstd)
-                std_devs[std_devs == 0] = 1.0
-                residuals_list.extend((np.array(es.int) - est_calc) / std_devs)
+        start = 0
+        for i, es, offsets, observed, std in data:
+            if use_parallel:
+                est_calc = predictions[start : start + len(offsets)]
+                start += len(offsets)
+            else:
+                est_calc = self.calc(P, i, offsets, es)
+            est_calc = np.nan_to_num(est_calc, nan=1e6, posinf=1e6, neginf=-1e6)
+            residuals_list.append((observed - est_calc) / std)
 
-        residuals = np.array(residuals_list, dtype=float)
+        residuals = np.concatenate(residuals_list) if residuals_list else np.array([])
         if len(residuals) == 0:
             if self.verbose:
                 print(
@@ -583,13 +581,23 @@ class est_model:
             self.selMethod(fitting_config)
 
         executor_context = None
-        if self.method == "Matrix":
-            if self.verbose:
-                print("Initializing ProcessPoolExecutor for Matrix method...")
-            executor_context = concurrent.futures.ProcessPoolExecutor()
-            self.executor = executor_context
-
         try:
+            self._fit_data = self._prepare_data()
+            if not self._fit_data:
+                raise ValueError("Select at least one residue containing data.")
+            work = sum(
+                len(offsets) * len(b1_weights(es.v1, es.v1err)[0])
+                for _, es, offsets, _, _ in self._fit_data
+            )
+            if (
+                self.method == "Matrix"
+                and work > 2000
+                and not multiprocessing.current_process().daemon
+            ):
+                if self.verbose:
+                    print("Initializing ProcessPoolExecutor for Matrix method...")
+                executor_context = concurrent.futures.ProcessPoolExecutor()
+                self.executor = executor_context
             if p0 is None:
                 if fitting_config is None:
                     raise ValueError(
@@ -598,6 +606,7 @@ class est_model:
                 p0 = fit_module.generate_initial_parameters(self, fitting_config)
             return fit_module.perform_least_squares_fit(self, p0)
         finally:
+            self._fit_data = None
             if executor_context:
                 executor_context.shutdown()
                 self.executor = None
@@ -717,8 +726,9 @@ class est_model:
                 L.append(
                     f"{'Offset':>8} {'ExpI':>12} {'ExpStd':>12} {col_hdr:>{width}}"
                 )
+                calculated = np.nan_to_num(self.calc(P, ir, np.asarray(es.offset), es))
                 for ko, ovl in enumerate(es.offset):
-                    ec = np.nan_to_num(self.calc(P, ir, ovl, es))
+                    ec = calculated[ko]
                     L.append(
                         f"{ovl:8.3f} {es.int[ko]:12.3f} {es.intstd[ko]:12.3f} {ec:{width}.3f}"
                     )
