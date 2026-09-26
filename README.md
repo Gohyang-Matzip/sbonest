@@ -28,6 +28,7 @@ Unlike traditional methods that rely on computationally intensive numerical inte
     ```bash
     pip install -r requirements.txt
     ```
+    [SciPy 1.9 or newer](https://docs.scipy.org/doc/scipy/release/1.9.0-notes.html#scipy-linalg-improvements) is required for batched matrix exponentials.
     > **Tip:** It is recommended to use a virtual environment to avoid conflicts with other projects.
     > ```bash
     > python3 -m venv venv
@@ -41,13 +42,26 @@ To start the web-based interface:
 ```bash
 python server_run.py
 ```
-Access the interface at `http://127.0.0.1:5000`.
+Access the interface at `http://127.0.0.1:5001`.
 
 ### 2. Command Line Execution
 You can run the analysis scripts directly using a configuration file:
 ```bash
 python run.py config.json
 ```
+
+Relative dataset paths are resolved from the configuration file's directory in
+all CLI tools. `prepare.py` writes absolute dataset paths so its output can be
+saved in another directory. Invalid inputs and fits that fail to converge stop
+with an error; failed Monte Carlo fits are excluded from statistics.
+
+For repeated calculations, skip PDF generation while keeping text results:
+```bash
+python run.py config.json --no-pdf
+python mcrun.py config.json 100 4 --no-pdf
+```
+PDF reports remain enabled by default. Monte Carlo workers fit independently;
+the Matrix model does not start nested process pools inside those workers.
 
 > **Tip (For Matrix Method & Benchmarking):**
 > When using the **Matrix method** or running benchmarks, it is recommended to force single-core execution to avoid overhead or ensure consistent timing.
@@ -64,17 +78,26 @@ python benchmark.py config.json [profile]
 - `config.json`: Path to your configuration file.
 - `profile`: (Optional) Add this argument to enable cProfile and generate a `benchmark_profile.prof` file.
 
+Run the numerical and performance regression checks (no extra test dependency):
+```bash
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 python test_performance.py
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 python test_debugging.py
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 python verify_3state.py
+```
+
 ## Input Generation
 
 For instructions on how to generate input files for ONEST, please refer to the [input4onest](https://github.com/jhyeokchoi/input4onest) repository.
 
 ## Directory Structure
 
-*   **`run.py`**: Main execution script for standard fitting via command line.
+*   **`run.py`**: Standard fitting CLI and shared configuration/data loading for fitting, MC and benchmarks.
 *   **`server_run.py`**: Flask-based web server for the graphical user interface.
 *   **`mcrun.py`**: Script for Monte Carlo simulations (supports multiprocessing).
 *   **`benchmark.py`**: Tool for benchmarking model performance.
-*   **`estmodel.py`**: Core library containing calculation engines (Baldwin, Matrix, NoEx) and model logic.
+*   **`estmodel.py`**: Calculation engines (Baldwin, Matrix, NoEx and three-state models), residuals and reports.
+*   **`fit.py`**: Shared parameter layouts, initial guesses, bounds, Jacobian and least-squares solver.
+*   **`est_data.py`**: Spectrum file parsing and dataset storage.
 *   **`example/`**: Contains example datasets (`syn10.txt`, `syn100.txt`) for testing.
 *   **`requirements.txt`**: Python dependencies.
 

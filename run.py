@@ -7,6 +7,8 @@ Python 3 / scipy.optimize.least_squares port: 2025
 
 import sys
 import json
+import argparse
+from pathlib import Path
 from estmodel import est_model
 
 
@@ -15,11 +17,25 @@ def load_config(config_file_path):
     try:
         with open(config_file_path, "r") as config_file:
             config = json.load(config_file)
-            if not all(
+            if not isinstance(config, dict) or not all(
                 key in config
                 for key in ["Project Name", "datasets", "residues", "init"]
             ):
                 raise ValueError("Invalid config file structure.")
+            if (
+                not isinstance(config["Project Name"], str)
+                or not config["Project Name"].strip()
+                or not isinstance(config["datasets"], list)
+                or not config["datasets"]
+                or not all(isinstance(p, str) and p for p in config["datasets"])
+                or not isinstance(config["residues"], list)
+                or not isinstance(config["init"], dict)
+            ):
+                raise ValueError("Invalid config value types or empty dataset list.")
+            config_dir = Path(config_file_path).resolve().parent
+            config["datasets"] = [
+                str((config_dir / p).resolve()) for p in config["datasets"]
+            ]
             return config
     except FileNotFoundError:
         sys.stderr.write(f"Error: Config file not found: {config_file_path}\n")
@@ -37,7 +53,9 @@ def load_config(config_file_path):
 def set_residue_flags(dataset, residues_config):
     """config의 on/off 플래그를 데이터셋 잔기에 적용. 성공 시 None, 실패 시 오류 메시지 반환."""
     for entry in residues_config:
-        name, flag = entry["name"], entry["flag"]
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+            return "Each residue must have a name and an on/off flag."
+        name, flag = entry["name"], entry.get("flag")
         res = next((r for r in dataset.res if r.label == name), None)
         if res is None:
             return f"Residue {name} not found in dataset."
@@ -47,12 +65,28 @@ def set_residue_flags(dataset, residues_config):
     return None
 
 
-def main():
-    if len(sys.argv) < 2:
-        sys.stderr.write(f"Usage: {sys.argv[0]} config_file.json\n")
-        sys.exit(1)
+def load_datasets(model, config, *, with_error=False):
+    """Load configured spectra and apply residue selection for CLI and MC fits."""
+    add_data = model.dataset.addDataWithError if with_error else model.dataset.addData
+    for filename in config["datasets"]:
+        if model.verbose:
+            print(f"Loading dataset: {filename}")
+        add_data(filename)
+    error = set_residue_flags(model.dataset, config["residues"])
+    if error:
+        raise ValueError(error)
 
-    config = load_config(sys.argv[1])
+
+def main():
+    parser = argparse.ArgumentParser(description="Fit CEST data.")
+    parser.add_argument("config_file")
+    parser.add_argument(
+        "--no-pdf",
+        action="store_true",
+        help="Skip PDF reports; save numeric results only.",
+    )
+    args = parser.parse_args()
+    config = load_config(args.config_file)
 
     model = est_model()
     model.verbose = True
@@ -61,20 +95,17 @@ def main():
     print(model.programName)
     print("**************")
 
-    for dataset_name in config["datasets"]:
-        if model.verbose:
-            print(f"Loading dataset: {dataset_name}")
-        model.dataset.addData(dataset_name)
-
-    err = set_residue_flags(model.dataset, config["residues"])
-    if err:
-        sys.stderr.write(f"Error: {err}\n")
+    try:
+        load_datasets(model, config)
+    except ValueError as exc:
+        sys.stderr.write(f"Error: {exc}\n")
         sys.exit(1)
 
     project_name = config["Project Name"]
-    if model.verbose:
-        print(f"Generating data PDF: {project_name}_data.pdf")
-    model.datapdf(f"{project_name}_data.pdf")
+    if not args.no_pdf:
+        if model.verbose:
+            print(f"Generating data PDF: {project_name}_data.pdf")
+        model.datapdf(f"{project_name}_data.pdf")
 
     if model.verbose:
         print("Starting model fitting...")
@@ -91,9 +122,10 @@ def main():
     with open(result_file_name, "w") as result_file:
         result_file.write(log_buffer_content)
 
-    if model.verbose:
-        print(f"Generating results PDF: {project_name}.pdf")
-    model.pdf(optimized_params, f"{project_name}.pdf")
+    if not args.no_pdf:
+        if model.verbose:
+            print(f"Generating results PDF: {project_name}.pdf")
+        model.pdf(optimized_params, f"{project_name}.pdf")
 
     print("########\nRun script finished.\n")
 

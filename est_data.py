@@ -5,7 +5,6 @@ Python 3 conversion: 2025
 
 import re
 import numpy as np
-import sys
 
 
 class EstSpec:
@@ -260,17 +259,7 @@ class EstDataSet:
                     self.initR2 = True
 
         except ValueError as e:
-            print(f"Error processing file {fileName}: {e}", file=sys.stderr)
-            sys.exit(1)
-        except FileNotFoundError:
-            print(f"Error: File not found {fileName}", file=sys.stderr)
-            sys.exit(1)
-        except Exception as e_gen:
-            print(
-                f"An unexpected error occurred with file {fileName}: {e_gen}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            raise ValueError(f"Error processing file {fileName}: {e}") from e
 
     def addDataWithError(self, fileName):
         self.addData(fileName, add_error_to_intensity=True)

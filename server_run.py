@@ -3,7 +3,6 @@ import os
 import sys
 import uuid
 import json
-import shutil
 import subprocess
 from flask import (
     Flask,
@@ -14,6 +13,7 @@ from flask import (
     url_for,
 )
 from werkzeug.utils import secure_filename
+from estmodel import VALID_METHODS
 
 # --- Configuration ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,9 +25,25 @@ app.config["JOBS_DIR"] = JOBS_DIR
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
 
 
-# --- Helper Functions (기존과 동일) ---
+@app.before_request
+def validate_job_id():
+    job_id = (request.view_args or {}).get("job_id")
+    if job_id is not None and (job_id in (".", "..") or "\\" in job_id):
+        return jsonify({"success": False, "error": "Invalid job ID."}), 400
+
+
+# --- Helper Functions ---
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def positive_int(value):
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError("Expected a positive integer.")
+    result = int(value)
+    if result <= 0:
+        raise ValueError("Expected a positive integer.")
+    return result
 
 
 def run_script(command_args, working_dir, script_name_for_log="script"):
@@ -72,6 +88,41 @@ def get_project_name_from_config(config_path):
     except Exception as e:
         print(f"Error reading project name from {config_path}: {e}")
         return None
+
+
+def run_fit_script(job_id, job_dir, script_name, output_suffixes, extra_args=()):
+    """Run a fit or MC script and return links to its existing output files."""
+    project_name = get_project_name_from_config(os.path.join(job_dir, "config.json"))
+    if not project_name:
+        return jsonify(
+            {"success": False, "error": "Could not read Project Name from config.json."}
+        ), 500
+
+    cmd_args = [os.path.join(BASE_DIR, script_name), "config.json", *extra_args]
+    result = run_script(cmd_args, job_dir, script_name)
+    output_files = []
+    if result["success"]:
+        for suffix in output_suffixes:
+            filename = project_name + suffix
+            if os.path.exists(os.path.join(job_dir, filename)):
+                output_files.append(
+                    {
+                        "name": filename,
+                        "url": url_for(
+                            "download_file", job_id=job_id, filename=filename
+                        ),
+                    }
+                )
+    return jsonify(
+        {
+            "success": result["success"],
+            "job_id": job_id,
+            "message": f"{script_name} execution {'completed' if result['success'] else 'failed'}.",
+            "script_stdout": result["stdout"],
+            "script_stderr": result["stderr"],
+            "output_files": output_files,
+        }
+    )
 
 
 # --- Flask Routes ---
@@ -354,29 +405,23 @@ def prepare_initial_route():
     if not files or files[0].filename == "":
         return jsonify({"success": False, "error": "No selected files"}), 400
 
+    saved_filenames = [secure_filename(f.filename) for f in files]
+    if any(
+        not allowed_file(f.filename) or not name
+        for f, name in zip(files, saved_filenames)
+    ):
+        return jsonify({"success": False, "error": "Upload valid .txt files."}), 400
+    if len(set(saved_filenames)) != len(saved_filenames):
+        return jsonify(
+            {"success": False, "error": "Uploaded filenames must be unique."}
+        ), 400
+
     job_id = str(uuid.uuid4())
     job_dir = os.path.join(app.config["JOBS_DIR"], job_id)
     os.makedirs(job_dir, exist_ok=True)
 
-    saved_filenames = []
-    for file_storage in files:
-        if file_storage and allowed_file(file_storage.filename):
-            filename = secure_filename(file_storage.filename)
-            filepath = os.path.join(job_dir, filename)
-            file_storage.save(filepath)
-            saved_filenames.append(filename)
-        else:
-            shutil.rmtree(job_dir)
-            return jsonify(
-                {
-                    "success": False,
-                    "error": f"Invalid file type: {file_storage.filename}",
-                }
-            ), 400
-
-    if not saved_filenames:
-        shutil.rmtree(job_dir)
-        return jsonify({"success": False, "error": "No valid files were saved."}), 400
+    for file_storage, filename in zip(files, saved_filenames):
+        file_storage.save(os.path.join(job_dir, filename))
 
     script_path = os.path.join(BASE_DIR, "prepare.py")
     cmd_args = [script_path] + saved_filenames
@@ -431,60 +476,66 @@ def finalize_config_route(job_id):
         ), 404
 
     try:
-        data = request.get_json()
-        selected_project_name = data.get("project_name")  # Get Project Name
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "error": "Expected a JSON object."}), 400
+        selected_project_name = data.get("project_name")
         selected_method = data.get("method")
         residue_flags_from_client = data.get("residue_flags")
 
         if (
-            not selected_project_name or not selected_project_name.strip()
-        ):  # Check if empty or just whitespace
+            not isinstance(selected_project_name, str)
+            or not selected_project_name.strip()
+        ):
             return jsonify(
                 {"success": False, "error": "Project Name cannot be empty."}
             ), 400
-        if not selected_method or residue_flags_from_client is None:
+        if selected_method not in VALID_METHODS:
+            return jsonify(
+                {"success": False, "error": "Unknown calculation method."}
+            ), 400
+        if not isinstance(residue_flags_from_client, list) or not all(
+            isinstance(r, dict)
+            and isinstance(r.get("name"), str)
+            and r.get("flag") in ("on", "off")
+            for r in residue_flags_from_client
+        ):
             return jsonify(
                 {
                     "success": False,
-                    "error": "Missing method or residue_flags in request.",
+                    "error": "Residues must have a name and an on/off flag.",
                 }
             ), 400
 
-        # Sanitize project name for use in filenames (simple example)
-        # More robust sanitization might be needed depending on how it's used elsewhere
         safe_project_name = "".join(
             c if c.isalnum() or c in ("_", "-") else "_" for c in selected_project_name
         )
-        if not safe_project_name:  # If sanitization results in an empty string
-            safe_project_name = "sanitized_default_project"
-
         with open(initial_config_path, "r") as f:
             config_data = json.load(f)
 
-        config_data["Project Name"] = (
-            safe_project_name  # Set the sanitized Project Name
-        )
-
-        if "init" not in config_data:
-            config_data["init"] = {}
-        config_data["init"]["Method"] = selected_method
+        config_data["Project Name"] = safe_project_name
+        config_data.setdefault("init", {})["Method"] = selected_method
 
         client_flags_map = {
             res_info["name"]: res_info["flag"] for res_info in residue_flags_from_client
         }
+        known_names = {r["name"] for r in config_data["residues"]}
+        if (
+            len(client_flags_map) != len(residue_flags_from_client)
+            or not client_flags_map.keys() <= known_names
+        ):
+            return jsonify(
+                {"success": False, "error": "Duplicate or unknown residue name."}
+            ), 400
 
-        if "residues" in config_data and isinstance(config_data["residues"], list):
-            for res_obj_server in config_data["residues"]:
-                if isinstance(res_obj_server, dict) and "name" in res_obj_server:
-                    residue_name = res_obj_server["name"]
-                    if residue_name in client_flags_map:
-                        res_obj_server["flag"] = client_flags_map[residue_name]
-        else:
-            config_data["residues"] = [
-                {"name": rf["name"], "flag": rf["flag"]}
-                for rf in residue_flags_from_client
-            ]
+        for residue in config_data["residues"]:
+            if residue["name"] in client_flags_map:
+                residue["flag"] = client_flags_map[residue["name"]]
 
+        if not any(r["flag"] == "on" for r in config_data["residues"]):
+            return jsonify(
+                {"success": False, "error": "Select at least one residue."}
+            ), 400
         final_config_path = os.path.join(job_dir, "config.json")
         with open(final_config_path, "w") as f:
             json.dump(config_data, f, indent=4)
@@ -513,7 +564,6 @@ def finalize_config_route(job_id):
         ), 500
 
 
-# --- Routes for /run_fit, /run_mc, /download (기존과 동일) ---
 @app.route("/run_fit/<job_id>", methods=["POST"])
 def run_fit_route(job_id):
     job_dir = os.path.join(app.config["JOBS_DIR"], job_id)
@@ -524,41 +574,8 @@ def run_fit_route(job_id):
             {"success": False, "error": "Job ID or final config.json not found."}
         ), 404
 
-    project_name = get_project_name_from_config(config_path)
-    if not project_name:
-        return jsonify(
-            {"success": False, "error": "Could not read Project Name from config.json."}
-        ), 500
-
-    script_path = os.path.join(BASE_DIR, "run.py")
-    cmd_args = [script_path, "config.json"]
-    script_result = run_script(cmd_args, job_dir, "run.py")
-
-    output_files_info = []
-    if script_result["success"]:
-        expected_files = [
-            f"{project_name}_data.pdf",
-            f"{project_name}_result.txt",
-            f"{project_name}.pdf",
-        ]
-        for fname in expected_files:
-            if os.path.exists(os.path.join(job_dir, fname)):
-                output_files_info.append(
-                    {
-                        "name": fname,
-                        "url": url_for("download_file", job_id=job_id, filename=fname),
-                    }
-                )
-
-    return jsonify(
-        {
-            "success": script_result["success"],
-            "job_id": job_id,
-            "message": f"run.py execution {'completed' if script_result['success'] else 'failed'}.",
-            "script_stdout": script_result["stdout"],
-            "script_stderr": script_result["stderr"],
-            "output_files": output_files_info,
-        }
+    return run_fit_script(
+        job_id, job_dir, "run.py", ("_data.pdf", "_result.txt", ".pdf")
     )
 
 
@@ -572,16 +589,14 @@ def run_mc_route(job_id):
             {"success": False, "error": "Job ID or final config.json not found."}
         ), 404
 
-    data = request.get_json()
-    if not data or "num_runs" not in data:
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "num_runs" not in data:
         return jsonify(
             {"success": False, "error": "Missing 'num_runs' in request."}
         ), 400
 
     try:
-        num_runs = int(data["num_runs"])
-        if num_runs <= 0:
-            raise ValueError()
+        num_runs = positive_int(data["num_runs"])
     except ValueError:
         return jsonify(
             {"success": False, "error": "'num_runs' must be a positive integer."}
@@ -590,64 +605,31 @@ def run_mc_route(job_id):
     num_processes = data.get("num_processes")
     try:
         if num_processes is not None and str(num_processes).strip() != "":
-            num_processes = int(num_processes)
-            if num_processes <= 0:
-                num_processes = None
+            num_processes = positive_int(num_processes)
+        else:
+            num_processes = None
     except ValueError:
-        num_processes = None
-
-    project_name = get_project_name_from_config(config_path)
-    if not project_name:
         return jsonify(
-            {"success": False, "error": "Could not read Project Name from config.json."}
-        ), 500
+            {"success": False, "error": "'num_processes' must be a positive integer."}
+        ), 400
 
-    script_path = os.path.join(BASE_DIR, "mcrun.py")
-    cmd_args = [script_path, "config.json", str(num_runs)]
+    extra_args = [str(num_runs)]
     if num_processes is not None:
-        cmd_args.append(str(num_processes))
+        extra_args.append(str(num_processes))
 
-    script_result = run_script(cmd_args, job_dir, "mcrun.py")
-
-    output_files_info = []
-    if script_result["success"]:
-        expected_files = [
-            f"{project_name}_data.pdf",
-            f"{project_name}.pdf",
-            f"{project_name}_mc.txt",
-            f"{project_name}_mcmean.pdf",
-        ]
-        for fname in expected_files:
-            if os.path.exists(os.path.join(job_dir, fname)):
-                output_files_info.append(
-                    {
-                        "name": fname,
-                        "url": url_for("download_file", job_id=job_id, filename=fname),
-                    }
-                )
-
-    return jsonify(
-        {
-            "success": script_result["success"],
-            "job_id": job_id,
-            "message": f"mcrun.py execution {'completed' if script_result['success'] else 'failed'}.",
-            "script_stdout": script_result["stdout"],
-            "script_stderr": script_result["stderr"],
-            "output_files": output_files_info,
-        }
+    return run_fit_script(
+        job_id,
+        job_dir,
+        "mcrun.py",
+        ("_data.pdf", ".pdf", "_mc.txt", "_mcmean.pdf"),
+        extra_args,
     )
 
 
 @app.route("/download/<job_id>/<path:filename>")
 def download_file(job_id, filename):
     job_dir = os.path.join(app.config["JOBS_DIR"], job_id)
-    safe_filename = secure_filename(filename)
-
-    full_path = os.path.join(job_dir, safe_filename)
-    if not os.path.abspath(full_path).startswith(os.path.abspath(job_dir)):
-        return "Access denied", 403
-
-    return send_from_directory(job_dir, safe_filename, as_attachment=True)
+    return send_from_directory(job_dir, filename, as_attachment=True)
 
 
 @app.route("/example/<path:filename>")
