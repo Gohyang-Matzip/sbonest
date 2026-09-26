@@ -261,7 +261,7 @@ def check_cli():
         "init": CONF,
     }
     (folder / "config.json").write_text(json.dumps(conf))
-    env = {**os.environ, "MPLBACKEND": "Agg"}
+    env = {**os.environ, "MPLBACKEND": "Agg", "PYTHONUNBUFFERED": "1"}
     for script, args in [("run.py", []), ("mcrun.py", ["2", "2"])]:
         result = subprocess.run(
             [sys.executable, str(ROOT / script), "config.json", *args, "--no-pdf"],
@@ -323,4 +323,15 @@ if __name__ == "__main__":
         except AssertionError as exc:
             failed.append(check.__name__)
             print("FAIL", check.__name__, str(exc), flush=True)
+        except subprocess.TimeoutExpired as exc:
+            print("Timed out:", exc.cmd, flush=True)
+            for output in (exc.stdout, exc.stderr):
+                if output:
+                    print(
+                        output.decode(errors="replace")
+                        if isinstance(output, bytes)
+                        else output,
+                        flush=True,
+                    )
+            raise
     assert not failed, failed
