@@ -290,6 +290,10 @@ def check_cli():
 
     conf["Project Name"] = "matrix"
     conf["init"] = {**CONF, "Method": "Matrix"}
+    # Two B1 conditions constrain the rates and avoid a slow single-profile fit.
+    conf["datasets"] = [
+        str(ROOT / "example" / name) for name in ["syn10.txt", "syn100.txt"]
+    ]
     (folder / "matrix.json").write_text(json.dumps(conf))
     result = subprocess.run(
         [sys.executable, str(ROOT / "mcrun.py"), "matrix.json", "2", "2", "--no-pdf"],
