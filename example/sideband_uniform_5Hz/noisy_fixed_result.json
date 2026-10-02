@@ -1,0 +1,112 @@
+{
+  "method": "Sideband",
+  "rf_mode": "fixed",
+  "config": {
+    "Project Name": "noisy_fixed",
+    "datasets": [
+      "/Users/donghanlee/work/projects/sbonest/example/sideband_uniform_5Hz/noisy_25Hz.txt",
+      "/Users/donghanlee/work/projects/sbonest/example/sideband_uniform_5Hz/noisy_50Hz.txt",
+      "/Users/donghanlee/work/projects/sbonest/example/sideband_uniform_5Hz/noisy_100Hz.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_larmor_mhz": 1200.0,
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0,
+        "R1H": 2.0,
+        "R2H": 25.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        }
+      },
+      "v1n": {
+        "mode": "fixed"
+      }
+    }
+  },
+  "v1n_hz": [
+    25.0,
+    50.0,
+    100.0
+  ],
+  "chi2": 10947.794065699902,
+  "dof": 2876,
+  "n_points": 2883,
+  "n_parameters": 7,
+  "kex": 300.55725121998216,
+  "pB": 0.056712397654063315,
+  "parameters": {
+    "kab": {
+      "value": 17.045322348999836,
+      "stderr": 0.01754799043059522,
+      "vary": true
+    },
+    "kba": {
+      "value": 283.51192887098233,
+      "stderr": 0.42327032783128127,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 119.99994981482821,
+      "stderr": 0.00019574464220816761,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 2.993058263631975,
+      "stderr": 0.00043894877907569305,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.5014997769791314,
+      "stderr": 0.00010977981176445563,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 14.14764214514778,
+      "stderr": 0.013588516348279053,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 17.003573870088374,
+      "stderr": 0.19839689964174442,
+      "vary": true
+    }
+  },
+  "jacobian_rank": 7,
+  "scaled_condition": 5.031200754706838,
+  "v1n_correlations": [],
+  "at_bounds": [],
+  "warnings": [],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 17,
+  "message": "Both `ftol` and `xtol` termination conditions are satisfied."
+}

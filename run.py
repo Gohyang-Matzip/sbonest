@@ -32,6 +32,10 @@ def load_config(config_file_path):
                 or not isinstance(config["init"], dict)
             ):
                 raise ValueError("Invalid config value types or empty dataset list.")
+            if ("sideband" in config) != (config["init"].get("Method") == "Sideband"):
+                raise ValueError(
+                    'Use init.Method = "Sideband" together with a sideband section.'
+                )
             config_dir = Path(config_file_path).resolve().parent
             config["datasets"] = [
                 str((config_dir / p).resolve()) for p in config["datasets"]
@@ -87,6 +91,15 @@ def main():
     )
     args = parser.parse_args()
     config = load_config(args.config_file)
+
+    if config["init"].get("Method") == "Sideband":
+        from sbfit import run_config
+
+        try:
+            run_config(config, Path(args.config_file).resolve().parent, args.no_pdf)
+        except (ValueError, KeyError, OSError, RuntimeError) as exc:
+            parser.exit(1, f"Error: {exc}\n")
+        return
 
     model = est_model()
     model.verbose = True

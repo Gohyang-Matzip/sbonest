@@ -1,0 +1,174 @@
+{
+  "method": "Sideband",
+  "rf_mode": "scale",
+  "config": {
+    "Project Name": "noisy_scale",
+    "datasets": [
+      "/Users/donghanlee/work/projects/sbonest/example/sideband_uniform_25Hz/noisy_25Hz.txt",
+      "/Users/donghanlee/work/projects/sbonest/example/sideband_uniform_25Hz/noisy_50Hz.txt",
+      "/Users/donghanlee/work/projects/sbonest/example/sideband_uniform_25Hz/noisy_100Hz.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_larmor_mhz": 1200.0,
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0,
+        "R1H": 2.0,
+        "R2H": 25.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      }
+    }
+  },
+  "v1n_hz": [
+    27.01509510051715,
+    54.0301902010343,
+    108.0603804020686
+  ],
+  "chi2": 633.6084709429934,
+  "dof": 571,
+  "n_points": 579,
+  "n_parameters": 8,
+  "kex": 300.5143187927172,
+  "pB": 0.04986260305956704,
+  "parameters": {
+    "kab": {
+      "value": 14.984426191677443,
+      "stderr": 0.083626589950552,
+      "vary": true
+    },
+    "kba": {
+      "value": 285.52989260103976,
+      "stderr": 0.968277288600572,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.080603804020686,
+      "stderr": 0.0032954841404211925,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.0002313203897,
+      "stderr": 0.0003899069540503441,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 2.999097484382652,
+      "stderr": 0.0010199628051525398,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.5001268302623816,
+      "stderr": 0.00024908740325136714,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 11.993022377254103,
+      "stderr": 0.08370043477587855,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 14.752659323421485,
+      "stderr": 0.4427336325470519,
+      "vary": true
+    }
+  },
+  "jacobian_rank": 8,
+  "scaled_condition": 19.23630517229581,
+  "v1n_correlations": [
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a"
+      ],
+      "correlation": -0.9516558751868978
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kab"
+      ],
+      "correlation": -0.914712383949828
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.dw_ppm"
+      ],
+      "correlation": 0.28830453905278436
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1"
+      ],
+      "correlation": -0.18111417534444788
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b"
+      ],
+      "correlation": -0.12132430041436776
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.peak_ppm"
+      ],
+      "correlation": -0.09116244770934473
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kba"
+      ],
+      "correlation": 0.007585556502364554
+    }
+  ],
+  "at_bounds": [],
+  "warnings": [
+    "Strong v1n correlation; inspect RF calibration and profile likelihood"
+  ],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 14,
+  "message": "`ftol` termination condition is satisfied."
+}

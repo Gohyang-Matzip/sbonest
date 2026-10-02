@@ -676,7 +676,7 @@ class est_model:
                 ax.set_ylim(plot_min_y, plot_max_y)
 
             fig.tight_layout(rect=[0, 0, 0.85, 1])
-            pdf.savefig(fig)
+            pdf.savefig(fig, bbox_inches="tight")
             close(fig)
         pdf.close()
 

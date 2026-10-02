@@ -1,0 +1,76 @@
+{
+  "Project Name": "/Users/donghanlee/work/projects/sbonest/results/auto_H_refit/fits/two_RF_start_01",
+  "datasets": [
+    "/Users/donghanlee/work/projects/sbonest/results/peakwise_H_fit/noisy_25.txt",
+    "/Users/donghanlee/work/projects/sbonest/results/peakwise_H_fit/noisy_100.txt"
+  ],
+  "residues": [
+    {
+      "name": "A1",
+      "flag": "on"
+    },
+    {
+      "name": "G2",
+      "flag": "on"
+    },
+    {
+      "name": "S3",
+      "flag": "on"
+    }
+  ],
+  "init": {
+    "Method": "Sideband",
+    "kex": {
+      "min": 200.0,
+      "max": 400.0,
+      "nsteps": 3
+    },
+    "pB": {
+      "min": 0.03,
+      "max": 0.07,
+      "nsteps": 3
+    },
+    "initial": {
+      "A1.peak_ppm": 120.05,
+      "A1.R1": 1.2,
+      "A1.R1H": 0.9540377912929113,
+      "A1.R2H": 16.71903628952292,
+      "G2.R1H": 0.4731959383589382,
+      "G2.R2H": 19.1451179519371,
+      "S3.R1H": 3.6050572340157157,
+      "S3.R2H": 48.90839179979618
+    }
+  },
+  "sideband": {
+    "decoupling": {
+      "h_larmor_mhz": 1200.0,
+      "h_carrier_ppm": 8.5,
+      "p90_s": 7e-05,
+      "cycle": "RR",
+      "b1_scale": 1.0,
+      "J_hz": 92.0
+    },
+    "residues": {
+      "A1": {
+        "h_ppm_a": 6.2,
+        "h_ppm_b": 6.5
+      },
+      "G2": {
+        "h_ppm_a": 7.2,
+        "h_ppm_b": 7.5
+      },
+      "S3": {
+        "h_ppm_a": 9.8,
+        "h_ppm_b": 9.6
+      }
+    },
+    "v1n": {
+      "mode": "scale",
+      "initial": 1.0,
+      "bounds": [
+        0.8,
+        1.2
+      ]
+    }
+  }
+}

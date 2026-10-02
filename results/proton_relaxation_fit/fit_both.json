@@ -1,0 +1,201 @@
+{
+  "label": "fit_both",
+  "success": true,
+  "message": "`xtol` termination condition is satisfied.",
+  "parameters": {
+    "kab": {
+      "value": 14.990395968808864,
+      "stderr": 0.08698788565905897,
+      "vary": true
+    },
+    "kba": {
+      "value": 285.244577913331,
+      "stderr": 1.0145463201123857,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.0816046122593899,
+      "stderr": 0.0033885955488128293,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.00045579327207,
+      "stderr": 0.0003656848093701358,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 2.998671395061025,
+      "stderr": 0.0010392769727253035,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.499876207144809,
+      "stderr": 0.0003123237944558988,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 11.96522327648871,
+      "stderr": 0.08605323120997661,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 15.207355352915256,
+      "stderr": 0.47308819457653994,
+      "vary": true
+    },
+    "R1H": {
+      "value": 2.0940772824541015e-11,
+      "stderr": 16.706391562822418,
+      "vary": true
+    },
+    "R2H": {
+      "value": 25.75929260197153,
+      "stderr": 8.228443492469664,
+      "vary": true
+    }
+  },
+  "kex": 300.23497388213985,
+  "pB": 0.049928879953517635,
+  "v1n_scale": 1.0816046122593899,
+  "derived_stderr": {
+    "kex": 1.0477691195346066,
+    "pB": 0.0002686330473922552,
+    "v1n_scale": 0.0033885955488128293
+  },
+  "chi2": 419.03698961153293,
+  "dof": 431,
+  "reduced_chi2": 0.9722435953863873,
+  "n_points": 441,
+  "n_parameters": 10,
+  "jacobian_rank": 10,
+  "scaled_condition": 26.19457401808748,
+  "at_bounds": [
+    "R1H"
+  ],
+  "proton_correlations": [
+    {
+      "parameters": [
+        "R1H",
+        "R2H"
+      ],
+      "correlation": -0.9920438543962725
+    },
+    {
+      "parameters": [
+        "kab",
+        "R1H"
+      ],
+      "correlation": 0.2941441856577314
+    },
+    {
+      "parameters": [
+        "A1.R2a",
+        "R1H"
+      ],
+      "correlation": 0.2806160358450827
+    },
+    {
+      "parameters": [
+        "kab",
+        "R2H"
+      ],
+      "correlation": -0.27835131808918695
+    },
+    {
+      "parameters": [
+        "A1.R2a",
+        "R2H"
+      ],
+      "correlation": -0.25696735837930795
+    },
+    {
+      "parameters": [
+        "A1.R2b",
+        "R2H"
+      ],
+      "correlation": 0.2529972736930748
+    },
+    {
+      "parameters": [
+        "kba",
+        "R2H"
+      ],
+      "correlation": -0.2286189702900788
+    },
+    {
+      "parameters": [
+        "A1.R2b",
+        "R1H"
+      ],
+      "correlation": -0.2242579894171713
+    },
+    {
+      "parameters": [
+        "kba",
+        "R1H"
+      ],
+      "correlation": 0.2062314165085479
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "R1H"
+      ],
+      "correlation": -0.1967989187756485
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "R2H"
+      ],
+      "correlation": 0.16636378134699334
+    },
+    {
+      "parameters": [
+        "A1.dw_ppm",
+        "R2H"
+      ],
+      "correlation": -0.11140543252345828
+    },
+    {
+      "parameters": [
+        "A1.dw_ppm",
+        "R1H"
+      ],
+      "correlation": 0.08546594580011838
+    },
+    {
+      "parameters": [
+        "A1.R1",
+        "R1H"
+      ],
+      "correlation": -0.08224460105738733
+    },
+    {
+      "parameters": [
+        "A1.R1",
+        "R2H"
+      ],
+      "correlation": 0.07214756138703002
+    },
+    {
+      "parameters": [
+        "A1.peak_ppm",
+        "R2H"
+      ],
+      "correlation": 0.05263369720398011
+    },
+    {
+      "parameters": [
+        "A1.peak_ppm",
+        "R1H"
+      ],
+      "correlation": -0.029990243462749942
+    }
+  ],
+  "jacobian_step_check_max_relative_column_change": 0.00029648180384377797,
+  "covariance_note": "Local absolute-sigma covariance; not rescaled by chi2/dof. Bound-limited errors are not confidence intervals.",
+  "AICc_known_sigma_up_to_common_constant": 439.5486175185097,
+  "nfev": 16,
+  "elapsed_s": 18.895758124999702
+}

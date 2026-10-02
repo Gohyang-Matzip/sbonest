@@ -1,0 +1,413 @@
+{
+  "method": "Sideband",
+  "rf_mode": "scale",
+  "proton_relaxation_mode": "fit",
+  "proton_correlations": [
+    {
+      "parameters": [
+        "A1.R1H",
+        "A1.R2H"
+      ],
+      "correlation": -0.9920457320689283
+    },
+    {
+      "parameters": [
+        "G2.R1H",
+        "G2.R2H"
+      ],
+      "correlation": -0.9420760592239535
+    },
+    {
+      "parameters": [
+        "S3.R1H",
+        "S3.R2H"
+      ],
+      "correlation": -0.9263612204389655
+    }
+  ],
+  "config": {
+    "Project Name": "/Users/donghanlee/work/projects/sbonest/results/auto_H_refit/fits/two_RF_start_02",
+    "datasets": [
+      "/Users/donghanlee/work/projects/sbonest/results/peakwise_H_fit/noisy_25.txt",
+      "/Users/donghanlee/work/projects/sbonest/results/peakwise_H_fit/noisy_100.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      },
+      {
+        "name": "G2",
+        "flag": "on"
+      },
+      {
+        "name": "S3",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2,
+        "A1.R1H": 2.198089599192825,
+        "A1.R2H": 22.17208663565515,
+        "G2.R1H": 0.7598493236447311,
+        "G2.R2H": 9.958140734062216,
+        "S3.R1H": 3.2272745518770254,
+        "S3.R2H": 5.754628889500439
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_larmor_mhz": 1200.0,
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        },
+        "G2": {
+          "h_ppm_a": 7.2,
+          "h_ppm_b": 7.5
+        },
+        "S3": {
+          "h_ppm_a": 9.8,
+          "h_ppm_b": 9.6
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      }
+    }
+  },
+  "v1n_hz": [
+    27.05671864245003,
+    108.22687456980012
+  ],
+  "chi2": 802.8203212872853,
+  "dof": 858,
+  "n_points": 882,
+  "n_parameters": 24,
+  "kex": 299.68024566161915,
+  "pB": 0.049830187673408306,
+  "parameters": {
+    "kab": {
+      "value": 14.933122883331588,
+      "stderr": 0.056842789539012,
+      "vary": true
+    },
+    "kba": {
+      "value": 284.7471227782876,
+      "stderr": 0.6525837428137528,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.0822687456980011,
+      "stderr": 0.0022420049815492604,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.00003223205705,
+      "stderr": 0.0003871223832230371,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 3.0009119634732118,
+      "stderr": 0.0011076397522911674,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.500382431443067,
+      "stderr": 0.00037398419146606875,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 11.910547229668678,
+      "stderr": 0.06158985238865135,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 15.148128488652178,
+      "stderr": 0.4465250843118427,
+      "vary": true
+    },
+    "A1.R1H": {
+      "value": 2.738481721134247e-11,
+      "stderr": 17.174613935608317,
+      "vary": true
+    },
+    "A1.R2H": {
+      "value": 25.90334959254132,
+      "stderr": 8.421123803229738,
+      "vary": true
+    },
+    "G2.peak_ppm": {
+      "value": 118.49987644136893,
+      "stderr": 0.00034715701520864387,
+      "vary": true
+    },
+    "G2.dw_ppm": {
+      "value": 2.2011034235498252,
+      "stderr": 0.001057837265519786,
+      "vary": true
+    },
+    "G2.R1": {
+      "value": 1.2996499687650427,
+      "stderr": 0.00033193884102728036,
+      "vary": true
+    },
+    "G2.R2a": {
+      "value": 9.968681936952196,
+      "stderr": 0.05279743326535485,
+      "vary": true
+    },
+    "G2.R2b": {
+      "value": 19.64536809617253,
+      "stderr": 0.3931024150888471,
+      "vary": true
+    },
+    "G2.R1H": {
+      "value": 0.7822710697409456,
+      "stderr": 5.838907781773065,
+      "vary": true
+    },
+    "G2.R2H": {
+      "value": 19.640801942552464,
+      "stderr": 2.7054518436475923,
+      "vary": true
+    },
+    "S3.peak_ppm": {
+      "value": 121.50033480751704,
+      "stderr": 0.000652589372971585,
+      "vary": true
+    },
+    "S3.dw_ppm": {
+      "value": -2.502344043611111,
+      "stderr": 0.0012997510230316274,
+      "vary": true
+    },
+    "S3.R1": {
+      "value": 1.700117314685017,
+      "stderr": 0.00040208888701965384,
+      "vary": true
+    },
+    "S3.R2a": {
+      "value": 15.971952116807545,
+      "stderr": 0.08148550898247228,
+      "vary": true
+    },
+    "S3.R2b": {
+      "value": 24.538197644981555,
+      "stderr": 0.500038474690773,
+      "vary": true
+    },
+    "S3.R1H": {
+      "value": 2.6208076580184902e-11,
+      "stderr": 7.857897571607096,
+      "vary": true
+    },
+    "S3.R2H": {
+      "value": 34.27077735319087,
+      "stderr": 3.8520301680005464,
+      "vary": true
+    }
+  },
+  "jacobian_rank": 24,
+  "scaled_condition": 24.406034135078958,
+  "v1n_correlations": [
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.R2a"
+      ],
+      "correlation": -0.9075809274186599
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.R2a"
+      ],
+      "correlation": -0.8994791824343598
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kab"
+      ],
+      "correlation": -0.8913577452200996
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a"
+      ],
+      "correlation": -0.8769251848769986
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.peak_ppm"
+      ],
+      "correlation": -0.417111381831925
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.peak_ppm"
+      ],
+      "correlation": 0.40667703030027824
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.dw_ppm"
+      ],
+      "correlation": -0.27335004006942987
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.dw_ppm"
+      ],
+      "correlation": 0.25715896534447785
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.dw_ppm"
+      ],
+      "correlation": 0.1908123887931615
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1H"
+      ],
+      "correlation": -0.15013902674670568
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2H"
+      ],
+      "correlation": 0.12158780124011034
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.R1"
+      ],
+      "correlation": -0.11104546665887198
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.R1"
+      ],
+      "correlation": -0.10779652440018202
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1"
+      ],
+      "correlation": -0.09038740788148
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.R2H"
+      ],
+      "correlation": -0.08886429445188848
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.peak_ppm"
+      ],
+      "correlation": -0.08026781032555187
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.R1H"
+      ],
+      "correlation": -0.0755377025382309
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.R1H"
+      ],
+      "correlation": 0.0567136853421188
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b"
+      ],
+      "correlation": -0.05623601166202198
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kba"
+      ],
+      "correlation": 0.055041773571440675
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "S3.R2b"
+      ],
+      "correlation": 0.037830193615731686
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.R2b"
+      ],
+      "correlation": 0.0169943444924251
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "G2.R2H"
+      ],
+      "correlation": -0.00014220929440937168
+    }
+  ],
+  "at_bounds": [
+    "A1.R1H",
+    "S3.R1H"
+  ],
+  "warnings": [
+    "Weakly constrained proton nuisance parameters: A1.R1H, G2.R1H, S3.R1H",
+    "Strong peakwise R1H/R2H correlation; individual H rates are poorly separated",
+    "Parameters at bounds: A1.R1H, S3.R1H"
+  ],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 69,
+  "message": "`ftol` termination condition is satisfied."
+}

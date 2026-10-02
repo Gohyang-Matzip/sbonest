@@ -1,0 +1,136 @@
+{
+  "label": "profile_R1H_1",
+  "success": true,
+  "message": "`xtol` termination condition is satisfied.",
+  "parameters": {
+    "kab": {
+      "value": 14.99189058006599,
+      "stderr": 0.08312936528802724,
+      "vary": true
+    },
+    "kba": {
+      "value": 285.25711399915645,
+      "stderr": 0.9928034093860595,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.0815663011764949,
+      "stderr": 0.0033212019465921694,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.00045519929017,
+      "stderr": 0.00036578186864716074,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 2.998676796621505,
+      "stderr": 0.0010355585490399045,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.4998746322610783,
+      "stderr": 0.00031126727071285356,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 11.966630279011442,
+      "stderr": 0.08258224101547855,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 15.200973866779124,
+      "stderr": 0.4610785978464613,
+      "vary": true
+    },
+    "R1H": {
+      "value": 1.0,
+      "stderr": 0.0,
+      "vary": false
+    },
+    "R2H": {
+      "value": 25.270960068128918,
+      "stderr": 1.0355387217588359,
+      "vary": true
+    }
+  },
+  "kex": 300.24900457922246,
+  "pB": 0.04993152467258319,
+  "v1n_scale": 1.0815663011764949,
+  "derived_stderr": {
+    "kex": 1.021190751371792,
+    "pB": 0.0002645800728787609,
+    "v1n_scale": 0.0033212019465921694
+  },
+  "chi2": 419.04685755671414,
+  "dof": 432,
+  "reduced_chi2": 0.9700158739738753,
+  "n_points": 441,
+  "n_parameters": 9,
+  "jacobian_rank": 9,
+  "scaled_condition": 19.619588807587824,
+  "at_bounds": [],
+  "proton_correlations": [
+    {
+      "parameters": [
+        "A1.R2b",
+        "R2H"
+      ],
+      "correlation": 0.24904294909281943
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "R2H"
+      ],
+      "correlation": -0.23334060280530694
+    },
+    {
+      "parameters": [
+        "A1.dw_ppm",
+        "R2H"
+      ],
+      "correlation": -0.21239346945331963
+    },
+    {
+      "parameters": [
+        "kba",
+        "R2H"
+      ],
+      "correlation": -0.19529469649460587
+    },
+    {
+      "parameters": [
+        "A1.peak_ppm",
+        "R2H"
+      ],
+      "correlation": 0.1820460766110853
+    },
+    {
+      "parameters": [
+        "A1.R2a",
+        "R2H"
+      ],
+      "correlation": 0.17663818985576726
+    },
+    {
+      "parameters": [
+        "kab",
+        "R2H"
+      ],
+      "correlation": 0.11106960672168295
+    },
+    {
+      "parameters": [
+        "A1.R1",
+        "R2H"
+      ],
+      "correlation": -0.07511602206305859
+    }
+  ],
+  "jacobian_step_check_max_relative_column_change": 3.4113607085525334e-05,
+  "covariance_note": "Local absolute-sigma covariance; not rescaled by chi2/dof. Bound-limited errors are not confidence intervals.",
+  "AICc_known_sigma_up_to_common_constant": 437.464490967387,
+  "nfev": 10,
+  "elapsed_s": 7.936369250004645
+}

@@ -3,3 +3,23 @@ __pycache__/
 .agent/
 JOB_FILES/
 session_artifacts/
+.venv/
+.ruff_cache/
+.serena/
+# Preserve large raw experimental data outside version control.
+**/fid
+**/ser
+**/pdata/
+.DS_Store
+# Keep manuscript drafts and document-rendering intermediates local.
+/manuscript/*
+!/manuscript/sideband_30ppm/
+/manuscript/sideband_30ppm/*
+!/manuscript/sideband_30ppm/results/
+/manuscript/sideband_30ppm/results/*
+!/manuscript/sideband_30ppm/results/1200/
+# Keep research outputs, but omit local backups and machine diagnostics.
+/results/manual_30ppm.*/
+/results/auto_H_refit/source_before/
+/results/auto_H_refit/legacy_demo/
+/results/auto_H_refit/*_sample.txt

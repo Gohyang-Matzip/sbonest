@@ -1,0 +1,2 @@
+-r requirements.txt
+optimalcontrol-nmr>=0.5.0
