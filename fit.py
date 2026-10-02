@@ -133,7 +133,7 @@ def generate_initial_parameters(model_instance, initConf):
     return np.array(p_initial_list, dtype=float)
 
 
-def _block_jacobian(fun, residue_sizes, n_global, n_local):
+def _block_jacobian(fun, residue_sizes, n_global, n_local, relative_step=None):
     """Group independent residue parameters while returning a dense Jacobian."""
     rows = np.arange(sum(residue_sizes))
     local_columns = np.repeat(
@@ -148,7 +148,7 @@ def _block_jacobian(fun, residue_sizes, n_global, n_local):
         jac = np.zeros((len(base), len(p)))
         # Negative parameters are unbounded shifts; bounded rates always step up.
         step = (
-            np.sqrt(np.finfo(float).eps)
+            (np.sqrt(np.finfo(float).eps) if relative_step is None else relative_step)
             * np.where(p >= 0, 1.0, -1.0)
             * np.maximum(1.0, np.abs(p))
         )

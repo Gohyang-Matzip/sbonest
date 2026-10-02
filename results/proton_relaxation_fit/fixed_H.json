@@ -1,0 +1,79 @@
+{
+  "label": "fixed_H",
+  "success": true,
+  "message": "`ftol` termination condition is satisfied.",
+  "parameters": {
+    "kab": {
+      "value": 14.995052687927808,
+      "stderr": 0.08256848160116244,
+      "vary": true
+    },
+    "kba": {
+      "value": 285.2290635019934,
+      "stderr": 0.9735995223810116,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.081377076528041,
+      "stderr": 0.0032257371700877063,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.00046868111129,
+      "stderr": 0.00036054199775942985,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 2.998636969164066,
+      "stderr": 0.001012008086288443,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.4998679229176768,
+      "stderr": 0.0003104056872312255,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 11.970829291103621,
+      "stderr": 0.08124594950076036,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 15.218443509869644,
+      "stderr": 0.44654762142634813,
+      "vary": true
+    },
+    "R1H": {
+      "value": 2.0,
+      "stderr": 0.0,
+      "vary": false
+    },
+    "R2H": {
+      "value": 25.0,
+      "stderr": 0.0,
+      "vary": false
+    }
+  },
+  "kex": 300.2241161899212,
+  "pB": 0.049946196455590425,
+  "v1n_scale": 1.081377076528041,
+  "derived_stderr": {
+    "kex": 1.0042799813070398,
+    "pB": 0.0002571925245167197,
+    "v1n_scale": 0.0032257371700877063
+  },
+  "chi2": 419.1060942737847,
+  "dof": 433,
+  "reduced_chi2": 0.9679124579071241,
+  "n_points": 441,
+  "n_parameters": 8,
+  "jacobian_rank": 8,
+  "scaled_condition": 18.912137232462815,
+  "at_bounds": [],
+  "proton_correlations": [],
+  "jacobian_step_check_max_relative_column_change": 3.416428293394857e-05,
+  "covariance_note": "Local absolute-sigma covariance; not rescaled by chi2/dof. Bound-limited errors are not confidence intervals.",
+  "AICc_known_sigma_up_to_common_constant": 435.43942760711803,
+  "nfev": 11,
+  "elapsed_s": 14.82780083399848
+}

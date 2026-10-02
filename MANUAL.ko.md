@@ -1,3 +1,6 @@
+SBONEST sideband fitting은 [SBONEST 매뉴얼](SBONEST_MANUAL.ko.md)을 참고한다.
+아래 매뉴얼은 원래 ONEST 모델을 설명한다.
+
 # ONEST 단계별 사용 매뉴얼
 
 ONEST는 CEST NMR 데이터를 다중 자기장 동시 피팅(Baldwin 해석해 모델, Matrix 및 3-state 변형 포함)으로 분석하여 단백질의 보이지 않는 들뜬 상태(excited state)를 규명하는 도구입니다.

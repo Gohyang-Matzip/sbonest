@@ -1,3 +1,6 @@
+For SBONEST sideband fitting, use the [SBONEST manual](SBONEST_MANUAL.md).
+This inherited manual covers the original ONEST models.
+
 # ONEST Step-by-Step Manual
 
 ONEST analyzes CEST NMR data to characterize invisible protein excited states via simultaneous multi-field fitting (Baldwin analytical model, plus Matrix and 3-state variants).

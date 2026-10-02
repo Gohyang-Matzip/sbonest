@@ -1,0 +1,139 @@
+{
+  "success": true,
+  "message": "`ftol` termination condition is satisfied.",
+  "chi2": 1229.3846695543489,
+  "n_parameters": 21,
+  "n_points": 1323,
+  "dof": 1302,
+  "kex": 299.50915145316463,
+  "pB": 0.04995885540187763,
+  "v1n_scale": 1.080632141599015,
+  "parameters": {
+    "kab": {
+      "value": 14.96313438898772,
+      "stderr": 0.04534317317222654,
+      "vary": true
+    },
+    "kba": {
+      "value": 284.5460170641769,
+      "stderr": 0.6037502602332744,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.080632141599015,
+      "stderr": 0.0017877268630252011,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.00000523714091,
+      "stderr": 0.0003618800060414739,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 3.0014586121939404,
+      "stderr": 0.0009422081390427787,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.5001301357753638,
+      "stderr": 0.00030032997785015014,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 11.969869786471685,
+      "stderr": 0.049209513726857904,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 15.075700763660086,
+      "stderr": 0.40493904301453937,
+      "vary": true
+    },
+    "A1.R1H": {
+      "value": 2.0,
+      "stderr": 0.0,
+      "vary": false
+    },
+    "A1.R2H": {
+      "value": 25.404830337040153,
+      "stderr": 1.0188616207833585,
+      "vary": true
+    },
+    "G2.peak_ppm": {
+      "value": 118.5000217244092,
+      "stderr": 0.0003342145836072198,
+      "vary": true
+    },
+    "G2.dw_ppm": {
+      "value": 2.2005879612566526,
+      "stderr": 0.0009092400781020293,
+      "vary": true
+    },
+    "G2.R1": {
+      "value": 1.2999308127112337,
+      "stderr": 0.00026924384112375985,
+      "vary": true
+    },
+    "G2.R2a": {
+      "value": 9.99978131773404,
+      "stderr": 0.04367461106843626,
+      "vary": true
+    },
+    "G2.R2b": {
+      "value": 19.559647057406092,
+      "stderr": 0.3564961915694044,
+      "vary": true
+    },
+    "G2.R1H": {
+      "value": 1.2,
+      "stderr": 0.0,
+      "vary": false
+    },
+    "G2.R2H": {
+      "value": 19.39882716066119,
+      "stderr": 0.6982844796601446,
+      "vary": true
+    },
+    "S3.peak_ppm": {
+      "value": 121.50005876568126,
+      "stderr": 0.0005970728613737246,
+      "vary": true
+    },
+    "S3.dw_ppm": {
+      "value": -2.5024197660367253,
+      "stderr": 0.0011191759923295367,
+      "vary": true
+    },
+    "S3.R1": {
+      "value": 1.700169428290167,
+      "stderr": 0.00032603041522847757,
+      "vary": true
+    },
+    "S3.R2a": {
+      "value": 16.03746595448512,
+      "stderr": 0.06678720031872339,
+      "vary": true
+    },
+    "S3.R2b": {
+      "value": 24.591057054556426,
+      "stderr": 0.45452706893979683,
+      "vary": true
+    },
+    "S3.R1H": {
+      "value": 3.0,
+      "stderr": 0.0,
+      "vary": false
+    },
+    "S3.R2H": {
+      "value": 33.137514211690515,
+      "stderr": 1.2129171352980712,
+      "vary": true
+    }
+  },
+  "jacobian_rank": 21,
+  "scaled_condition": 18.365213300542617,
+  "at_bounds": [],
+  "peakwise_R1H_R2H_correlation": {},
+  "grouped_vs_central_jacobian_max_relative_column_change": 0.00767632217106433,
+  "nfev": 10
+}

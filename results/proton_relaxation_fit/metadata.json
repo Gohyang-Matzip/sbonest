@@ -1,0 +1,120 @@
+{
+  "truth": {
+    "kab": 15.0,
+    "kba": 285.0,
+    "v1n_scale": 1.08,
+    "A1.peak_ppm": 120.0,
+    "A1.dw_ppm": 3.0,
+    "A1.R1": 1.5,
+    "A1.R2a": 12.0,
+    "A1.R2b": 15.0,
+    "R1H": 2.0,
+    "R2H": 25.0
+  },
+  "numpy": "2.5.3",
+  "scipy": "1.18.1",
+  "source_sha256": {
+    "manuscript/sideband_30ppm/results/1200/full.json": "bc20c4627d9421cc35ccb294cc0d78b4e6e09ba1c92ba5aa9dca050a5f372ee4",
+    "manuscript/sideband_30ppm/results/1200/exact.json": "6d7eb098d19ef469063f1a740e14d930647291944b07aabd01246762a08d8af5",
+    "manuscript/sideband_30ppm/results/1200/full_25.txt": "62a4153ee6c5195383b665bf0821ba45f2713898e45bf991faa482776a5ce59a",
+    "manuscript/sideband_30ppm/results/1200/full_50.txt": "60e96afaad422e098a835a289c5697494aba2ea624306bf669f42c8f4b6679d1",
+    "manuscript/sideband_30ppm/results/1200/full_100.txt": "dc0e2bd3910b220b4f451acc9c75f494a1fd42675693015bcd8f0e20e44f362c",
+    "manuscript/sideband_30ppm/results/1200/exact_25.txt": "a5c14ade51b47fde292023885a315690650ba8ffb964920b48de9b1219b058d0",
+    "manuscript/sideband_30ppm/results/1200/exact_50.txt": "aa76b2e7fb0198010ec2f34934a7dfdf49915c7b892830549fab84c598ca1236",
+    "manuscript/sideband_30ppm/results/1200/exact_100.txt": "3ce04f6d0c4561bbbcf7b47fd155c2be1fd787e83592a5a671dcbe35dc016905",
+    "sbfit.py": "6dec738448a7db43bd25bad484ae04552620a1013fa4eff9fb82b0e02aa107df",
+    "sideband.py": "bab319f052fb91f9d5021e5d317a5c626811edfb6e3ffb0c527b5703ab33a6a2",
+    "test_sideband.py": "e93bd82c3d6d6686d592e09046372bf448a9a7a25664f9145c973511e60e5ee0",
+    "check_proton_relaxation.py": "3cf80f183a826fa17f1383813c4a973a9591a41ba23a3d79c6bf3a9330288018"
+  },
+  "conditions": {
+    "field_H_MHz": 1200,
+    "field_N_MHz": 121.5949416,
+    "T_s": 0.4,
+    "p90_s": 7e-05,
+    "cycle": "RR",
+    "window_ppm": [
+      105,
+      135
+    ],
+    "nominal_RF_Hz": [
+      25,
+      50,
+      100
+    ],
+    "n_points": 441,
+    "sigma": 0.001,
+    "proton_relaxation_scope": "One shared R1H/R2H across both states and all RF datasets for A1"
+  },
+  "proton_bounds_s_inverse": {
+    "R1H": [
+      0,
+      200
+    ],
+    "R2H": [
+      0,
+      500
+    ]
+  },
+  "config": {
+    "Project Name": "full",
+    "datasets": [
+      "/Users/donghanlee/work/projects/sbonest/manuscript/sideband_30ppm/results/1200/full_25.txt",
+      "/Users/donghanlee/work/projects/sbonest/manuscript/sideband_30ppm/results/1200/full_50.txt",
+      "/Users/donghanlee/work/projects/sbonest/manuscript/sideband_30ppm/results/1200/full_100.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_larmor_mhz": 1200.0,
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0,
+        "R1H": 2.0,
+        "R2H": 25.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      }
+    }
+  },
+  "checks": [
+    "Independent synthetic generator parity",
+    "Changed H rates match independent density-matrix propagator"
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "method": "Sideband",
+  "rf_mode": "scale",
+  "config": {
+    "Project Name": "exact",
+    "datasets": [
+      "exact_25.txt",
+      "exact_50.txt",
+      "exact_100.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_larmor_mhz": 1200.0,
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0,
+        "R1H": 2.0,
+        "R2H": 25.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      }
+    }
+  },
+  "v1n_hz": [
+    26.99999999989529,
+    53.99999999979058,
+    107.99999999958116
+  ],
+  "chi2": 5.991993944349e-17,
+  "dof": 433,
+  "n_points": 441,
+  "n_parameters": 8,
+  "kex": 299.99999999918816,
+  "pB": 0.050000000000378506,
+  "parameters": {
+    "kab": {
+      "value": 15.00000000007296,
+      "stderr": 0.08289107750913137,
+      "vary": true
+    },
+    "kba": {
+      "value": 284.9999999991152,
+      "stderr": 0.972861905933787,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.0799999999958116,
+      "stderr": 0.003233182064540525,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 120.00000000000023,
+      "stderr": 0.0003608152318052185,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 3.0000000000001323,
+      "stderr": 0.0010107349869833146,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.4999999999997167,
+      "stderr": 0.00031043602071022746,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 12.000000000088606,
+      "stderr": 0.08162862094368337,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 15.000000000496515,
+      "stderr": 0.4465002019600317,
+      "vary": true
+    }
+  },
+  "jacobian_rank": 8,
+  "scaled_condition": 18.970163217729763,
+  "v1n_correlations": [
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a"
+      ],
+      "correlation": -0.9480836134061726
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kab"
+      ],
+      "correlation": -0.9122259203855992
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.dw_ppm"
+      ],
+      "correlation": 0.27183617002690097
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1"
+      ],
+      "correlation": -0.22739031472881435
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b"
+      ],
+      "correlation": -0.09885448480177654
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.peak_ppm"
+      ],
+      "correlation": -0.07822445446911373
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kba"
+      ],
+      "correlation": -0.008005965939275612
+    }
+  ],
+  "at_bounds": [],
+  "warnings": [],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 10,
+  "message": "`xtol` termination condition is satisfied.",
+  "derived_se": {
+    "kex": 1.003632971770528,
+    "pB": 0.000258298693350889,
+    "v1n_scale": 0.003233182064540525
+  }
+}

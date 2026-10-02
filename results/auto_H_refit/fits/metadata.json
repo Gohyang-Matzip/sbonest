@@ -1,0 +1,93 @@
+{
+  "truth": {
+    "kab": 15.0,
+    "kba": 285.0,
+    "v1n_scale": 1.08,
+    "A1.peak_ppm": 120.0,
+    "A1.dw_ppm": 3.0,
+    "A1.R1": 1.5,
+    "A1.R2a": 12.0,
+    "A1.R2b": 15.0,
+    "A1.R1H": 2.0,
+    "A1.R2H": 25.0,
+    "G2.peak_ppm": 118.5,
+    "G2.dw_ppm": 2.2,
+    "G2.R1": 1.3,
+    "G2.R2a": 10.0,
+    "G2.R2b": 20.0,
+    "G2.R1H": 1.2,
+    "G2.R2H": 18.0,
+    "S3.peak_ppm": 121.5,
+    "S3.dw_ppm": -2.5,
+    "S3.R1": 1.7,
+    "S3.R2a": 16.0,
+    "S3.R2b": 25.0,
+    "S3.R1H": 3.0,
+    "S3.R2H": 35.0,
+    "kex": 300.0,
+    "pB": 0.05
+  },
+  "random_start_seed": 20261005,
+  "random_H_starts": [
+    {
+      "A1.R1H": 0.9540377912929113,
+      "A1.R2H": 16.71903628952292,
+      "G2.R1H": 0.4731959383589382,
+      "G2.R2H": 19.1451179519371,
+      "S3.R1H": 3.6050572340157157,
+      "S3.R2H": 48.90839179979618
+    },
+    {
+      "A1.R1H": 2.198089599192825,
+      "A1.R2H": 22.17208663565515,
+      "G2.R1H": 0.7598493236447311,
+      "G2.R2H": 9.958140734062216,
+      "S3.R1H": 3.2272745518770254,
+      "S3.R2H": 5.754628889500439
+    },
+    {
+      "A1.R1H": 0.601898730934067,
+      "A1.R2H": 62.15197958633708,
+      "G2.R1H": 0.3027238854390326,
+      "G2.R2H": 89.76825312650178,
+      "S3.R1H": 0.21734763368318977,
+      "S3.R2H": 68.71681975610107
+    }
+  ],
+  "H_mode": "Peakwise fitted nuisance parameters; shared across RF and states A/B",
+  "default_H_start": {
+    "R1H": 2.0,
+    "R2H": 25.0
+  },
+  "source_sha256": {
+    "refit_automatic_proton.py": "ff379356e6dbfee441e29e4b435c15f8c13f86c12d25813e68e2b57898201589",
+    "sbfit.py": "2e5d4d283338d3d2a4c6b6f563b2bb46655c07157803c76b9081ad52797fb7c3",
+    "sideband.py": "bab319f052fb91f9d5021e5d317a5c626811edfb6e3ffb0c527b5703ab33a6a2",
+    "fit.py": "c494e5b5f45136f32498f17f659bec6c7cb6eaabe36632bea4df08bf19bfc70d",
+    "run.py": "15c9ba9f272da1b79752b316ac2964fdc63cc2cec19fe77fbc669c8be08499e1",
+    "estmodel.py": "9307cf268c2e68069fe336fc4fa6cd9630f9f72161e55ce50ac2d81312ab4783",
+    "results/peakwise_H_fit/summary.json": "0f1ca586768d2c302c20724c58471fe6ebb4c0ac983e22ecd2362d4762b365d7",
+    "results/peakwise_H_fit/exact_25.txt": "77ad1400e93cc1dfa25412724a1d4bc48ef9cff4bc36950bc42ea8fe5977e964",
+    "results/peakwise_H_fit/exact_50.txt": "32b7de43634d2b729098865f60cd85888cccc902cbb4e81a16736d617a71ef64",
+    "results/peakwise_H_fit/exact_100.txt": "1e782c8f5d6d41778c4c844725ed66f0e75936a7230576ae095afce1afb2d06f",
+    "results/peakwise_H_fit/noisy_25.txt": "6a1c8ccfae96840e902d4c1a6bf6bbfc4abdb81535bd6e1b6b38d27f4796b2c6",
+    "results/peakwise_H_fit/noisy_50.txt": "68a51fffb1c6610c644736d616618dd5c520826881ee1bb6a360e7c25af0fd61",
+    "results/peakwise_H_fit/noisy_100.txt": "7bc249e269d505c4cb6de47d325fee142d090998ac8442f72eddde2959e29abb"
+  },
+  "execution_source_sha256": {
+    "sideband.py": "bab319f052fb91f9d5021e5d317a5c626811edfb6e3ffb0c527b5703ab33a6a2",
+    "fit.py": "c494e5b5f45136f32498f17f659bec6c7cb6eaabe36632bea4df08bf19bfc70d",
+    "run.py": "15c9ba9f272da1b79752b316ac2964fdc63cc2cec19fe77fbc669c8be08499e1",
+    "estmodel.py": "9307cf268c2e68069fe336fc4fa6cd9630f9f72161e55ce50ac2d81312ab4783",
+    "results/peakwise_H_fit/summary.json": "0f1ca586768d2c302c20724c58471fe6ebb4c0ac983e22ecd2362d4762b365d7",
+    "results/peakwise_H_fit/exact_25.txt": "77ad1400e93cc1dfa25412724a1d4bc48ef9cff4bc36950bc42ea8fe5977e964",
+    "results/peakwise_H_fit/exact_50.txt": "32b7de43634d2b729098865f60cd85888cccc902cbb4e81a16736d617a71ef64",
+    "results/peakwise_H_fit/exact_100.txt": "1e782c8f5d6d41778c4c844725ed66f0e75936a7230576ae095afce1afb2d06f",
+    "results/peakwise_H_fit/noisy_25.txt": "6a1c8ccfae96840e902d4c1a6bf6bbfc4abdb81535bd6e1b6b38d27f4796b2c6",
+    "results/peakwise_H_fit/noisy_50.txt": "68a51fffb1c6610c644736d616618dd5c520826881ee1bb6a360e7c25af0fd61",
+    "results/peakwise_H_fit/noisy_100.txt": "7bc249e269d505c4cb6de47d325fee142d090998ac8442f72eddde2959e29abb",
+    "results/auto_H_refit/fits/executed_source/sbfit.py": "76a26ce411b672f9addbe2f17af864b9c3945d9821999d31a8192df0ae2ddb91",
+    "results/auto_H_refit/fits/executed_source/refit_automatic_proton.py": "f14105539519c0a98933d6d7b81041b497d2fef176ed8f57ba43c55e080eeebd"
+  },
+  "source_note": "Fits used execution_source_sha256. Current sources differ only by formatting, an unused logging variable removal, and report/plot presentation. Fitting logic equivalence was checked with AST comparisons."
+}

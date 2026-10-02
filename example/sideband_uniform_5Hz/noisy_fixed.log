@@ -1,0 +1,12 @@
+Initial parameter generation (in fit.py) finished.
+   Iteration     Total nfev        Cost      Cost reduction    Step norm     Optimality   
+       0              1         6.2690e+06                                    4.08e+07    
+       1              2         4.0484e+04      6.23e+06       3.91e+01       2.08e+06    
+       2              3         5.8247e+03      3.47e+04       2.50e+01       2.18e+04    
+       3              4         5.4745e+03      3.50e+02       1.06e+01       4.13e+03    
+       4              5         5.4739e+03      5.89e-01       3.51e-01       5.61e+02    
+       5              6         5.4739e+03      1.04e-02       2.66e-03       9.33e+01    
+       6             17         5.4739e+03      5.40e-09       9.43e-08       9.33e+01    
+Both `ftol` and `xtol` termination conditions are satisfied.
+Function evaluations 17, initial cost 6.2690e+06, final cost 5.4739e+03, first-order optimality 9.33e+01.
+Saved noisy_fixed_result.txt and noisy_fixed_result.json
