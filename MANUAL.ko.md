@@ -1,5 +1,9 @@
 SBONEST sideband fitting은 [SBONEST 매뉴얼](SBONEST_MANUAL.ko.md)을 참고한다.
 아래 매뉴얼은 원래 ONEST 모델을 설명한다.
+같은 조건의 600/800 MHz SBONEST–ONEST 비교는 [SBONEST 매뉴얼](SBONEST_MANUAL.ko.md)
+7.1절과 [비교 보고서](results/field_comparison_600_800_20261003_02/REPORT.txt)를 참고한다.
+비교에서는 공통 optimizer로 RF scale도 fitting하므로, 아래 ONEST 기본 절차와
+설정이 다르다.
 
 # ONEST 단계별 사용 매뉴얼
 

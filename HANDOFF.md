@@ -1,23 +1,24 @@
 # HANDOFF: SBONEST public release and fitting workflow
 
-**Written:** 2026-10-02 · **Working directory:** `/Users/donghanlee/work/projects/sbonest`
+**Updated:** 2026-10-03 · **Working directory:** `/Users/donghanlee/work/projects/sbonest`
 
-**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Release branch:** `sbonest` · **Target:** `main`
+**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Published branch:** `main`
 
-## Goal
+## Purpose
 
-Publish the SBONEST program, synthetic examples, numerical evidence, English/Korean
-Markdown manuals, and this handoff in a public repository. Complete commit → push
-→ PR → merge, verify CI on the merged commit, and synchronize local `main`.
-The user explicitly authorized public visibility and the complete merge workflow.
+Maintain the SBONEST program, portable synthetic examples, numerical evidence,
+and English/Korean documentation. This handoff records the published scientific
+baseline through PR #3; inspect GitHub for subsequent documentation or code work.
+The original release workflow is complete, not a pending task to repeat.
 
 ## Implementation status
 
-The implementation and documentation are applied. The public repository exists;
-the ONEST baseline `6d178f3e5d6dc82b4cfc7a546d9004c17ff492d9` was pushed to `main`.
-This handoff accompanies the SBONEST release PR. Its merge/CI state is external:
-read GitHub before deciding whether publication work remains. Once the PR is
-merged, successful CI and matching local/remote `main` complete this task.
+The public repository includes the SBONEST release ([PR #1](https://github.com/Gohyang-Matzip/sbonest/pull/1)),
+the manuscript with fitting uncertainties ([PR #2](https://github.com/Gohyang-Matzip/sbonest/pull/2)),
+and the 600/800 MHz model comparison ([PR #3](https://github.com/Gohyang-Matzip/sbonest/pull/3)).
+PR #3 merged as `8d484de94a198b9f943ec75cb053b3f1007aaf34`; its
+[post-merge CI](https://github.com/Gohyang-Matzip/sbonest/actions/runs/37114856838)
+passed, and local `main` was synchronized on 2026-10-03.
 No experimental dataset has been fitted; supplied demonstrations are synthetic.
 
 ## What is applied
@@ -46,9 +47,16 @@ No experimental dataset has been fitted; supplied demonstrations are synthetic.
   the SBONEST manuals. The original ONEST handoff is preserved locally as
   `.archive/onest-handoff-before-sbonest-20261002.md`.
 - **[still applied]** `.gitignore` excludes environments, backups, raw Bruker
-  files, process diagnostics, and manuscript drafts/renderings. Small synthetic
-  fixtures under `manuscript/sideband_30ppm/results/1200/` remain for older examples.
+  files, diagnostics, and historical manuscript drafts/renderings. Selected
+  manuscript DOCX files, evidence, and QA records are published; consult
+  `manuscript/sideband_30ppm/README.md`. Small synthetic fixtures under
+  `manuscript/sideband_30ppm/results/1200/` remain for older examples.
   `results/auto_H_refit/fits/executed_source/` preserves scientific provenance.
+- **[still applied]** `compare_field_models.py` and
+  `results/field_comparison_600_800_20261003_02/` preserve the separate 600/800 MHz
+  study, including portable input copies, three-start fits, noiseless controls,
+  full covariance, source hashes, and PNG/PDF figures. Root and bilingual manuals
+  explain its fixed-H conditions separately from automatic H-rate fitting.
 - **[still applied]** GitHub CI installs Python 3.12 and PyPI `optimalcontrol-nmr`,
   checks root Python files, runs inherited and sideband regression checks, the
   synthetic demo, and the portable two-RF CLI fit.
@@ -94,8 +102,43 @@ are intentionally not distributed. The clean-checkout lint/compile checks,
 synthetic demo, and portable two-RF CLI (including PDF output) all passed.
 The portable fit recovered kex = 299.6802480565636 s⁻¹ and χ² = 802.8203212916861,
 with 882 observations and rank 24/24. README/manual local links were checked.
-CI is the portable verification record. Source/docs pass `git diff --check`;
-archived CSV CRLF endings and solver-log trailing spaces remain untouched.
+Those paths describe the initial release's local checks. CI is the portable
+verification record. Archived scientific inputs and executed sources retain
+their calculation-time bytes and hashes.
+
+## 600/800 MHz comparison
+
+The fields are fitted separately using the same 105–135 ppm observations within
+each model comparison: 225 points at 600 MHz and 297 at 800 MHz, with nominal
+nitrogen RF = 25/50/100 Hz. R1H = 2 and R2H = 25 s⁻¹ are fixed. All models share
+eight free parameters, error weights, bounds, RF-scale handling, and optimizer.
+This is distinct from the current 24-parameter automatic-H examples.
+
+```bash
+.venv/bin/python compare_field_models.py \
+  --source results/field_comparison_600_800_20261003_02/inputs \
+  --out results/field_comparison_repeat_01
+```
+
+The explicit `--source` uses tracked copies; default historical manuscript
+600/800 MHz inputs are local only. Always use a new output directory. The script
+generates fit JSON, CSV, figures, predictions, and input copies. `REPORT.txt` and
+`verification.json` in the published bundle were written separately after review.
+
+The noisy 600 MHz fits are nearly identical. At 800 MHz, noisy ONEST kex is
+301.414 s⁻¹ versus SBONEST 299.850 s⁻¹; the noiseless ONEST displacement is
++0.51% from 300 s⁻¹. SBONEST recovers the noiseless truth at both fields.
+ONEST uses its actual zero-clamped Matrix worker; `N_signed_control` isolates
+that clamp. Three starts per model/noise/field produce 36 fits. Noisy ONEST starts
+reach slightly different minima; the lowest χ² is retained without asserting
+global optimality. See `REPORT.txt` and manual section 7.1 for uncertainty and limits.
+
+All 36 fits were independently reproduced from bundled inputs. Input/generator
+and J=0/clamp controls, full-rank covariance, saved objectives/predictions, and
+source hashes were checked. A tracked-files-only snapshot passed input/control
+checks. The four regression scripts and PR/main CI passed. The full field-study
+driver is not part of CI. Published CSV line endings were normalized to LF with
+cell-value equality verified; the original CRLF file remains in local `.archive/`.
 
 ## Pitfalls already identified
 
@@ -104,6 +147,15 @@ archived CSV CRLF endings and solver-log trailing spaces remain untouched.
   portable example configs; do not rewrite scientific provenance to current hashes.
 - Older `check_two_rf.py` checks historical source hashes and is not the release
   smoke test. Use `test_sideband.py`, the portable CLI, or the new refit driver.
+- The first field-comparison attempt stopped because a temporary assertion
+  required all ONEST starts to reach identical minima. **[reverted]** That
+  assumption was removed; the completed driver records objective spreads and
+  `multistart_agreement`. The partial run is preserved in
+  `.archive/field_comparison_600_800_initial_partial_20261003/`.
+- `git push` as `dleess` was rejected for this repository on 2026-10-03.
+  `Gohyang-Matzip` had write access and completed the publication using scoped
+  authentication. Check account permissions before retrying; avoid changing
+  global credentials for unrelated repositories. No credentials are stored here.
 - Local `.venv/bin/python` is Python 3.14 and lacks the `pip` module. The clean
   publication environment was installed with `uv pip install --python ...`.
   **[still applied: original environment preserved]** Do not assume every local
@@ -112,16 +164,19 @@ archived CSV CRLF endings and solver-log trailing spaces remain untouched.
   Sideband workflows. Profile likelihood/bootstrap are not built-in Sideband CLI commands.
 - The ±2400 Hz demo spans ~39.48 ppm at 1.2 GHz; use `sideband_auto_H` for 30 ppm.
 
-## Resume or confirm publication
+## Future maintenance
 
 1. Run `git status --short --branch` and `git remote -v`. Preserve untracked
    work, local manuscripts, and `.archive/`; do not destructively delete artifacts.
 2. Inspect `gh pr list --repo Gohyang-Matzip/sbonest --state all` and
-   `gh run list --repo Gohyang-Matzip/sbonest`. If the release PR is still open,
-   inspect its diff, require passing CI, and merge the reviewed head.
+   `gh run list --repo Gohyang-Matzip/sbonest`. The release and comparison PRs
+   above are complete; act on subsequent PRs only within the current user task.
+   Require passing CI before merging a reviewed head.
 3. Fetch `origin`, switch to `main`, and fast-forward to `origin/main` after merge.
    Verify the merged SHA's CI, repository visibility, and documentation links.
-4. If publication is complete, no further work is authorized by this handoff.
+4. For documentation changes, verify local links, bilingual agreement, numbers
+   against result JSON, and archived source hashes. Follow `AGENTS.md`.
+5. No further work is authorized by this handoff alone.
    Experimental validation is a future user task, not a completed result.
 
 ## Scientific limits

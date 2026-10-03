@@ -2,7 +2,7 @@
 
 [English](SBONEST_MANUAL.md) · [README](README.md) · [기술 설명](SIDEBAND.md)
 
-이 매뉴얼은 현재 코드의 CLI `Sideband` 모델을 설명하며, 2026-10-02에
+이 매뉴얼은 현재 코드의 CLI `Sideband` 모델을 설명하며, 2026-10-03에
 실행을 확인했다. OC의 NH spin operator를 사용해 ¹H decoupling sideband를
 포함한 두 상태 ¹⁵N CEST profile을 fitting한다. 주 예제는
 90°x–240°y–90°x 반복 decoupling, 1.2 GHz 장비, 전체 30 ppm offset 범위다.
@@ -375,6 +375,68 @@ sideband 자동 masking은 하지 않는다. 전체 profile 분석에서는 유�
 이 자기장에서는 약 39.48 ppm이다. **30 ppm** 시험에는 1절의
 `example/sideband_auto_H/two_RF.json` 또는 `three_RF.json`을 사용한다.
 
+### 7.1 600 및 800 MHz에서 SBONEST와 ONEST 비교
+
+[600/800 MHz 비교](results/field_comparison_600_800_20261003_02/REPORT.txt)는
+두 자기장을 **각각 따로** fitting한다. 같은 자기장 내에서는 두 모델에 동일한
+잡음 포함 합성 관측값, 절대 σ = 0.001, 파라미터 범위와 optimizer를 적용한다.
+자유 파라미터는 `kab`, `kba`, `v1n_scale`과 peak의 `peak_ppm`, `dw_ppm`,
+`R1`, `R2a`, `R2b`를 합한 8개다.
+
+단일 peak는 120 ppm, ΔδN = 3 ppm, T = 0.4 s이고 명목 nitrogen RF는
+25/50/100 Hz다. 105–135 ppm 창에서 RF당 점 수는 600 MHz에서 75개(총 225개),
+800 MHz에서 99개(총 297개)다. SBONEST의 R1H = 2, R2H = 25 s⁻¹은
+논문의 생성값으로 고정한다. 이 절은 **고정-H 비교**이며, 현재 기본 기능인
+자동 peak별 H-rate fitting은 1절을 참고한다.
+
+1절의 의존성 설치와 thread 환경변수 설정 후 저장소 루트에서 실행한다.
+
+```bash
+.venv/bin/python compare_field_models.py \
+  --source results/field_comparison_600_800_20261003_02/inputs \
+  --out results/field_comparison_repeat_01
+```
+
+`--out`은 항상 새 폴더로 지정한다. Script의 기본 입력 경로는 과거 로컬 논문
+데이터를 가리키므로 새 checkout에서는 위 `--source`를 명시해야 한다.
+함께 배포하는 입력 사본은 원본 데이터를 보존하며 다른 환경에서도 사용할 수 있다.
+
+| ¹H 자기장 | 모델 | kex ± SE (s⁻¹) | pB ± SE (%) | Reduced χ² |
+|---|---|---:|---:|---:|
+| 600 MHz | SBONEST | 297.89 ± 1.63 | 5.0287 ± 0.0299 | 1.058 |
+| 600 MHz | ONEST Matrix | 297.95 ± 1.64 | 5.0142 ± 0.0357 | 1.055 |
+| 800 MHz | SBONEST | 299.85 ± 1.23 | 4.9994 ± 0.0313 | 1.035 |
+| 800 MHz | ONEST Matrix | 301.41 ± 1.23 | 4.9702 ± 0.0330 | 1.058 |
+
+참값은 kex = 300 s⁻¹, pB = 5%, RF scale = 1.08이다. ±는 절대 intensity
+오차와 파라미터 간 공분산을 사용한 국소 표준오차 1 SE이며, reduced χ²로
+재조정하지 않는다. 표의 pB 오차는 퍼센트포인트 단위이고,
+`parameters.csv`의 `pB` 값과 SE는 분율 단위다.
+
+ONEST는 음수 예측을 0으로 제한하는 실제 Matrix worker를 사용하며,
+RF scale 처리와 최적화 조건을 SBONEST에 맞춘다. 기존 ONEST CLI의 기본 설정을
+그대로 실행한 비교는 아니다. 별도 `N_signed_control`은 이 zero clamp를 제거한다.
+모델·잡음 조건별 초기값 3개를 보존하며 총 36회 fitting한다. 최저 χ²를 채택하되,
+잡음 포함 ONEST에서는 초기값에 따라 조금 다른 최솟값에 도달했다.
+모든 초기값의 수렴점 일치나 전역 최적성을 가정해서는 안 된다.
+
+600 MHz의 잡음 포함 결과는 거의 같다. 800 MHz 무잡음 ONEST의 kex는
+301.535 s⁻¹(+0.51%), signed 대조는 301.551 s⁻¹(+0.52%)이고,
+SBONEST는 두 자기장에서 모두 300 s⁻¹을 복원한다. 120 ppm 기준
+|offset| = 1250–1850 Hz 마스크는 이 창의 관측점을 제외하지 않으므로,
+동일한 masked fitting을 반복하지 않았다. 한 파라미터 조합과 자기장별 잡음 표본
+하나에 대한 결과다. ONEST의 국소 SE는 모델 불일치를 포함하지 않으며,
+다른 peak 위치·측정 창·pulse 조건과 실제 측정 데이터는 별도 검증이 필요하다.
+
+`summary.json`에는 모든 초기값·공분산·진단·소스 해시가, `parameters.csv`에는
+전체 파라미터가, `predictions_*.npz`에는 그림의 수치 데이터가 있다.
+`verification.json`은 저장 결과를 확인한 기록이다.
+[600 MHz](results/field_comparison_600_800_20261003_02/comparison_600.png)와
+[800 MHz](results/field_comparison_600_800_20261003_02/comparison_800.png) 그림에서
+profile과 표준화 residual을 확인할 수 있다. 새 실행은 fitting·표·그림·입력 사본을
+생성한다. `REPORT.txt`와 `verification.json`은 배포 결과에 별도로 작성한 기록이며,
+비교 script가 자동 생성하는 파일은 아니다.
+
 ## 8. 출력 파일과 결과 해석
 
 `Project Name = results/my_sideband_fit`이면 다음 파일이 만들어진다.
@@ -471,6 +533,7 @@ CSA–DD cross-correlation, 시간에 따른 RF drift는 포함하지 않는다.
 | `No module named optimalcontrol` | `.venv/bin/python` 사용 여부와 `requirements-sideband.txt` 또는 로컬 OC 설치 확인 |
 | `Output already exists` | 새 `Project Name`을 지정하거나 새 폴더에서 실행 |
 | 파일을 찾지 못함 | 데이터 경로는 JSON 폴더, 출력 경로는 실행 작업 폴더 기준인지 확인 |
+| 비교 실행에서 `results/600/full.json` 또는 `results/800/full.json` 누락 | 7.1절의 배포 입력 `--source` 경로를 명시 |
 | 잔기 또는 ¹H shift 누락 | 잔기명 정확히 일치시키고 제외할 잔기는 명시적으로 off |
 | 첫 잔기가 사라짐 | 넷째 줄에 컬럼 제목을 유지하고 첫 잔기 헤더를 넣지 않음 |
 | 점 수가 예상보다 적음 | 잔기 헤더와 데이터 블록 중간 주석을 확인하고 JSON `n_points` 점검 |

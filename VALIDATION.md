@@ -1,9 +1,11 @@
-# SBONEST 검증 결과 — 2026-10-02
+# SBONEST 검증 결과 — 2026-10-02 및 2026-10-03
 
 실제 `run.py` CLI를 사용한 독립 합성 검증이다. 원본 입력·config·결과 JSON·text·log는
 [example/sideband_demo](example/sideband_demo)에, 비교 그림은
 [PNG](example/sideband_demo/sideband_fit.png) / [PDF](example/sideband_demo/sideband_fit.pdf)에 있다.
-실측 데이터는 이번 작업에 제공되지 않아 검증하지 않았다.
+아래 첫 세 절은 2026-10-02의 1.2 GHz 검증 기록이다. 마지막 절은
+2026-10-03의 600/800 MHz 모델 비교를 추가한다. 모두 합성 데이터이며
+실측 데이터는 검증하지 않았다.
 
 ## 실험과 참값
 
@@ -71,3 +73,41 @@ optimalcontrol 0.5.0. 단일 BLAS thread. 최초 OC 환경에는 Flask가 없어
 현재 배포 상태와 검증 절차는 [HANDOFF.md](HANDOFF.md)에 기록한다.
 
 재실행 명령과 물리 모델의 적용 범위는 [SIDEBAND.md](SIDEBAND.md)에 있다.
+
+## 600/800 MHz 모델 비교 — 2026-10-03
+
+[배포 결과](results/field_comparison_600_800_20261003_02/REPORT.txt)는 자기장별로
+SBONEST, 실제 ONEST Matrix, signed nitrogen-only 대조를 같은 관측점과 오차로
+피팅한 기록이다. 105–135 ppm, 25/50/100 Hz RF, σ = 0.001, R1H = 2와
+R2H = 25 s⁻¹ 고정, RF scale을 포함한 8개 자유 파라미터를 사용했다.
+관측점은 600 MHz에서 225개, 800 MHz에서 297개이며 두 자기장을 따로 피팅했다.
+
+| ¹H 자기장 | 모델 | kex ± SE (s⁻¹) | pB ± SE (%) | Reduced χ² |
+|---|---|---:|---:|---:|
+| 600 MHz | SBONEST | 297.89 ± 1.63 | 5.0287 ± 0.0299 | 1.058 |
+| 600 MHz | ONEST Matrix | 297.95 ± 1.64 | 5.0142 ± 0.0357 | 1.055 |
+| 800 MHz | SBONEST | 299.85 ± 1.23 | 4.9994 ± 0.0313 | 1.035 |
+| 800 MHz | ONEST Matrix | 301.41 ± 1.23 | 4.9702 ± 0.0330 | 1.058 |
+
+참값은 kex = 300 s⁻¹, pB = 5%다. ±는 reduced χ²로 재조정하지 않은 국소
+1 SE이며, pB의 SE는 퍼센트포인트다. ONEST의 모델 불일치 오차는 포함하지 않는다.
+600 MHz 결과는 거의 같고, 800 MHz 무잡음 ONEST에는 kex의 +0.51% 변위가 남았다.
+SBONEST는 두 자장에서 무잡음 참값을 복원했다. 기존 1250–1850 Hz 마스크는
+두 측정 창에서 점을 제외하지 않는다. 이 결과는 자기장별 잡음 표본 하나에 한정된다.
+
+확인한 항목:
+
+- 모델 3개 × 잡음/무잡음 2조건 × 자기장 2개 × 초기값 3개 = 36회 피팅 재현.
+- 독립 density-matrix 생성기와 보존된 무잡음 입력 일치.
+- J = 0에서 signed nitrogen-only와 NH 전파 일치 및 ONEST zero-clamp 관계 확인.
+- 기존 SBONEST noisy fit 재현, 무잡음 참값 복원, Jacobian rank 8/8 확인.
+- 저장된 목적함수·예측값·공분산과 모든 소스 해시 확인, 두 비교 그림 렌더링 확인.
+- 잡음 포함 ONEST의 초기값별 χ² 차이 보존: 600 MHz 0.153006, 800 MHz 0.065897.
+  최저 χ²를 채택했으며, 모든 초기값의 수렴점 일치나 전역 최적성을 주장하지 않는다.
+
+검증 기록은 [verification.json](results/field_comparison_600_800_20261003_02/verification.json),
+상세 결과와 해시는 [summary.json](results/field_comparison_600_800_20261003_02/summary.json)에 있다.
+재현 명령은 [매뉴얼 7.1절](SBONEST_MANUAL.ko.md)을 따른다. 이 36회 연구 계산은
+CI의 기본 회귀 검사와 별도로 실행했다. 코드와 결과를 배포한
+[PR #3](https://github.com/Gohyang-Matzip/sbonest/pull/3)의 병합 커밋 `8d484de`는
+[전체 CI](https://github.com/Gohyang-Matzip/sbonest/actions/runs/37114856838)를 통과했다.

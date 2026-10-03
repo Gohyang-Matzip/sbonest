@@ -2,9 +2,9 @@
 
 ## Project Structure & Module Organization
 
-SBONEST fits nitrogen CEST profiles with proton-decoupling sidebands. Python modules live at the repository root: `run.py` dispatches fits, `sbfit.py` implements Sideband fitting, `sideband.py` propagates spin dynamics, and `est_data.py`, `estmodel.py`, and `fit.py` provide shared data/model infrastructure. `server_run.py`, `prepare.py`, and `mcrun.py` support inherited ONEST workflows.
+Root modules include `run.py` (CLI dispatch), `sbfit.py` (Sideband fitting), `sideband.py` (spin propagation), and `est_data.py`, `estmodel.py`, and `fit.py` (shared infrastructure). `server_run.py`, `prepare.py`, and `mcrun.py` support inherited ONEST workflows.
 
-Root-level `test_*.py` and `verify_3state.py` contain regression checks. `example/` holds synthetic inputs and portable configurations; `results/` preserves numerical evidence and figures. `manuscript/sideband_30ppm/` contains manuscript materials. Consult `SBONEST_MANUAL.md`, its Korean counterpart, and `SIDEBAND.md` for configuration details.
+Root `test_*.py` and `verify_3state.py` contain regression checks. `example/` holds portable synthetic examples; `results/` preserves evidence. `compare_field_models.py` compares 600/800 MHz models. `manuscript/sideband_30ppm/` contains published manuscript materials. Update both `SBONEST_MANUAL` languages when changing documented behavior.
 
 ## Build, Test, and Development Commands
 
@@ -18,7 +18,7 @@ export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACK
 python run.py example/sideband_auto_H/two_RF.json --no-pdf
 ```
 
-These commands install dependencies, limit numerical-library threads, and run the supported Sideband CLI without PDFs. Before rerunning, give the configuration a fresh `Project Name` output prefix. Dataset paths resolve relative to the configuration; output prefixes resolve relative to the working directory.
+Use a fresh `Project Name` before rerunning. Dataset paths resolve from the configuration; output prefixes resolve from the working directory.
 
 ```bash
 ruff check *.py --select F
@@ -30,20 +30,28 @@ python test_sideband.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
-These reproduce CI lint, syntax, regression, and demonstration checks. Use a new demo output directory each time.
+These match CI checks; use fresh output directories. Reproduce the field comparison with:
+
+```bash
+python compare_field_models.py \
+  --source results/field_comparison_600_800_20261003_02/inputs \
+  --out results/field_comparison_repeat_01
+```
+
+Explicit `--source` is necessary in fresh checkouts. This longer study is separate from CI.
 
 ## Coding Style & Naming Conventions
 
-Use four-space indentation, snake_case for new functions/variables, and PascalCase for new classes. Preserve existing public names and scientific configuration keys. Document units and parameter ordering. CI enforces Ruff's `F` rules; no automatic formatter is configured.
+Use four-space indentation, snake_case functions/variables, and PascalCase new classes. Preserve public names, configuration keys, units, and parameter ordering. CI enforces Ruff `F`; no formatter is configured. Avoid bulk reformatting executed research sources referenced by hashes.
 
 ## Testing Guidelines
 
-Tests are executable Python scripts using assertions, NumPy comparisons, and `unittest.mock`. Extend the relevant `test_*.py` script with `check_*` functions and invoke them from its runner. Preserve numerical tolerances and independent reference calculations. No coverage percentage is configured; validate physical behavior and numerical parity for model changes.
+Tests use executable Python, assertions, NumPy comparisons, and `unittest.mock`. Add `check_*` functions to the relevant script and invoke them from its runner. Preserve numerical tolerances and independent references. No coverage percentage is configured. For documentation edits, verify links and table values against source JSON.
 
 ## Commit & Pull Request Guidelines
 
-Follow history's prefixes: `feat:`, `perf:`, `test:`, and `docs:`. Keep commits focused. PRs should describe changed behavior, link relevant issues, report validation commands/results, and include comparison figures when scientific outputs change. Require passing CI before merging.
+Use history's `feat:`, `perf:`, `test:`, and `docs:` prefixes. PRs should explain changes, link relevant issues, report validation, and show changed figures. Require passing CI; after merging, verify the merged commit's CI and synchronize `main`.
 
 ## Research Artifact Safety
 
-Archive artifacts instead of deleting them; gitignore large raw data. Preserve archived provenance. Apply manuscript tracked changes as `Donghan Lee` and ground scientific claims in actual code, data, and figures.
+Archive artifacts instead of deleting them; gitignore large raw data. Preserve calculation-time hashes. The 600/800 MHz benchmark uses fixed H rates and separate field fits; current default examples fit H rates automatically. Label synthetic evidence and within-model uncertainty. Apply manuscript tracked changes as `Donghan Lee`.

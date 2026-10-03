@@ -66,3 +66,33 @@ the included baseline DOCX and covariance summary and checks that rejecting
 the uncertainty revision restores the baseline text. Document render checks
 must be repeated after regeneration; the archived QA hashes describe the
 delivered files from 2026-10-03.
+
+## Separate 600/800 MHz comparison
+
+The subsequent [field comparison](../../results/field_comparison_600_800_20261003_02/REPORT.txt)
+uses the original synthetic 30 ppm inputs, fixed proton relaxation, and eight
+free parameters per model. Each field is fitted independently. Its figures and
+results are a separate repository study; they have not been added to the
+1.2 GHz DOCX tables listed above.
+
+At 600 MHz, SBONEST and ONEST Matrix give nearly identical noisy fits. At
+800 MHz, ONEST's noiseless kex is 301.535 s⁻¹ (+0.51% from truth); SBONEST
+recovers 300 s⁻¹ at both fields. The actual ONEST worker includes its zero clamp;
+a signed nitrogen-only control is retained. RF-scale handling, bounds, and
+optimization match SBONEST. All three starts are preserved, including slightly
+different noisy ONEST minima. These are synthetic comparisons with within-model
+local standard errors, not experimental accuracy estimates.
+
+From the repository root, use the bundled input copies and a new output path:
+
+```bash
+.venv/bin/python compare_field_models.py \
+  --source results/field_comparison_600_800_20261003_02/inputs \
+  --out results/field_comparison_repeat_01
+```
+
+The original local `results/600/` and `results/800/` directories are not
+distributed. [The bundle](../../results/field_comparison_600_800_20261003_02)
+contains their input copies, all fitted parameters, covariances, predictions,
+figures, and source hashes. See the [SBONEST manual](../../SBONEST_MANUAL.md),
+section 7.1, for units, uncertainty conventions, and interpretation limits.
