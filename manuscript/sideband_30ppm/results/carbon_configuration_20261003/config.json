@@ -1,0 +1,55 @@
+{
+  "Project Name": "carbon_pair_configuration_check",
+  "datasets": [
+    "carbon_25.txt",
+    "carbon_50.txt",
+    "carbon_100.txt"
+  ],
+  "residues": [
+    {
+      "name": "A1",
+      "flag": "on"
+    }
+  ],
+  "init": {
+    "Method": "Sideband",
+    "kex": {
+      "min": 200.0,
+      "max": 400.0,
+      "nsteps": 3
+    },
+    "pB": {
+      "min": 0.03,
+      "max": 0.07,
+      "nsteps": 3
+    },
+    "initial": {},
+    "max_nfev": 120
+  },
+  "sideband": {
+    "decoupling": {
+      "h_larmor_mhz": 1200.0,
+      "h_carrier_ppm": 4.7,
+      "p90_s": 7e-05,
+      "cycle": "RR",
+      "b1_scale": 1.0,
+      "J_hz": 140.0,
+      "R1H": 2.0,
+      "R2H": 25.0
+    },
+    "residues": {
+      "A1": {
+        "h_ppm_a": 3.8,
+        "h_ppm_b": 4.1
+      }
+    },
+    "v1n": {
+      "mode": "scale",
+      "initial": 1.0,
+      "bounds": [
+        0.8,
+        1.2
+      ]
+    }
+  }
+}

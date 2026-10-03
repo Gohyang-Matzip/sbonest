@@ -11,13 +11,32 @@ session_artifacts/
 **/ser
 **/pdata/
 .DS_Store
-# Keep manuscript drafts and document-rendering intermediates local.
+# Keep historical manuscript drafts and rendering intermediates local.
 /manuscript/*
 !/manuscript/sideband_30ppm/
 /manuscript/sideband_30ppm/*
 !/manuscript/sideband_30ppm/results/
 /manuscript/sideband_30ppm/results/*
 !/manuscript/sideband_30ppm/results/1200/
+# Published manuscript, its uncertainty-revision baseline, and numerical evidence.
+!/manuscript/sideband_30ppm/README.md
+!/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_errors.docx
+!/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_errors_tracked.docx
+!/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_13C.docx
+!/manuscript/sideband_30ppm/compare_conventional.py
+!/manuscript/sideband_30ppm/check_carbon_configuration.py
+!/manuscript/sideband_30ppm/collect_fit_errors.py
+!/manuscript/sideband_30ppm/revise_fit_errors.py
+!/manuscript/sideband_30ppm/results/summary.json
+!/manuscript/sideband_30ppm/results/conventional_comparison_20261003/
+!/manuscript/sideband_30ppm/results/carbon_configuration_20261003/
+!/manuscript/sideband_30ppm/results/fit_errors_20261003/
+!/manuscript/sideband_30ppm/qa/
+/manuscript/sideband_30ppm/qa/*
+!/manuscript/sideband_30ppm/qa/fit_errors_20261003/
+/manuscript/sideband_30ppm/qa/fit_errors_20261003/*
+!/manuscript/sideband_30ppm/qa/fit_errors_20261003/revision_audit.json
+!/manuscript/sideband_30ppm/qa/fit_errors_20261003/validation.json
 # Keep research outputs, but omit local backups and machine diagnostics.
 /results/manual_30ppm.*/
 /results/auto_H_refit/source_before/
