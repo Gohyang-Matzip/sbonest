@@ -1,0 +1,484 @@
+{
+  "checked_at_utc": "2026-10-03T07:19:19.659596+00:00",
+  "passed": true,
+  "fitted_table_entries_checked": 67,
+  "fit_covariances_verified": 9,
+  "unchanged_numerical_source_hashes": 20,
+  "derived_errors_include_cross_covariances": true,
+  "tracked_author": "Donghan Lee",
+  "accept_matches_clean_including_breaks": true,
+  "reject_restores_source_including_breaks": true,
+  "figures_equations_and_source_preserved": true,
+  "tables": 8,
+  "figures": 5,
+  "page_counts": {
+    "clean": 19,
+    "tracked": 19
+  },
+  "visual_qa": {
+    "clean": "All 19 pages reviewed at full resolution; final images byte-identical to reviewed initial render.",
+    "tracked": "All 19 pages reviewed; final changed pages 9, 11, 12, 13 re-reviewed; pages 16-19 reviewed after final render.",
+    "result": "No clipping, numerical wrapping, missing glyphs, or overlap in final fitted-parameter tables."
+  },
+  "changed_render_pages": {
+    "clean": [],
+    "tracked": [
+      9,
+      11,
+      12,
+      13
+    ]
+  },
+  "page_sha256": {
+    "clean": {
+      "1": "2251c9fdd59ea028e81545befe10f03a0999f78fdfb411669f71d356d0dd4e14",
+      "2": "40d4d30880963be7f8a9bff56445cdcae32f4d97ba03550d9b280d4665a5d2e3",
+      "3": "803a3b24986ead8fee71f6286319b89ff166f04f816db0c9481726f97599145e",
+      "4": "9a0d0369b3e7978301828f87498556033b82202b580e7b4f4643a8aafa235593",
+      "5": "9dbc687722073adcc617e670ab563a755a6ac611ea726f002246a12c6c3e6162",
+      "6": "b763fa4be61d64da512687d81f41ed8be7b7e1315e3fae3ace6c63d10eee13a5",
+      "7": "a9a24f3cd8e24edbfa3c6517af8b271d71f55ac5c6e31cd164210a1f364a3317",
+      "8": "cb6be6166f2949440693c6b34b0d05579b4c29b044a0dd60cc5c93942454e38a",
+      "9": "27053003036a3cd0147f60a602325b8479cdfcdcbfd837e7667e45d52c13abbd",
+      "10": "a93ea6bffc16d6b6acc3e5fbbe02de2b55ec63fad98c8faf2310747977b0b9cb",
+      "11": "b3db2807f05942711d453cca70a2b4cbb6c5cba1151f7c32d53a3d0f10545bef",
+      "12": "3a6522e023564e4209def974d46e64a6dd1eebb27a606b1c3a1463bff39e1b93",
+      "13": "bc071a62ad5aaf25f542a81eac77d4b0f48b8f077491faa7354f8a1c4807fa75",
+      "14": "3023429c71780f5cc675cc26975bb6abf0503fe811a3c276bc569be66c20f568",
+      "15": "95ffa23663b191c46a0a3aae52e8892581ffe684cd30192859ab49bebf1a94b9",
+      "16": "e2d5f7567c07540c4c34ba84d912ce29d320962501e9c6bcb51341eccbb17c1e",
+      "17": "eeaaee70a011534e074b68415c7286a31fe12a12bdcb27f8c55af1f283592dde",
+      "18": "925a573ca68c14a7e3e525166bff8a19c11738924f1b5d1026a97bb4702e373d",
+      "19": "cbf507cb80ef93faae9d3436ecfe71943bdccd5456b0a443fc0e659dfdf642cc"
+    },
+    "tracked": {
+      "1": "a7c88e7e4ada971014bb2d68295326c4acd1cfe02037b43c5747dc73c96039b6",
+      "2": "40d4d30880963be7f8a9bff56445cdcae32f4d97ba03550d9b280d4665a5d2e3",
+      "3": "803a3b24986ead8fee71f6286319b89ff166f04f816db0c9481726f97599145e",
+      "4": "9a0d0369b3e7978301828f87498556033b82202b580e7b4f4643a8aafa235593",
+      "5": "9dbc687722073adcc617e670ab563a755a6ac611ea726f002246a12c6c3e6162",
+      "6": "b763fa4be61d64da512687d81f41ed8be7b7e1315e3fae3ace6c63d10eee13a5",
+      "7": "78ed7595c238078aa2894ae2f301ff84ce3d6a9e78f20c5bbc0379a48ecf4268",
+      "8": "cb6be6166f2949440693c6b34b0d05579b4c29b044a0dd60cc5c93942454e38a",
+      "9": "1dc056c815983bb94c4a49db2a36602a0fd4b4f6989b7e7135435e63403ad3f4",
+      "10": "8725e1174076b6a7e2ae536aafac38a0b16e08e81f0467a2c585c76d29e37c65",
+      "11": "eab2a0b3effd16b57950aced560cf06aea42cec9921f6bc06451be4949688d2d",
+      "12": "89f9fdadb0fb6eaa76275c4c3f0c31b1dcf70c59714c6e41dcc52501dcae9601",
+      "13": "614f309ad5147482b23cda6d1f3feb23784c4edf1ede38f9f052b36b49097694",
+      "14": "1fee675f80705b697c4809083c454b64565e11751288edf9871e2ac63c57b3c8",
+      "15": "c2ce4215344d2c7a2695911d2a0cca1ec1a0b64275639955a658abcc060c2435",
+      "16": "64e6d1dd93f2ceac2d7e0c3d8f2791c13c6bf21bd0dded15734fcb5fe6aa30bb",
+      "17": "eeaaee70a011534e074b68415c7286a31fe12a12bdcb27f8c55af1f283592dde",
+      "18": "a741ba67e58a190d3ea423c871b1796b43191b721cf3dbc0054616d2b53cb370",
+      "19": "a14c92646593f5a8f8cb816cfb12c72ad6179d60d654026d3aedd8cd564bf65d"
+    }
+  },
+  "docx_sha256": {
+    "Sideband_CEST_1p2GHz_parameters_errors.docx": "e25d0aa0fcbbfac75323d29e1d954a824766fdc254ce96e99295c9f596cb0549",
+    "Sideband_CEST_1p2GHz_parameters_errors_tracked.docx": "d9017b5daf2b8262e884c599047db0af4cf1ec012a69b2e4c63db13ea4c91795"
+  },
+  "checked_table_values": [
+    [
+      3,
+      "NH_full",
+      "kex",
+      "300.2 ± 1.0"
+    ],
+    [
+      3,
+      "NH_full",
+      "pB_percent",
+      "4.995 ± 0.026"
+    ],
+    [
+      3,
+      "NH_full",
+      "v1n_scale",
+      "1.0814 ± 0.0032"
+    ],
+    [
+      3,
+      "NH_masked",
+      "kex",
+      "300.3 ± 1.0"
+    ],
+    [
+      3,
+      "NH_masked",
+      "pB_percent",
+      "4.990 ± 0.031"
+    ],
+    [
+      3,
+      "NH_masked",
+      "v1n_scale",
+      "1.0821 ± 0.0040"
+    ],
+    [
+      3,
+      "NH_fixed",
+      "kex",
+      "302.87 ± 0.99"
+    ],
+    [
+      3,
+      "NH_fixed",
+      "pB_percent",
+      "5.665 ± 0.011"
+    ],
+    [
+      5,
+      "NH_full",
+      "kex",
+      "300.2 ± 1.0"
+    ],
+    [
+      5,
+      "NH_full",
+      "pB_percent",
+      "4.995 ± 0.026"
+    ],
+    [
+      5,
+      "NH_full",
+      "v1n_scale",
+      "1.0814 ± 0.0032"
+    ],
+    [
+      5,
+      "N_noisy_full",
+      "kex",
+      "321.4 ± 1.0"
+    ],
+    [
+      5,
+      "N_noisy_full",
+      "pB_percent",
+      "4.812 ± 0.026"
+    ],
+    [
+      5,
+      "N_noisy_full",
+      "v1n_scale",
+      "1.0958 ± 0.0034"
+    ],
+    [
+      5,
+      "NH_masked",
+      "kex",
+      "300.3 ± 1.0"
+    ],
+    [
+      5,
+      "NH_masked",
+      "pB_percent",
+      "4.990 ± 0.031"
+    ],
+    [
+      5,
+      "NH_masked",
+      "v1n_scale",
+      "1.0821 ± 0.0040"
+    ],
+    [
+      5,
+      "N_noisy_masked",
+      "kex",
+      "321.2 ± 1.0"
+    ],
+    [
+      5,
+      "N_noisy_masked",
+      "pB_percent",
+      "4.710 ± 0.027"
+    ],
+    [
+      5,
+      "N_noisy_masked",
+      "v1n_scale",
+      "1.1129 ± 0.0037"
+    ],
+    [
+      6,
+      "NH_full",
+      "kab",
+      "14.995 ± 0.083"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "kab",
+      "15.466 ± 0.088"
+    ],
+    [
+      6,
+      "NH_masked",
+      "kab",
+      "14.984 ± 0.098"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "kab",
+      "15.125 ± 0.090"
+    ],
+    [
+      6,
+      "NH_full",
+      "kba",
+      "285.23 ± 0.97"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "kba",
+      "305.9 ± 1.0"
+    ],
+    [
+      6,
+      "NH_masked",
+      "kba",
+      "285.33 ± 0.99"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "kba",
+      "306.0 ± 1.0"
+    ],
+    [
+      6,
+      "NH_full",
+      "v1n_scale",
+      "1.0814 ± 0.0032"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "v1n_scale",
+      "1.0958 ± 0.0034"
+    ],
+    [
+      6,
+      "NH_masked",
+      "v1n_scale",
+      "1.0821 ± 0.0040"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "v1n_scale",
+      "1.1129 ± 0.0037"
+    ],
+    [
+      6,
+      "NH_full",
+      "A1.peak_ppm",
+      "120.00047 ± 0.00036"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "A1.peak_ppm",
+      "119.98824 ± 0.00080"
+    ],
+    [
+      6,
+      "NH_masked",
+      "A1.peak_ppm",
+      "119.99979 ± 0.00079"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "A1.peak_ppm",
+      "119.98740 ± 0.00081"
+    ],
+    [
+      6,
+      "NH_full",
+      "A1.dw_ppm",
+      "2.9986 ± 0.0010"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "A1.dw_ppm",
+      "3.0167 ± 0.0012"
+    ],
+    [
+      6,
+      "NH_masked",
+      "A1.dw_ppm",
+      "2.9992 ± 0.0012"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "A1.dw_ppm",
+      "3.0187 ± 0.0012"
+    ],
+    [
+      6,
+      "NH_full",
+      "A1.R1",
+      "1.49987 ± 0.00031"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "A1.R1",
+      "1.50956 ± 0.00031"
+    ],
+    [
+      6,
+      "NH_masked",
+      "A1.R1",
+      "1.50036 ± 0.00043"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "A1.R1",
+      "1.50092 ± 0.00043"
+    ],
+    [
+      6,
+      "NH_full",
+      "A1.R2a",
+      "11.971 ± 0.081"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "A1.R2a",
+      "11.506 ± 0.085"
+    ],
+    [
+      6,
+      "NH_masked",
+      "A1.R2a",
+      "11.93 ± 0.10"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "A1.R2a",
+      "11.204 ± 0.087"
+    ],
+    [
+      6,
+      "NH_full",
+      "A1.R2b",
+      "15.22 ± 0.45"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "A1.R2b",
+      "7.80 ± 0.46"
+    ],
+    [
+      6,
+      "NH_masked",
+      "A1.R2b",
+      "15.22 ± 0.46"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "A1.R2b",
+      "8.46 ± 0.47"
+    ],
+    [
+      6,
+      "NH_full",
+      "delta_B",
+      "122.99911 ± 0.00097"
+    ],
+    [
+      6,
+      "N_noisy_full",
+      "delta_B",
+      "123.00491 ± 0.00099"
+    ],
+    [
+      6,
+      "NH_masked",
+      "delta_B",
+      "122.9990 ± 0.0010"
+    ],
+    [
+      6,
+      "N_noisy_masked",
+      "delta_B",
+      "123.00613 ± 0.00100"
+    ],
+    [
+      7,
+      "CH_exact",
+      "kab",
+      "15.000 ± 0.071"
+    ],
+    [
+      7,
+      "CH_exact",
+      "kba",
+      "285.0 ± 1.2"
+    ],
+    [
+      7,
+      "CH_exact",
+      "v1n_scale",
+      "1.0800 ± 0.0025"
+    ],
+    [
+      7,
+      "CH_exact",
+      "A1.peak_ppm",
+      "55.00000 ± 0.00011"
+    ],
+    [
+      7,
+      "CH_exact",
+      "A1.dw_ppm",
+      "1.20000 ± 0.00049"
+    ],
+    [
+      7,
+      "CH_exact",
+      "A1.R1",
+      "1.20000 ± 0.00027"
+    ],
+    [
+      7,
+      "CH_exact",
+      "A1.R2a",
+      "15.000 ± 0.080"
+    ],
+    [
+      7,
+      "CH_exact",
+      "A1.R2b",
+      "20.00 ± 0.57"
+    ],
+    [
+      7,
+      "CH_exact",
+      "kex",
+      "300.0 ± 1.3"
+    ],
+    [
+      7,
+      "CH_exact",
+      "pB_percent",
+      "5.000 ± 0.022"
+    ],
+    [
+      7,
+      "CH_exact",
+      "delta_B",
+      "56.20000 ± 0.00048"
+    ]
+  ]
+}

@@ -1,0 +1,503 @@
+{
+  "source": "/Users/donghanlee/work/projects/sbonest/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_13C.docx",
+  "source_sha256": "562c6639d75db836058052648419a3eb025a6b2036ebeb58c9e90123a1441b9e",
+  "outputs": {
+    "/Users/donghanlee/work/projects/sbonest/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_errors.docx": "e25d0aa0fcbbfac75323d29e1d954a824766fdc254ce96e99295c9f596cb0549",
+    "/Users/donghanlee/work/projects/sbonest/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_errors_tracked.docx": "d9017b5daf2b8262e884c599047db0af4cf1ec012a69b2e4c63db13ea4c91795"
+  },
+  "author": "Donghan Lee",
+  "operations": [
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "300.224",
+      "new": "300.2\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "4.9946",
+      "new": "4.995\n± 0.026"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.08138",
+      "new": "1.0814\n± 0.0032"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "300.316",
+      "new": "300.3\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "4.9896",
+      "new": "4.990\n± 0.031"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.08205",
+      "new": "1.0821\n± 0.0040"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "302.875",
+      "new": "302.87\n± 0.99"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "5.6654",
+      "new": "5.665\n± 0.011"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "300.224",
+      "new": "300.2\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "4.9946",
+      "new": "4.995\n± 0.026"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.08138",
+      "new": "1.0814\n± 0.0032"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "321.397",
+      "new": "321.4\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "4.8121",
+      "new": "4.812\n± 0.026"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.09581",
+      "new": "1.0958\n± 0.0034"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "300.316",
+      "new": "300.3\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "4.9896",
+      "new": "4.990\n± 0.031"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.08205",
+      "new": "1.0821\n± 0.0040"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "321.156",
+      "new": "321.2\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "4.7095",
+      "new": "4.710\n± 0.027"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.11287",
+      "new": "1.1129\n± 0.0037"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "14.995",
+      "new": "14.995\n± 0.083"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "15.466",
+      "new": "15.466\n± 0.088"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "14.984",
+      "new": "14.984\n± 0.098"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "15.125",
+      "new": "15.125\n± 0.090"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "285.229",
+      "new": "285.23\n± 0.97"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "305.931",
+      "new": "305.9\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "285.331",
+      "new": "285.33\n± 0.99"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "306.031",
+      "new": "306.0\n± 1.0"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.08138",
+      "new": "1.0814\n± 0.0032"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.09581",
+      "new": "1.0958\n± 0.0034"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.08205",
+      "new": "1.0821\n± 0.0040"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.11287",
+      "new": "1.1129\n± 0.0037"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "120.00047",
+      "new": "120.00047\n± 0.00036"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "119.98824",
+      "new": "119.98824\n± 0.00080"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "119.99979",
+      "new": "119.99979\n± 0.00079"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "119.98740",
+      "new": "119.98740\n± 0.00081"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "2.99864",
+      "new": "2.9986\n± 0.0010"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "3.01667",
+      "new": "3.0167\n± 0.0012"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "2.99918",
+      "new": "2.9992\n± 0.0012"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "3.01873",
+      "new": "3.0187\n± 0.0012"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.4999",
+      "new": "1.49987\n± 0.00031"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.5096",
+      "new": "1.50956\n± 0.00031"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.5004",
+      "new": "1.50036\n± 0.00043"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "1.5009",
+      "new": "1.50092\n± 0.00043"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "11.971",
+      "new": "11.971\n± 0.081"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "11.506",
+      "new": "11.506\n± 0.085"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "11.932",
+      "new": "11.93\n± 0.10"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "11.204",
+      "new": "11.204\n± 0.087"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "15.218",
+      "new": "15.22\n± 0.45"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "7.796",
+      "new": "7.80\n± 0.46"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "15.218",
+      "new": "15.22\n± 0.46"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "8.465",
+      "new": "8.46\n± 0.47"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "122.99911",
+      "new": "122.99911\n± 0.00097"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "123.00491",
+      "new": "123.00491\n± 0.00099"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "122.99896",
+      "new": "122.9990\n± 0.0010"
+    },
+    {
+      "kind": "replace",
+      "paragraph": "table cell",
+      "old": "123.00613",
+      "new": "123.00613\n± 0.00100"
+    },
+    {
+      "kind": "replace",
+      "paragraph": 3,
+      "old": "SBONEST fits decoupling sidebands in heteronuclear chemical exchange saturation transfer (CEST), including ¹⁵N and ¹³C profiles described by an isolated XH spin pair. We use a 30 ppm ¹⁵N window at a proton frequency of 1.2 GHz as the quantitative benchmark. Although high-power composite pulse decoupling can suppress these artifacts, its use over a long saturation period is constrained by probe power handling and sample heating. When sidebands persist under the available RF conditions, quantitative fitting must account for the coupled XH dynamics. SBONEST propagates the applied proton pulse train explicitly. On the same noisy synthetic profiles, conventional nitrogen-only fitting gives χ²/dof=67.95 and kex=321.4 s⁻¹, whereas SBONEST gives 0.968 and 300.2 s⁻¹ for a generating rate of 300 s⁻¹. The conventional fit also lowers minor-state R2N from the generating 15.0 to 7.80 s⁻¹, compared with 15.22 s⁻¹ for SBONEST. The rate displacement persists without noise. Repeated 90x–240y–90x decoupling with a 70 μs 90° pulse has a nominal first-sideband separation of 1530.6 Hz, corresponding to 25.18, 18.88 and 12.59 ppm on ¹⁵N at 600 MHz, 800 MHz and 1.2 GHz, respectively. We combine this geometry with a coupled NH exchange model implemented in SBONEST. In independent simulations sampled uniformly across 105–135 ppm at approximately 25 Hz spacing, retaining sideband regions at 1.2 GHz reduced local standard errors of the nitrogen RF scale and minor-state population by 19.1% and 17.1%, whereas the exchange-rate improvement was 1.8%. Stock-pulse calculations imported from cestdec and independently checked here explain the RF dependence and offset shifts of the sidebands. These results support a conditional improvement in the use of already acquired data, rather than a general advantage in information per unit time. We specify experiments to test the effect of field, pulse timing, RF calibration and sampling phase. A separate noiseless ¹³C–¹H configuration test recovers all eight generating parameters. Experimental validation remains prospective.",
+      "new": "SBONEST fits decoupling sidebands in heteronuclear chemical exchange saturation transfer (CEST), including ¹⁵N and ¹³C profiles described by an isolated XH spin pair. We use a 30 ppm ¹⁵N window at a proton frequency of 1.2 GHz as the quantitative benchmark. Although high-power composite pulse decoupling can suppress these artifacts, its use over a long saturation period is constrained by probe power handling and sample heating. When sidebands persist under the available RF conditions, quantitative fitting must account for the coupled XH dynamics. SBONEST propagates the applied proton pulse train explicitly. On the same noisy synthetic profiles, conventional nitrogen-only fitting gives χ²/dof=67.95 and kex=321.4 ± 1.0 s⁻¹, whereas SBONEST gives 0.968 and 300.2 ± 1.0 s⁻¹ for a generating rate of 300 s⁻¹. The conventional fit also lowers minor-state R2N from the generating 15.0 to 7.80 ± 0.46 s⁻¹, compared with 15.22 ± 0.45 s⁻¹ for SBONEST. Quoted uncertainties are formal local standard errors (1 SE), conditional on each model. The rate displacement persists without noise. Repeated 90x–240y–90x decoupling with a 70 μs 90° pulse has a nominal first-sideband separation of 1530.6 Hz, corresponding to 25.18, 18.88 and 12.59 ppm on ¹⁵N at 600 MHz, 800 MHz and 1.2 GHz, respectively. We combine this geometry with a coupled NH exchange model implemented in SBONEST. In independent simulations sampled uniformly across 105–135 ppm at approximately 25 Hz spacing, retaining sideband regions at 1.2 GHz reduced local standard errors of the nitrogen RF scale and minor-state population by 19.1% and 17.1%, whereas the exchange-rate improvement was 1.8%. Stock-pulse calculations imported from cestdec and independently checked here explain the RF dependence and offset shifts of the sidebands. These results support a conditional improvement in the use of already acquired data, rather than a general advantage in information per unit time. We specify experiments to test the effect of field, pulse timing, RF calibration and sampling phase. A separate noiseless ¹³C–¹H configuration test recovers all eight generating parameters. Experimental validation remains prospective."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 84,
+      "old": "The noise-free 1.2 GHz fit recovered all eight parameters, with reduced χ²=1.38×10⁻¹⁹. For noisy data, the full fit gave kex=300.224 s⁻¹, pB=4.9946% and ν₁N scale=1.08138, with reduced χ²=0.9679. The masked fit gave 300.316 s⁻¹, 4.9896% and 1.08205, respectively. Both fits had full Jacobian rank and no parameters at a bound. Thus, in this noise realization both recovered the exchange process; the main distinction is the uncertainty, not a dramatic shift in the point estimates.",
+      "new": "The noise-free 1.2 GHz fit recovered all eight parameters, with reduced χ²=1.38×10⁻¹⁹. For noisy data, the full fit gave kex=300.2 ± 1.0 s⁻¹, pB=(4.995 ± 0.026)% and ν₁N scale=1.0814 ± 0.0032, with reduced χ²=0.9679. The masked fit gave 300.3 ± 1.0 s⁻¹, (4.990 ± 0.031)% and 1.0821 ± 0.0040, respectively. Both fits had full Jacobian rank and no parameters at a bound. Thus, in this noise realization both recovered the exchange process; the main distinction is the uncertainty, not a dramatic shift in the point estimates."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 89,
+      "old": "The ν₁N scale remains strongly correlated with R2NA (r=−0.948 in the noisy full fit). Allowing RF to vary is therefore feasible under the stated proton constraints, but does not eliminate degeneracy. Fixing the RF scale at 1.00 instead of its true value of 1.08 shifts the population to 5.6654%. That bias illustrates the need to model RF calibration; it should not be attributed entirely to sidebands.",
+      "new": "The ν₁N scale remains strongly correlated with R2NA (r=−0.948 in the noisy full fit). Allowing RF to vary is therefore feasible under the stated proton constraints, but does not eliminate degeneracy. Fixing the RF scale at 1.00 instead of its true value of 1.08 shifts the population to (5.665 ± 0.011)%. That bias illustrates the need to model RF calibration; it should not be attributed entirely to sidebands."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 95,
+      "old": "Fitting the full sideband-containing profiles with the nitrogen-only model gives χ²/dof=67.95, compared with 0.968 for the coupled NH model on the identical observations (Table 5; Figure 5). The largest absolute standardized residual is approximately 109 for the nitrogen-only fit, versus 2.80 for SBONEST. The nitrogen-only model cannot reproduce the decoupling dips and compensates by shifting the parameters that govern the central and exchange responses: kex rises from the generating 300 s⁻¹ to 321.4 s⁻¹ (+7.13%), pB falls from 5.000% to 4.812%, and the RF scale rises from 1.080 to 1.0958. The fitted minor-state R2N also falls from 15.0 to 7.80 s⁻¹. SBONEST instead recovers kex=300.2 s⁻¹, pB=4.995%, RF scale=1.0814 and minor-state R2N=15.22 s⁻¹. These are deviations for one noise realization, not ensemble estimates of bias.",
+      "new": "Fitting the full sideband-containing profiles with the nitrogen-only model gives χ²/dof=67.95, compared with 0.968 for the coupled NH model on the identical observations (Table 5; Figure 5). The largest absolute standardized residual is approximately 109 for the nitrogen-only fit, versus 2.80 for SBONEST. The nitrogen-only model cannot reproduce the decoupling dips and compensates by shifting the parameters that govern the central and exchange responses: kex rises from the generating 300 s⁻¹ to 321.4 ± 1.0 s⁻¹ (+7.13%), pB falls from 5.000% to (4.812 ± 0.026)%, and the RF scale rises from 1.080 to 1.0958 ± 0.0034. The fitted minor-state R2N also falls from 15.0 to 7.80 ± 0.46 s⁻¹. SBONEST instead recovers kex=300.2 ± 1.0 s⁻¹, pB=(4.995 ± 0.026)%, RF scale=1.0814 ± 0.0032 and minor-state R2N=15.22 ± 0.45 s⁻¹. These are deviations for one noise realization, not ensemble estimates of bias."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 96,
+      "old": "Excluding the prespecified sideband regions improves the nitrogen-only fit to χ²/dof=3.726, but kex remains 321.2 s⁻¹ and pB becomes 4.710%. The same masked observations fitted with the NH model give χ²/dof=0.999 and kex=300.3 s⁻¹. Thus, this particular mask removes the prominent sideband regions without making the retained profiles equivalent to perfect proton decoupling. It does not establish that every possible mask would fail. The noiseless nitrogen-only fits return kex=321.1 s⁻¹ for the full grid and 320.8 s⁻¹ for the masked grid, confirming a deterministic displacement of the optimum in this example. The legacy zero-clipping convention gives χ²/dof=67.950 and 3.732 for the noisy full and masked fits, respectively, and does not account for the model discrepancy. Formal covariance errors from the misspecified model should not be interpreted as validated confidence intervals.",
+      "new": "Excluding the prespecified sideband regions improves the nitrogen-only fit to χ²/dof=3.726, but kex remains 321.2 ± 1.0 s⁻¹ and pB becomes (4.710 ± 0.027)%. The same masked observations fitted with the NH model give χ²/dof=0.999 and kex=300.3 ± 1.0 s⁻¹. Thus, this particular mask removes the prominent sideband regions without making the retained profiles equivalent to perfect proton decoupling. It does not establish that every possible mask would fail. The noiseless nitrogen-only fits return kex=321.1 ± 1.0 s⁻¹ for the full grid and 320.8 ± 1.0 s⁻¹ for the masked grid, confirming a deterministic displacement of the optimum in this example. The legacy zero-clipping convention gives χ²/dof=67.950 and 3.732 for the noisy full and masked fits, respectively, and does not account for the model discrepancy. Formal covariance errors from the misspecified model should not be interpreted as validated confidence intervals."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 102,
+      "old": "Masking the prominent sideband regions does not restore all parameters in this example: the nitrogen-only R2NA and R2NB remain 6.63% and 43.57% below their generating values, and the RF scale is 3.04% high. The SBONEST full fit gives R2NA=11.971 s⁻¹ and R2NB=15.218 s⁻¹, corresponding to −0.24% and +1.46% deviations. Without noise, the full nitrogen-only fit still returns R2NB=7.554 s⁻¹, so this large displacement is not caused by the chosen noise realization. These are parameter errors in specified synthetic datasets, not ensemble bias estimates or confidence intervals. Proton relaxation rates and JNH were fixed in this matched comparison and therefore have no fitted displacement to report.",
+      "new": "Masking the prominent sideband regions does not restore all parameters in this example: the nitrogen-only R2NA and R2NB remain 6.63% and 43.57% below their generating values, and the RF scale is 3.04% high. The SBONEST full fit gives R2NA=11.971 ± 0.081 s⁻¹ and R2NB=15.22 ± 0.45 s⁻¹, corresponding to −0.24% and +1.46% deviations. Without noise, the full nitrogen-only fit still returns R2NB=7.55 ± 0.46 s⁻¹, so this large displacement is not caused by the chosen noise realization. These are parameter errors in specified synthetic datasets, not ensemble bias estimates or confidence intervals. Proton relaxation rates and JNH were fixed in this matched comparison and therefore have no fitted displacement to report."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 152,
+      "old": "동일한 sideband 포함 합성 데이터에 일반적인 nitrogen-only fitting을 적용하면 χ²/dof=67.95, kex=321.4 s⁻¹, pB=4.812%이며, SBONEST는 0.968, 300.2 s⁻¹, 4.995%를 준다(참값 300 s⁻¹, 5%). 지정한 sideband 구간을 제외해도 nitrogen-only 결과는 χ²/dof=3.726, kex=321.2 s⁻¹이다. 잡음 없는 데이터에서도 kex가 321.1 s⁻¹(전체) 및 320.8 s⁻¹(masked)로 이동하므로, 이번 조건의 차이는 잡음만으로 설명되지 않는 모델 불일치이다. Table 5와 Figure 5에 직접 비교를 추가했다. 이는 한 합성 조건의 결과이며 실제 시료에서의 편향 크기는 별도 검증이 필요하다.",
+      "new": "동일한 sideband 포함 합성 데이터에 일반적인 nitrogen-only fitting을 적용하면 χ²/dof=67.95, kex=321.4 ± 1.0 s⁻¹, pB=(4.812 ± 0.026)%이며, SBONEST는 0.968, 300.2 ± 1.0 s⁻¹, (4.995 ± 0.026)%를 준다(참값 300 s⁻¹, 5%). 지정한 sideband 구간을 제외해도 nitrogen-only 결과는 χ²/dof=3.726, kex=321.2 ± 1.0 s⁻¹이다. 잡음 없는 데이터에서도 kex가 321.1 ± 1.0 s⁻¹(전체) 및 320.8 ± 1.0 s⁻¹(masked)로 이동하므로, 이번 조건의 차이는 잡음만으로 설명되지 않는 모델 불일치이다. Table 5와 Figure 5에 직접 비교를 추가했다. 이는 한 합성 조건의 결과이며 실제 시료에서의 편향 크기는 별도 검증이 필요하다."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 153,
+      "old": "다른 parameter도 Table 6에 모두 비교했다. 전체 profile의 일반 fitting에서 kAB=15.466, kBA=305.931 s⁻¹, RF scale=1.09581, δNA=119.98824 ppm, ΔδN=3.01667 ppm, R1N=1.5096, R2NA=11.506, R2NB=7.796 s⁻¹이다. 특히 R2NB는 참값 15 s⁻¹보다 48.0% 낮다. SBONEST는 R2NB=15.218 s⁻¹을 회복한다. Sideband 구간을 제외해도 일반 fitting의 R2NB는 8.465 s⁻¹이며 RF scale 오차는 +3.04%이다. R1H·R2H·J는 이 비교에서 고정했으므로 fitted parameter로 해석하지 않는다.",
+      "new": "다른 parameter도 Table 6에 모두 비교했다. 전체 profile의 일반 fitting에서 kAB=15.466 ± 0.088, kBA=305.9 ± 1.0 s⁻¹, RF scale=1.0958 ± 0.0034, δNA=119.98824 ± 0.00080 ppm, ΔδN=3.0167 ± 0.0012 ppm, R1N=1.50956 ± 0.00031, R2NA=11.506 ± 0.085, R2NB=7.80 ± 0.46 s⁻¹이다. 특히 R2NB는 참값 15 s⁻¹보다 48.0% 낮다. SBONEST는 R2NB=15.22 ± 0.45 s⁻¹을 회복한다. Sideband 구간을 제외해도 일반 fitting의 R2NB는 8.46 ± 0.47 s⁻¹이며 RF scale 오차는 +3.04%이다. R1H·R2H·J는 이 비교에서 고정했으므로 fitted parameter로 해석하지 않는다."
+    },
+    {
+      "kind": "insert",
+      "new": "All fitted estimates are reported with one local standard error (estimate ± 1 SE). At each fitted parameter vector, J is the Jacobian of residuals divided by their supplied intensity errors, and C=(JᵀJ)⁻¹ is evaluated by singular-value decomposition. SEᵢ=√Cᵢᵢ; C is not multiplied by χ²/dof. For kex=kAB+kBA, pB=kAB/kex and δB=δA+Δδ, we use SE(g)=√(∇gᵀC∇g), including cross-covariances. Population SE values accompanying percentages are in percentage points. These fitted-point SE values differ from the generating-point information estimates in Table 4. For misspecified nitrogen-only models, they quantify within-model local curvature and exclude model discrepancy; they are not validated confidence intervals. Noiseless checks retain the assigned σ=0.001 weights, so their nonzero SE describes hypothetical measurement noise, not observed replicate scatter. Known generating values and fixed inputs have no fitted SE."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 86,
+      "old": "Table 3. Fits to the same noisy 1.2 GHz dataset or its prespecified subset. The true values are kex=300 s⁻¹, pB=5% and RF scale=1.08. χ² values from different point sets are descriptive and are not a model-selection test.",
+      "new": "Table 3. Fits to the same noisy 1.2 GHz dataset or its prespecified subset. The true values are kex=300 s⁻¹, pB=5% and RF scale=1.08. χ² values from different point sets are descriptive and are not a model-selection test. Fitted kex, pB and RF scale are estimate ± 1 SE from the fitted-point covariance without χ²/dof rescaling; pB errors are percentage points. The fixed RF scale has no fitted error."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 97,
+      "old": "Table 5. Matched fitting comparison for sideband-containing synthetic profiles at 1.2 GHz. All fitted rows use eight free parameters and the same σ=0.001 intensity errors. Full and masked comparisons use 441 and 303 observations, respectively; χ²/dof is evaluated only over the observations included in each fit. N-only denotes signed nitrogen-only Bloch–McConnell propagation. The mask and noise realization are identical within each comparison. Values are point estimates; the known generating values are shown for reference.",
+      "new": "Table 5. Matched fitting comparison for sideband-containing synthetic profiles at 1.2 GHz. All fitted rows use eight free parameters and the same σ=0.001 intensity errors. Full and masked comparisons use 441 and 303 observations, respectively; χ²/dof is evaluated only over the observations included in each fit. N-only denotes signed nitrogen-only Bloch–McConnell propagation. The mask and noise realization are identical within each comparison. Fitted values are estimate ± 1 SE from the fitted-point covariance without χ²/dof rescaling; pB SE values are percentage points. N-only SE is formal and excludes model discrepancy. The known generating values are shown without fitted errors."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 103,
+      "old": "Table 6. All eight independent fitting parameters in the ¹⁵N benchmark at 1.2 GHz, with the derived minor-state shift δNB=δNA+ΔδN shown separately. The exchange rate kex=kAB+kBA and population pB=kAB/kex are reported in Table 5 and are not additional free parameters. Full and masked fits use the same point sets as Table 5. These are point estimates from one noise realization. Fixed inputs in both fits include R1H=2 s⁻¹, R2H=25 s⁻¹ and JNH=92 Hz; the proton pulse settings and chemical shifts are also fixed.",
+      "new": "Table 6. All eight independent fitting parameters in the ¹⁵N benchmark at 1.2 GHz, with the derived minor-state shift δNB=δNA+ΔδN shown separately. The exchange rate kex=kAB+kBA and population pB=kAB/kex are reported in Table 5 and are not additional free parameters. Full and masked fits use the same point sets as Table 5. All fitted entries show the estimate on the first line and ± 1 SE on the second line. SE is from the fitted-point covariance without χ²/dof rescaling; the δNB SE includes Cov(δNA,ΔδN). N-only SE is formal and excludes model discrepancy. These results use one noise realization. Fixed inputs in both fits include R1H=2 s⁻¹, R2H=25 s⁻¹ and JNH=92 Hz; the proton pulse settings and chemical shifts are also fixed."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 113,
+      "old": "The unchanged SBONEST engine reproduced the independent ¹³C–¹H profiles with a maximum absolute intensity difference of 8.9e-13 and recovered all eight generating parameters to better than 10⁻⁵ in their respective numerical units. The fitted Jacobian had rank eight; χ²/dof=6.6e-20 with the assigned σ=0.001 weights. These noiseless results establish a working carbon configuration under the same pair-model assumptions. They do not establish the ¹⁵N benchmark’s parameter-error percentages or precision gains for ¹³C. Experimental ¹³C CEST and coupled CH analyses have been demonstrated previously [12].",
+      "new": "The unchanged SBONEST engine reproduced the independent ¹³C–¹H profiles with a maximum absolute intensity difference of 8.9e-13 and recovered all eight generating parameters to better than 10⁻⁵ in their respective numerical units. The fitted Jacobian had rank eight; χ²/dof=6.6e-20 with the assigned σ=0.001 weights. These noiseless results establish a working carbon configuration under the same pair-model assumptions. They do not establish the ¹⁵N benchmark’s parameter-error percentages or precision gains for ¹³C. Experimental ¹³C CEST and coupled CH analyses have been demonstrated previously [12]. Table 7 gives every carbon fit parameter and the derived kex, pB and δCB as estimate ± 1 SE under the assigned σ=0.001 weights; these are hypothetical-noise sensitivities for this noiseless check."
+    },
+    {
+      "kind": "replace",
+      "paragraph": 131,
+      "old": "The new fixed-window calculations are generated by study_30ppm.py in sbonest/manuscript/sideband_30ppm. The output summary.json, field-specific input and fit files, and profiles.npz preserve the generating conditions. make_figures.py creates Figures 1, 2 and 4. cestdec_stock_check.py imports only the stock240 entries of cestdec/results/final/figs/sideband_exact_check_nu100.json, preserves the source hash, and creates the independently checked stock evidence and Figure 3. Equations 3–14 follow the stock-pulse theory in cestdec/results/final/REPORT.md, Section 2.5. The new 30 ppm results replace the earlier, wider ±2400 Hz demonstration for the quantitative ¹⁵N benchmark claims in this manuscript. These are local computational artifacts; a public data and code deposition will be required before submission. The unit-consistent redraws of Figures 1, 2 and 4 are generated by make_figures_ghz.py. compare_conventional.py generates the matched nitrogen-only fits, JNH=0 controls, clipping sensitivity check and Figure 5; results/conventional_comparison_20261003/summary.json records all starting points, fitted parameters, residual metrics and source hashes. Table 6 is generated directly from the same comparison summary. check_carbon_configuration.py preserves the independent CH data, fitting inputs, recovered parameters and code hashes in results/carbon_configuration_20261003. revise_parameters_carbon.py applies the scope and parameter-table revisions.",
+      "new": "The new fixed-window calculations are generated by study_30ppm.py in sbonest/manuscript/sideband_30ppm. The output summary.json, field-specific input and fit files, and profiles.npz preserve the generating conditions. make_figures.py creates Figures 1, 2 and 4. cestdec_stock_check.py imports only the stock240 entries of cestdec/results/final/figs/sideband_exact_check_nu100.json, preserves the source hash, and creates the independently checked stock evidence and Figure 3. Equations 3–14 follow the stock-pulse theory in cestdec/results/final/REPORT.md, Section 2.5. The new 30 ppm results replace the earlier, wider ±2400 Hz demonstration for the quantitative ¹⁵N benchmark claims in this manuscript. These are local computational artifacts; a public data and code deposition will be required before submission. The unit-consistent redraws of Figures 1, 2 and 4 are generated by make_figures_ghz.py. compare_conventional.py generates the matched nitrogen-only fits, JNH=0 controls, clipping sensitivity check and Figure 5; results/conventional_comparison_20261003/summary.json records all starting points, fitted parameters, residual metrics and source hashes. Table 6 is generated directly from the same comparison summary. check_carbon_configuration.py preserves the independent CH data, fitting inputs, recovered parameters and code hashes in results/carbon_configuration_20261003. revise_parameters_carbon.py applies the scope and parameter-table revisions. collect_fit_errors.py reconstructs the full covariance at the unchanged saved optima, verifies all stored parameter SE values and fit objectives, and propagates derived errors. The full covariance matrices and source hashes are in results/fit_errors_20261003/summary.json; revise_fit_errors.py adds the corresponding uncertainties to Tables 3, 5, 6 and 7 and all repeated numerical fit estimates in the text."
+    },
+    {
+      "kind": "insert",
+      "new": "모든 fitted parameter는 추정값 ± 1 SE로 표시했다. kex·pB·δB의 SE에는 parameter 간 공분산을 포함했다. pB(%)의 SE 단위는 percentage point이다. χ²/dof에 따른 오차 재조정은 하지 않았다. 일반 fitting의 형식적 SE는 모델 불일치를 포함하지 않는다. ¹³C noiseless 검증의 모든 parameter와 SE는 Table 7에 있으며, 이 SE는 실제 반복 측정 오차가 아니라 가정한 intensity σ=0.001에 대한 민감도이다. 참값·고정값에는 fitted SE를 붙이지 않았다."
+    },
+    {
+      "kind": "insert",
+      "new": "Table 7. Carbon parameter recovery and local SE for the noiseless isolated ¹³C–¹H implementation check. All eight free parameters and three derived quantities are listed. Errors are 1 SE from the full fitted-point covariance with assigned absolute intensity σ=0.001, without χ²/dof rescaling. They express hypothetical-noise sensitivity, not scatter observed in these noiseless data or experimental uncertainty. Derived errors include parameter cross-covariances; pB SE is in percentage points. Fixed inputs (including JCH=140 Hz, R1H=2 s⁻¹ and R2H=25 s⁻¹) have no fitted SE."
+    }
+  ],
+  "carbon_table": [
+    [
+      "Parameter",
+      "Generating",
+      "¹³C fit ± 1 SE"
+    ],
+    [
+      "kAB / s⁻¹",
+      "15",
+      "15.000 ± 0.071"
+    ],
+    [
+      "kBA / s⁻¹",
+      "285",
+      "285.0 ± 1.2"
+    ],
+    [
+      "ν₁C scale",
+      "1.08",
+      "1.0800 ± 0.0025"
+    ],
+    [
+      "δCA / ppm",
+      "55",
+      "55.00000 ± 0.00011"
+    ],
+    [
+      "ΔδC / ppm",
+      "1.2",
+      "1.20000 ± 0.00049"
+    ],
+    [
+      "R1C / s⁻¹",
+      "1.2",
+      "1.20000 ± 0.00027"
+    ],
+    [
+      "R2CA / s⁻¹",
+      "15",
+      "15.000 ± 0.080"
+    ],
+    [
+      "R2CB / s⁻¹",
+      "20",
+      "20.00 ± 0.57"
+    ],
+    [
+      "kex / s⁻¹ (derived)",
+      "300",
+      "300.0 ± 1.3"
+    ],
+    [
+      "pB / % (derived)",
+      "5",
+      "5.000 ± 0.022"
+    ],
+    [
+      "δCB / ppm (derived)",
+      "56.2",
+      "56.20000 ± 0.00048"
+    ]
+  ],
+  "source_results": "results/fit_errors_20261003/summary.json",
+  "reject_restores_original_text": true,
+  "original_figures_and_equations_preserved": true,
+  "visual_qa": "passed; see validation.json"
+}

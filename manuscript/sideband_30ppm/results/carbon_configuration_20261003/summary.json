@@ -1,0 +1,221 @@
+{
+  "method": "Sideband",
+  "rf_mode": "scale",
+  "proton_relaxation_mode": "fixed",
+  "proton_correlations": [],
+  "config": {
+    "Project Name": "carbon_pair_configuration_check",
+    "datasets": [
+      "carbon_25.txt",
+      "carbon_50.txt",
+      "carbon_100.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {},
+      "max_nfev": 120
+    },
+    "sideband": {
+      "decoupling": {
+        "h_larmor_mhz": 1200.0,
+        "h_carrier_ppm": 4.7,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 140.0,
+        "R1H": 2.0,
+        "R2H": 25.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 3.8,
+          "h_ppm_b": 4.1
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      }
+    }
+  },
+  "v1n_hz": [
+    27.0000000000442,
+    54.0000000000884,
+    108.0000000001768
+  ],
+  "chi2": 2.3471563385404345e-17,
+  "dof": 355,
+  "n_points": 363,
+  "n_parameters": 8,
+  "kex": 300.0000000001404,
+  "pB": 0.049999999999874395,
+  "parameters": {
+    "kab": {
+      "value": 14.999999999969338,
+      "stderr": 0.07110516407105792,
+      "vary": true
+    },
+    "kba": {
+      "value": 285.00000000017104,
+      "stderr": 1.2478138330262336,
+      "vary": true
+    },
+    "v1n_scale": {
+      "value": 1.080000000001768,
+      "stderr": 0.0024509254963473934,
+      "vary": true
+    },
+    "A1.peak_ppm": {
+      "value": 55.00000000000005,
+      "stderr": 0.00010888031558714653,
+      "vary": true
+    },
+    "A1.dw_ppm": {
+      "value": 1.1999999999999447,
+      "stderr": 0.0004899834566812184,
+      "vary": true
+    },
+    "A1.R1": {
+      "value": 1.1999999999999709,
+      "stderr": 0.00026769829504053126,
+      "vary": true
+    },
+    "A1.R2a": {
+      "value": 14.999999999948821,
+      "stderr": 0.08046135170266429,
+      "vary": true
+    },
+    "A1.R2b": {
+      "value": 19.999999999989114,
+      "stderr": 0.5747241691973453,
+      "vary": true
+    }
+  },
+  "jacobian_rank": 8,
+  "scaled_condition": 11.882658953006876,
+  "v1n_correlations": [
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a"
+      ],
+      "correlation": -0.9103410190035849
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kab"
+      ],
+      "correlation": -0.7810207157694687
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1"
+      ],
+      "correlation": -0.19615401517479472
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.dw_ppm"
+      ],
+      "correlation": 0.1670762157778173
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b"
+      ],
+      "correlation": -0.11188198952254573
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.peak_ppm"
+      ],
+      "correlation": -0.044975905084365865
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kba"
+      ],
+      "correlation": 0.018462618599142437
+    }
+  ],
+  "at_bounds": [],
+  "warnings": [],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 9,
+  "message": "`xtol` termination condition is satisfied.",
+  "scope": "Noiseless synthetic isolated 13C-1H pair; no experimental or multi-spin validation.",
+  "carbon_larmor_mhz": 301.8,
+  "truth": [
+    15.0,
+    285.0,
+    1.08,
+    55.0,
+    1.2,
+    1.2,
+    15.0,
+    20.0
+  ],
+  "initial": [
+    18.0,
+    330.0,
+    1.0,
+    55.02,
+    1.1,
+    1.3,
+    13.0,
+    23.0
+  ],
+  "fit": [
+    14.999999999969338,
+    285.00000000017104,
+    1.080000000001768,
+    55.00000000000005,
+    1.1999999999999447,
+    1.1999999999999709,
+    14.999999999948821,
+    19.999999999989114
+  ],
+  "max_reference_difference": 8.938405571257135e-13,
+  "relative_parameter_errors_percent": [
+    -2.0441426329398382e-10,
+    6.001865671123596e-11,
+    1.6369128275073308e-10,
+    8.881784197001252e-14,
+    -4.6074255521944e-12,
+    -2.4202861936828413e-12,
+    -3.411937399278031e-10,
+    -5.4423132667125174e-11
+  ],
+  "source_sha256": {
+    "manuscript/sideband_30ppm/check_carbon_configuration.py": "58baf47ccda7c7bbf655723636358b06461b07e8726a15e44d2b1e7a048bc514",
+    "sideband.py": "bab319f052fb91f9d5021e5d317a5c626811edfb6e3ffb0c527b5703ab33a6a2",
+    "sbfit.py": "2e5d4d283338d3d2a4c6b6f563b2bb46655c07157803c76b9081ad52797fb7c3",
+    "test_sideband.py": "e83f202293a41081d4852f417e6b806c862a5ae50aa10f47c2d99378da1eaf17"
+  }
+}
