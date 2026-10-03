@@ -1,0 +1,29 @@
+{
+  "all_source_hashes_match": true,
+  "600": {
+    "n_fits": 6,
+    "n_attempts": 18,
+    "input_copies_identical": true,
+    "saved_objectives_and_covariance_verified": true,
+    "saved_predictions_verified": true,
+    "original_SB_fit_reproduced": true,
+    "multistart_distinct_minima": [
+      "ONEST_Matrix_full"
+    ]
+  },
+  "800": {
+    "n_fits": 6,
+    "n_attempts": 18,
+    "input_copies_identical": true,
+    "saved_objectives_and_covariance_verified": true,
+    "saved_predictions_verified": true,
+    "original_SB_fit_reproduced": true,
+    "multistart_distinct_minima": [
+      "ONEST_Matrix_full"
+    ]
+  },
+  "plots_visually_inspected": [
+    "comparison_600.png",
+    "comparison_800.png"
+  ]
+}
