@@ -130,6 +130,30 @@ Raw experimental data, manuscript drafts, environments, and local backups are
 excluded from this repository. Small synthetic inputs retained under
 `manuscript/sideband_30ppm/results/1200/` support the older manual examples.
 
+## Compare SBONEST and ONEST at 600/800 MHz
+
+The [comparison report](results/field_comparison_600_800_20261003_02/REPORT.txt)
+compares both models on identical synthetic 105–135 ppm data at 25/50/100 Hz
+nitrogen RF. Each model fits eight parameters, including a shared RF scale;
+proton relaxation is fixed to the original manuscript benchmark values.
+The bundle includes [all parameters and local standard errors](results/field_comparison_600_800_20261003_02/parameters.csv),
+[600 MHz](results/field_comparison_600_800_20261003_02/comparison_600.png) and
+[800 MHz](results/field_comparison_600_800_20261003_02/comparison_800.png) figures,
+three-start fits, noiseless controls, input copies, and source hashes.
+
+For a fresh checkout, explicitly select the bundled inputs; the script's default
+source points to historical local manuscript data that are not distributed:
+
+```bash
+.venv/bin/python compare_field_models.py \
+  --source results/field_comparison_600_800_20261003_02/inputs \
+  --out results/field_comparison_repeat_01
+```
+
+Choose a new output directory each time. ONEST uses its actual Matrix forward
+model with RF-scale handling and optimization matched to SBONEST. These results
+describe one synthetic noise realization per field, not experimental validation.
+
 ## ONEST and license
 
 SBONEST is based on [ONEST](https://github.com/dleess/ONEST), originally

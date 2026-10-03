@@ -1,0 +1,11 @@
+{
+  "claim": "Compare model predictions and residuals on identical synthetic observations.",
+  "panel_plan": {
+    "A\u2013C": "25/50/100 Hz profiles and both fits",
+    "D\u2013F": "Standardized residuals on the acquired grid; gray band is \u00b12 sigma"
+  },
+  "caption": "One synthetic noise realization, sigma=0.001. Both models fit a shared RF scale. SBONEST fixes R1H=2 and R2H=25 s^-1. ONEST uses its actual clipped Matrix worker with the same optimizer and bounds. All acquired points are retained.",
+  "data": "predictions_800.npz",
+  "fits": "summary.json",
+  "generator": "compare_field_models.py"
+}

@@ -1,0 +1,58 @@
+600 MHz / 800 MHz: SBONEST와 ONEST Matrix 비교
+
+결론: 이번 합성 데이터에서 600 MHz의 두 피팅 결과는 사실상 같다. 800 MHz에서는
+ONEST의 kex가 약 1.56 s^-1 높고 reduced chi-square도 약간 높지만, 두 모델 모두 약 1이다.
+이 조건에서는 SBONEST의 큰 우월성이 나타나지 않는다. 실제 측정 데이터 검증 결과는 아니다.
+
+조건
+- 기존 manuscript/sideband_30ppm/results/600 및 /800 데이터 사본을 그대로 사용.
+- 105–135 ppm, A1 peak=120 ppm, delta_omega=3 ppm, RF=25/50/100 Hz, T=0.4 s.
+- sigma=0.001, field-specific noise seed=20261002+field_MHz, field별 잡음 표본 1개.
+- 관측치 225개(600 MHz), 297개(800 MHz). 같은 자장 내 두 모델은 같은 점을 사용.
+- 같은 optimizer, bounds, error weights와 8개 자유 파라미터; 공통 RF scale도 피팅.
+- SBONEST R1H=2, R2H=25 s^-1 고정: 기존 논문 benchmark와 같으며 자동 H-rate 모드는 아님.
+- ONEST는 실제 estmodel.matrix_calc_worker_chunk와 음수 예측의 zero clamp를 사용.
+  RF 처리와 optimizer를 맞춘 모델 비교이며, ONEST CLI 기본 설정 그대로의 비교는 아님.
+
+잡음 데이터의 결과 (± local 1 SE)
+Field  Model          kex (s^-1)          pB (%)                RF scale            chi2/dof
+600    SBONEST         297.892 ± 1.631   5.0287 ± 0.0299  1.077905 ± 0.003398  1.058038
+600    ONEST_Matrix    297.950 ± 1.642   5.0142 ± 0.0357  1.079726 ± 0.004373  1.054831
+800    SBONEST         299.850 ± 1.230   4.9994 ± 0.0313  1.079263 ± 0.003900  1.034728
+800    ONEST_Matrix    301.414 ± 1.233   4.9702 ± 0.0330  1.083359 ± 0.004191  1.058374
+
+참값: kex=300 s^-1, pB=5%, RF scale=1.08.
+표준오차는 절대 sigma 가중치와 공분산으로 계산하며 reduced chi-square로 재조정하지 않았다.
+ONEST의 모델 불일치나 zero clamp 경계의 영향을 완전히 나타내는 신뢰구간은 아니다.
+
+무잡음 대조
+600 MHz SBONEST: kex=300.000000, displacement=+0.000000%, pB=5.000000%, assigned-weight chi2/dof=6.9047319e-20
+600 MHz ONEST_Matrix: kex=299.977062, displacement=-0.007646%, pB=4.999440%, assigned-weight chi2/dof=0.012509807
+600 MHz N_signed_control: kex=299.976235, displacement=-0.007922%, pB=4.999619%, assigned-weight chi2/dof=7.6319904e-05
+800 MHz SBONEST: kex=300.000000, displacement=-0.000000%, pB=5.000000%, assigned-weight chi2/dof=8.904729e-20
+800 MHz ONEST_Matrix: kex=301.534987, displacement=+0.511662%, pB=4.983106%, assigned-weight chi2/dof=0.020381822
+800 MHz N_signed_control: kex=301.550616, displacement=+0.516872%, pB=4.978018%, assigned-weight chi2/dof=0.023103583
+
+해석 및 검증
+- SBONEST는 두 자장의 무잡음 데이터에서 참값을 수치 정밀도 내에서 복원했다.
+- 800 MHz ONEST의 약 +0.51% kex 변위는 무잡음에서도 남는다.
+  zero clamp를 없앤 질소 단독 대조에서도 약 +0.52%로 남아 clamp만으로 설명되지 않는다.
+- 600 MHz에서 ONEST의 noisy chi-square가 조금 더 작다고 ONEST가 더 정확하다는 뜻은 아니다.
+  하나의 잡음 표본에 대한 비교이며 반복 잡음 시뮬레이션을 통한 성능 추정은 수행하지 않았다.
+- 기존 |offset|=1250–1850 Hz 마스크는 두 자장의 측정 창에서 제외하는 점이 없다.
+  동일한 masked fit을 반복하지 않았다. 다른 peak 위치, pulse 조건, 넓은 창에 일반화하지 않는다.
+- 양쪽 noisy ONEST에서 초기값별 최솟값이 조금 달랐다. 각 모델의 세 초기값 중 최저 chi-square를
+  채택했다. 600 MHz의 objective spread=0.153006, 800 MHz=0.065897; 전역 최적성 보장은 없다.
+- 총 36회 피팅. 독립 생성기와 데이터 일치, J=0 환원, 원래 SBONEST noisy fit 재현,
+  무잡음 참값 복원, full-rank covariance 및 저장 예측/목적함수 재계산을 확인했다.
+- 소스와 입력 SHA-256을 summary.json에 보존했고 두 그림의 렌더링을 확인했다.
+
+파일
+comparison_600.png / .pdf, comparison_800.png / .pdf: 각 자장의 프로파일 및 표준화 잔차.
+parameters.csv: 모든 8개 파라미터와 kex/pB, 표준오차 (noisy, noiseless, signed control).
+summary.json: 모든 초기값, 공분산, 진단과 소스 해시.
+verification.json: 저장 결과의 독립 재계산 검증.
+predictions_600.npz / predictions_800.npz: 관측점과 표시용 곡선.
+
+재실행 (repository root; 새 output 경로 사용)
+.venv/bin/python compare_field_models.py --source results/field_comparison_600_800_20261003_02/inputs --out results/field_comparison_repeat_01
