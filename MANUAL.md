@@ -1,5 +1,10 @@
 For SBONEST sideband fitting, use the [SBONEST manual](SBONEST_MANUAL.md).
 This inherited manual covers the original ONEST models.
+For the matched 600/800 MHz SBONEST–ONEST comparison, see section 7.1 of the
+[SBONEST manual](SBONEST_MANUAL.md) and the
+[comparison report](results/field_comparison_600_800_20261003_02/REPORT.txt).
+That benchmark fits RF scale with a shared optimizer; its settings differ from
+the standard ONEST workflow below.
 
 # ONEST Step-by-Step Manual
 

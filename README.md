@@ -11,7 +11,8 @@ values, not arbitrary fixed rates. H rates are shared across RF datasets and
 states A/B for the same peak. Current automatic mode supports one proton field.
 
 [English manual](SBONEST_MANUAL.md) · [한국어 매뉴얼](SBONEST_MANUAL.ko.md) ·
-[Model and configuration](SIDEBAND.md) · [Development handoff](HANDOFF.md)
+[Model and configuration](SIDEBAND.md) · [Contributor guide](AGENTS.md) ·
+[Development handoff](HANDOFF.md)
 
 ## Install and run
 
@@ -126,16 +127,35 @@ the full **30 ppm** examples. To repeat the archived ten automatic H-rate fits
 This is a longer study, not necessary for a first fit. Archived `results/`
 files preserve calculation-time absolute paths and source hashes. Use the
 portable configurations for new fits; do not rewrite archived provenance.
-Raw experimental data, manuscript drafts, environments, and local backups are
-excluded from this repository. Small synthetic inputs retained under
-`manuscript/sideband_30ppm/results/1200/` support the older manual examples.
+Raw experimental data, historical manuscript drafts, environments, and local
+backups are excluded. Selected manuscript DOCX files and their numerical evidence
+are published in [the manuscript bundle](manuscript/sideband_30ppm/README.md).
+Small synthetic inputs under `manuscript/sideband_30ppm/results/1200/` support
+the older manual examples; the 600/800 MHz comparison bundles its own inputs below.
 
 ## Compare SBONEST and ONEST at 600/800 MHz
 
 The [comparison report](results/field_comparison_600_800_20261003_02/REPORT.txt)
 compares both models on identical synthetic 105–135 ppm data at 25/50/100 Hz
 nitrogen RF. Each model fits eight parameters, including a shared RF scale;
-proton relaxation is fixed to the original manuscript benchmark values.
+SBONEST fixes R1H = 2 and R2H = 25 s⁻¹, matching the original manuscript benchmark.
+The two magnetic fields are fitted separately, with 225 observations at 600 MHz
+and 297 at 800 MHz. These are separate benchmarks from the automatic H-rate
+examples above.
+
+| ¹H field | Model | kex ± SE (s⁻¹) | pB ± SE (%) | Reduced χ² |
+|---|---|---:|---:|---:|
+| 600 MHz | SBONEST | 297.89 ± 1.63 | 5.0287 ± 0.0299 | 1.058 |
+| 600 MHz | ONEST Matrix | 297.95 ± 1.64 | 5.0142 ± 0.0357 | 1.055 |
+| 800 MHz | SBONEST | 299.85 ± 1.23 | 4.9994 ± 0.0313 | 1.035 |
+| 800 MHz | ONEST Matrix | 301.41 ± 1.23 | 4.9702 ± 0.0330 | 1.058 |
+
+Generating values are kex = 300 s⁻¹ and pB = 5%. Errors are local 1 SE with
+absolute σ = 0.001, without reduced-χ² rescaling; pB errors are percentage points.
+The 600 MHz fits are nearly identical. At 800 MHz, the noiseless ONEST fit retains
+a +0.51% kex displacement, while SBONEST recovers the truth at both fields.
+The prescribed 1250–1850 Hz sideband mask removes no points in these windows.
+
 The bundle includes [all parameters and local standard errors](results/field_comparison_600_800_20261003_02/parameters.csv),
 [600 MHz](results/field_comparison_600_800_20261003_02/comparison_600.png) and
 [800 MHz](results/field_comparison_600_800_20261003_02/comparison_800.png) figures,
@@ -151,8 +171,14 @@ source points to historical local manuscript data that are not distributed:
 ```
 
 Choose a new output directory each time. ONEST uses its actual Matrix forward
-model with RF-scale handling and optimization matched to SBONEST. These results
-describe one synthetic noise realization per field, not experimental validation.
+model, including its zero clamp, with RF-scale handling and optimization matched
+to SBONEST. This is not a comparison with default ONEST CLI settings. The lowest
+χ² among three starts is reported; noisy ONEST fits reached slightly different
+minima. A signed nitrogen-only control is also retained. These results describe
+one synthetic noise realization per field; local errors exclude model mismatch,
+and performance at other peak positions or pulse conditions remains untested.
+See section 7.1 of the [English](SBONEST_MANUAL.md) or
+[Korean](SBONEST_MANUAL.ko.md) manual for the full procedure.
 
 ## ONEST and license
 

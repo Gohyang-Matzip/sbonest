@@ -83,7 +83,9 @@ OC의 spin operator·column-major Liouvillian을 사용해 실제 NH 두 spin을
 ONEST Matrix와 같은 longitudinal deviation convention으로 equilibrium recovery는 없다.
 Relaxation은 product operator의 N/H rate 합을 사용한다. CSA–DD cross-correlation,
 다른 spin과의 coupling, H chemical exchange, 시간에 따른 RF drift 등은 포함하지 않는다.
-`J=0`에서 원래 ONEST Matrix 계산과 일치하는 것을 테스트한다.
+`J=0`에서 signed nitrogen-only 전파와 일치하는 것을 테스트한다. 원래 ONEST
+Matrix worker는 마지막에 음수 intensity를 0으로 제한하므로, 일반적인 signed
+관측값에서는 `ONEST = maximum(signed prediction, 0)` 관계를 별도로 확인한다.
 
 90x–240y–90x 반복 decoupling과 잔여 sideband의 실험적 배경은
 [Vallurupalli et al., JACS 2012, DOI 10.1021/ja3001419](https://doi.org/10.1021/ja3001419)의
@@ -185,6 +187,28 @@ RF-only 두 fitting mode를 검증한다. `demo_sideband.py`는 독립 기준으
 다시 fitting한다(961점/RF). 기존 불균일 데이터를 보간해 fitting하는 옵션이 아니다.
 간격은 유한한 양수여야 하고 전체 4800 Hz 범위를 정확히 나눠야 한다.
 기존 결과는 유지되며 `--out`에 새 디렉터리를 지정한다.
+
+## 600/800 MHz 모델 비교
+
+`compare_field_models.py`는 같은 합성 관측값에 SBONEST, 실제 ONEST Matrix worker,
+zero clamp를 제거한 nitrogen-only 대조를 각각 fitting한다. 두 자기장은 따로
+분석하고, 모델마다 같은 8개 파라미터·RF scale·bounds·optimizer를 사용한다.
+논문 조건인 R1H = 2, R2H = 25 s⁻¹을 고정하므로 자동 H-rate 예제와 구분한다.
+
+```bash
+.venv/bin/python compare_field_models.py \
+  --source results/field_comparison_600_800_20261003_02/inputs \
+  --out results/field_comparison_repeat_01
+```
+
+기본 `--source`가 가리키는 과거 로컬 입력은 배포되지 않으므로 위 경로를 명시한다.
+`--out`은 새 디렉터리여야 한다. 모델·잡음 조건별 초기값 3개로 총 36회 fitting하며,
+잡음 포함 ONEST의 초기값별 차이는 결과에 그대로 남긴다. 현재 CI에는 이 전체
+비교 실행이 포함되지 않는다. 조건·결과·표준오차는
+[매뉴얼 7.1절](SBONEST_MANUAL.ko.md)과
+[비교 보고서](results/field_comparison_600_800_20261003_02/REPORT.txt)를 참고한다.
+
+## 구현 범위와 출처
 
 전용 웹 UI와 sideband Monte Carlo 경로는 추가하지 않았다. 기존 ONEST 웹/MC는 원래
 모델들에 사용한다. 새 Sideband config를 기존 MC에 전달하면 unsupported method로 실패한다.
