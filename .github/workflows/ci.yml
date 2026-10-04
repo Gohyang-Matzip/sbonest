@@ -85,11 +85,11 @@ jobs:
           sbonest version
           sbonest check example/sideband_auto_H/two_RF.json --no-pdf
       - run: python test_sb_output.py
-      - name: Canonical historical golden and exact worker identity
+      - name: Canonical full fit and exact worker identity
         shell: bash
         run: |
           mkdir -p .omo/evidence/task-8
-          python test_sb_golden.py --out .omo/evidence/task-8/ci_golden 2>&1 | tee .omo/evidence/task-8/golden.log
+          python test_sb_worker_identity.py --out .omo/evidence/task-8/ci_workers 2>&1 | tee .omo/evidence/task-8/workers.log
       - name: Noneditable wheel and sdist acceptance
         shell: bash
         run: python test_sb_distribution.py --out .omo/evidence/task-8/ci_distribution 2>&1 | tee .omo/evidence/task-8/distribution.log
@@ -109,7 +109,39 @@ jobs:
           include-hidden-files: true
           path: |
             .omo/evidence/task-8/*.log
-            .omo/evidence/task-8/ci_golden/**
+            .omo/evidence/task-8/ci_workers/**
             .omo/evidence/task-8/ci_distribution/manifest.json
             .omo/evidence/task-8/ci_distribution/*.log
+          if-no-files-found: warn
+
+  historical:
+    name: historical golden (macOS ARM64, Python 3.12)
+    runs-on: macos-14
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: test "$(uname -m)" = arm64
+      - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
+      # The immutable optimizer endpoint is reproduced on macOS ARM64.
+      # Linux still runs the canonical fits and exact worker comparison above.
+      - name: Canonical historical golden and exact worker identity
+        shell: bash
+        run: |
+          mkdir -p .omo/evidence/task-8
+          python test_sb_golden.py --out .omo/evidence/task-8/ci_golden 2>&1 | tee .omo/evidence/task-8/golden.log
+      - name: Retain historical failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: historical-failure-macos-arm64-python-3.12
+          include-hidden-files: true
+          path: |
+            .omo/evidence/task-8/golden.log
+            .omo/evidence/task-8/ci_golden/**
           if-no-files-found: warn

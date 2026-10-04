@@ -4,6 +4,9 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- Validate the immutable historical fit on macOS ARM64 and full-fit exact worker
+  identity on both macOS and Linux. Historical tolerances remain unchanged;
+  platform-dependent optimizer endpoints are not required to be bit-identical.
 - Package runtime diagnostics and portable synthetic two-RF demo resources in
   wheel and source distributions; version reporting no longer loads demo data.
 - Align installed `compare --models/--h-ppm-c` and `serve --token/--max-age-days`

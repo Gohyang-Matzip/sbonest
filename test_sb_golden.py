@@ -134,11 +134,8 @@ def check_mutations(reference):
     return results
 
 
-def check_full_fit(folder):
-    """Run the unchanged canonical configuration under both worker counts."""
-    reference = json.loads(REFERENCE.read_text())
-    mutations = check_mutations(reference)
-    (folder / 'task-4-mutation.json').write_text(json.dumps(mutations, indent=2) + '\n')
+def run_canonical_fits(folder):
+    """Run both canonical full fits and require exact same-machine worker identity."""
     results = []
     for workers in (1, 2):
         config = load_config(ROOT / 'example/sideband_auto_H/two_RF.json')
@@ -146,10 +143,28 @@ def check_full_fit(folder):
         config['Project Name'] = str(folder / f'workers-{workers}')
         run_config(config, no_pdf=True, workers=workers)
         results.append(json.loads((folder / f'workers-{workers}_result.json').read_text()))
+    names = ['kab', 'kba', 'v1n_scale'] + [
+        f'{residue}.{parameter}' for residue in ('A1', 'G2', 'S3')
+        for parameter in ('peak_ppm', 'dw_ppm', 'R1', 'R2a', 'R2b', 'R1H', 'R2H')]
     for result in results:
-        check_historical(result, reference)
+        assert result['success'] is True, 'success'
+        for key, value in (('n_points', 882), ('n_parameters', 24), ('dof', 858),
+                           ('jacobian_rank', 24)):
+            assert result[key] == value, key
+        assert list(result['parameters']) == result['parameter_order'] == names, 'parameter_order'
     check_workers(*results)
     check_predictions(folder / 'workers-1_predictions.csv', folder / 'workers-2_predictions.csv')
+    return results
+
+
+def check_full_fit(folder):
+    """Run the unchanged canonical configuration under both worker counts."""
+    reference = json.loads(REFERENCE.read_text())
+    mutations = check_mutations(reference)
+    (folder / 'task-4-mutation.json').write_text(json.dumps(mutations, indent=2) + '\n')
+    results = run_canonical_fits(folder)
+    for result in results:
+        check_historical(result, reference)
     comparison = {'success': True, 'workers': [1, 2], 'historical_chi2': reference['chi2'],
                   'chi2': [result['chi2'] for result in results], 'n_points': 882,
                   'n_parameters': 24, 'dof': 858, 'jacobian_rank': 24,

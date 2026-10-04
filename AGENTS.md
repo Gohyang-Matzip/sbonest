@@ -46,10 +46,18 @@ python test_sb_import.py
 python test_sb_server.py
 python test_sb_cli.py
 python test_sb_diagnostics.py
+python test_sb_worker_identity.py --out session_artifacts/worker_identity_01
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
-These match CI checks; use fresh output directories. Reproduce the field comparison with:
+These match CI checks; use fresh output directories.
+
+The Linux full workflow runs `test_sb_worker_identity.py` for canonical full-fit
+and exact same-machine worker parity. A separate macOS ARM64 Python 3.12 job runs
+`test_sb_golden.py` against the immutable historical endpoint, with unchanged
+tolerances. Do not infer cross-platform endpoint identity from worker parity.
+
+Reproduce the field comparison with:
 
 ```bash
 python compare_field_models.py \
