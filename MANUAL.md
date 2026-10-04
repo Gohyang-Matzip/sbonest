@@ -106,9 +106,10 @@ Check `default_result.txt`: global `kex`, `pB`, per-residue `R2a`, `R2b`, `dw`, 
 ```bash
 python mcrun.py config.json 100          # 100 MC runs, all CPU cores
 python mcrun.py config.json 100 4        # limit to 4 processes
+python mcrun.py config.json 100 4 --seed 7   # reproducible noise draws (run i uses seed + i)
 ```
 
-Each run re-samples the data within its error bars and refits. Additional outputs: `default_mc.txt` (parameter means ± std dev) and `default_mcmean.pdf`.
+Each run re-samples the data within its error bars and refits. Additional outputs: `default_mc.txt` (parameter means ± std dev) and `default_mcmean.pdf`. A run whose refit fails is excluded and its error is printed to stderr; without `--seed` the draws differ between invocations.
 
 Note (macOS): run from a saved script/file, not piped stdin — the `spawn` start method cannot re-import `<stdin>`.
 

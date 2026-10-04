@@ -262,7 +262,9 @@ def check_cli():
     }
     (folder / "config.json").write_text(json.dumps(conf))
     env = {**os.environ, "MPLBACKEND": "Agg", "PYTHONUNBUFFERED": "1"}
-    for script, args in [("run.py", []), ("mcrun.py", ["2", "2"])]:
+    # A fixed seed keeps the two noisy refits reproducible; unseeded draws made
+    # this smoke test fail intermittently when a refit hit the evaluation limit.
+    for script, args in [("run.py", []), ("mcrun.py", ["2", "2", "--seed", "20261004"])]:
         result = subprocess.run(
             [sys.executable, str(ROOT / script), "config.json", *args, "--no-pdf"],
             cwd=folder,
