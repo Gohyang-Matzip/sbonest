@@ -1,16 +1,11 @@
 """Global (shared-exchange) versus individual model comparison on small synthetic data."""
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import os
 
-for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import contextlib
 import io
@@ -122,6 +117,37 @@ def check_shared_and_distinct_exchange():
         raise AssertionError('Existing comparison output was overwritten')
 
 
+def check_unlisted_residues():
+    """Residues absent from config.residues are active and must be switched off in individual fits."""
+    from unittest.mock import patch
+    from sb_compare import _dataset_labels, run_comparison, three_state_config
+    from sbfit import SidebandModel
+
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-compare-unlisted-'))
+    path = write_synthetic(folder, {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    cfg = json.loads(path.read_text())
+    cfg['residues'] = [r for r in cfg['residues'] if r['name'] != 'S3']
+    cfg['init']['vary'] = [v for v in cfg['init']['vary'] if not v.startswith('S3.')]
+    assert _dataset_labels(cfg, folder) == (['A1', 'G2', 'S3'], ['A1', 'G2', 'S3'])
+    seen = []
+
+    def fake_fit(sub, config_dir, no_pdf, workers):
+        seen.append([r.label for r in SidebandModel(sub, config_dir).dataset.res if r.active])
+        if len(seen) == 4:
+            raise RuntimeError('stop after the last individual configuration')
+        return {'success': False, 'message': 'skipped', 'result_json': ''}
+
+    with patch('sb_compare._fit', side_effect=fake_fit):
+        try:
+            run_comparison(cfg, folder, folder / 'out')
+        except RuntimeError:
+            pass
+    assert seen == [['A1', 'G2', 'S3'], ['A1'], ['G2'], ['S3']], seen
+    derived = three_state_config(cfg, 'Sideband_3st_Linear')
+    assert [r.label for r in SidebandModel(derived, folder).dataset.res if r.active] == ['A1', 'G2', 'S3']
+    assert derived['sideband']['residues']['S3']['h_ppm_c'] == cfg['sideband']['residues']['S3']['h_ppm_b']
+
+
 def check_cli():
     folder = Path(tempfile.mkdtemp(prefix='sbonest-compare-cli-'))
     path = write_synthetic(folder, {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
@@ -190,6 +216,7 @@ def check_model_comparison():
 if __name__ == '__main__':
     check_statistics_and_config_pruning()
     check_shared_and_distinct_exchange()
+    check_unlisted_residues()
     check_cli()
     check_model_comparison()
     print('PASS: global versus individual comparison statistics, fits, CLI and model comparison')

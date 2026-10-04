@@ -1,16 +1,9 @@
 """Exact quadratic checks and a small real Sideband analysis integration test."""
 
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
+import _env  # noqa: F401
 
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
-
-import os
-
-for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(name, "1")
 
 import copy
 import json
@@ -140,8 +133,6 @@ def check_fixed_rates_and_bounds():
     assert np.array(out["pB"][0]["parameters"])[3] >= 2.
 
 
-
-
 def check_population_endpoints():
     # Failure caught: dividing by zero or dropping an unconstrained endpoint rate.
     for vary, rates, target in [([3, 0], [2., 0.], 1.), ([1, 0], [0., 8.], 0.)]:
@@ -188,7 +179,6 @@ def check_profile_roundoff_boundaries():
     assert row["success"], row
     assert np.array(row["start"])[1] >= model.lower[1]
     assert_allclose(np.array(row["start"])[[3, 1]].sum(), 100., atol=1e-13)
-
 
 
 def check_infeasible_small_rates():

@@ -146,7 +146,8 @@ class WorkerPool:
         # on demand, which made the first Jacobian several times slower.
         futures = [self.executor.submit(warm_task, index) for index in range(self.workers)]
         try:
-            self.started = sorted({future.result() for future in futures})
+            for future in futures:
+                future.result()
         except BaseException:
             self.__exit__(None, None, None)
             raise

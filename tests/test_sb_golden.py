@@ -1,15 +1,7 @@
 """Retained canonical full-fit golden and exact same-machine worker checks."""
-import sys
 from pathlib import Path
+from _env import ROOT
 
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
-
-import os
-
-for _name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(_name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import argparse
 import copy

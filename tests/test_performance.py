@@ -1,10 +1,8 @@
 """Run with: OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 python3 test_performance.py."""
 
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import copy
 import json

@@ -86,6 +86,40 @@ def waveform_segments(path, rf_hz=None, b1_scale=1.0):
     return np.column_stack((np.diff(np.r_[starts, len(xy)]) * dt, xy[starts]))
 
 
+def _check_segments(seg):
+    if (
+        seg.ndim != 2
+        or seg.shape[1] != 3
+        or len(seg) == 0
+        or not np.isfinite(seg).all()
+        or np.any(seg[:, 0] <= 0)
+    ):
+        raise ValueError("segments must be finite (n,3) rows with positive durations")
+
+
+def _propagate(a, hrf, seg, n_full, remaining, c0):
+    """Apply n_full decoupling periods plus the exact remaining fraction to c0."""
+    identity = np.eye(a.shape[-1])
+    full = np.broadcast_to(identity, a.shape).copy()
+    partial = full.copy()
+    rem = remaining
+
+    # Only identical constant segments reuse exponentials; no approximate cache.
+    @lru_cache(maxsize=16)
+    def propagate(duration, fx, fy):
+        return expm((a + fx * hrf[0] + fy * hrf[1]) * duration)
+
+    for duration, fx, fy in seg:
+        u = propagate(duration, fx, fy)
+        full = u @ full
+        use = min(duration, rem)
+        if use > 0:
+            q = u if use == duration else propagate(use, fx, fy)
+            partial = q @ partial
+            rem = max(0.0, rem - use)
+    return (partial @ np.linalg.matrix_power(full, n_full)) @ c0
+
+
 def profile(
     segments,
     offsets,
@@ -112,14 +146,7 @@ def profile(
     seg = np.asarray(segments, dtype=float)
     off = np.atleast_1d(np.asarray(offsets, dtype=float))
     rates = [T, nu, kab, kba, r1, r2a, r2b, r1h, r2h]
-    if (
-        seg.ndim != 2
-        or seg.shape[1] != 3
-        or len(seg) == 0
-        or not np.isfinite(seg).all()
-        or np.any(seg[:, 0] <= 0)
-    ):
-        raise ValueError("segments must be finite (n,3) rows with positive durations")
+    _check_segments(seg)
     if (
         off.ndim != 1
         or not off.size
@@ -135,7 +162,6 @@ def profile(
     period = seg[:, 0].sum()
     n_full = int(np.floor(T / period))
     remaining = T - n_full * period
-    identity = np.eye(32)
     hrf = [np.kron(np.eye(2), a) for a in (_HX, _HY)]
     values = []
     for start in range(0, off.size, 128):
@@ -157,24 +183,7 @@ def profile(
                 - np.diag(relaxation + rate)
             )
         a[:, :16, 16:], a[:, 16:, :16] = kba * np.eye(16), kab * np.eye(16)
-        full = np.broadcast_to(identity, a.shape).copy()
-        partial = full.copy()
-        rem = remaining
-
-        # Only identical constant segments reuse exponentials; no approximate cache.
-        @lru_cache(maxsize=16)
-        def propagate(duration, fx, fy):
-            return expm((a + fx * hrf[0] + fy * hrf[1]) * duration)
-
-        for duration, fx, fy in seg:
-            u = propagate(duration, fx, fy)
-            full = u @ full
-            use = min(duration, rem)
-            if use > 0:
-                q = u if use == duration else propagate(use, fx, fy)
-                partial = q @ partial
-                rem = max(0.0, rem - use)
-        end = (partial @ np.linalg.matrix_power(full, n_full)) @ c0
+        end = _propagate(a, hrf, seg, n_full, remaining, c0)
         values.extend(end[:, 12] / pa)
     out = np.asarray(values)
     if not np.isfinite(out).all():
@@ -233,11 +242,7 @@ def profile_states(
     K = np.asarray(exchange, dtype=float)
     n = K.shape[0]
     shifts, h_shifts, r2 = (np.asarray(x, dtype=float) for x in (shifts, h_shifts, r2))
-    if (
-        seg.ndim != 2 or seg.shape[1] != 3 or len(seg) == 0 or not np.isfinite(seg).all()
-        or np.any(seg[:, 0] <= 0)
-    ):
-        raise ValueError("segments must be finite (n,3) rows with positive durations")
+    _check_segments(seg)
     if (
         off.ndim != 1 or not off.size or not np.isfinite(off).all()
         or shifts.shape != (n,) or h_shifts.shape != (n,) or r2.shape != (n,)
@@ -254,7 +259,6 @@ def profile_states(
     period = seg[:, 0].sum()
     n_full = int(np.floor(T / period))
     remaining = T - n_full * period
-    identity = np.eye(size)
     hrf = [np.kron(np.eye(n), a) for a in (_HX, _HY)]
     outflow = K.sum(axis=1)
     values = []
@@ -277,23 +281,7 @@ def profile_states(
             for m in range(n):
                 if m != j and K[j, m]:
                     a[:, 16 * m : 16 * (m + 1), blk] = K[j, m] * np.eye(16)
-        full = np.broadcast_to(identity, a.shape).copy()
-        partial = full.copy()
-        rem = remaining
-
-        @lru_cache(maxsize=16)
-        def propagate(duration, fx, fy):
-            return expm((a + fx * hrf[0] + fy * hrf[1]) * duration)
-
-        for duration, fx, fy in seg:
-            u = propagate(duration, fx, fy)
-            full = u @ full
-            use = min(duration, rem)
-            if use > 0:
-                q = u if use == duration else propagate(use, fx, fy)
-                partial = q @ partial
-                rem = max(0.0, rem - use)
-        end = (partial @ np.linalg.matrix_power(full, n_full)) @ c0
+        end = _propagate(a, hrf, seg, n_full, remaining, c0)
         values.extend(end[:, 12] / populations[0])
     out = np.asarray(values)
     if not np.isfinite(out).all():

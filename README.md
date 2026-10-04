@@ -232,7 +232,9 @@ inputs, source/dependency identity, thread settings and PDF mode.
 
 `sbonest check|fit|resume|report|init-demo|design|compare|import-bruker|serve|benchmark|version`
 call the same functions as the scripts, so outputs and provenance are identical
-(manual section 13). The scripts keep working from a plain checkout.
+(manual section 13). `check`, `fit` and `resume` accept Sideband configurations
+only; the inherited ONEST models run through `run.py`. The scripts keep working
+from a plain checkout.
 Installed `compare` also accepts `--models` and `--h-ppm-c`; `serve` accepts
 `--token` and `--max-age-days`, like the scripts. Browser action errors remain
 visible separately from the job log, failed archive keeps the selected job, and

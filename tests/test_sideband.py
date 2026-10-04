@@ -1,17 +1,11 @@
 """Runnable physical checks: OC integration, exact timing and RF-field recovery."""
 
 # ruff: noqa: E402 -- Set BLAS limits before importing NumPy.
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import _env  # noqa: F401
 
 import importlib.util
-import os
 
-for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
-    os.environ.setdefault(name, "1")
 
 import numpy as np
 from numpy.testing import assert_allclose
@@ -285,7 +279,6 @@ def main():
 
     assert importlib.util.find_spec("sbfit") is not None, "Sideband fitter is missing"
     import tempfile
-    from pathlib import Path
 
     from sbfit import SidebandModel
 

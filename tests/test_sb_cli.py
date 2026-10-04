@@ -1,16 +1,11 @@
 """Unified command line and packaging metadata."""
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import os
 
-for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import importlib
 import contextlib
@@ -23,7 +18,6 @@ from unittest.mock import patch
 
 from sb_compare import _residue_config
 from test_sb_compare import write_synthetic
-
 
 
 def run_cli(*args, cwd=None):
@@ -69,24 +63,25 @@ def check_compare_and_serve_contracts():
     import sb_cli
 
     config = {'init': {'Method': 'Sideband'}}
-    with patch('sb_cli._config', return_value=(config, ROOT)), \
+    config_file = str(ROOT / 'config.json')
+    with patch('run.load_config', return_value=config), \
             patch('sb_compare.compare_models', return_value={}) as models, \
             patch('sb_compare.run_comparison', return_value={}) as residues:
-        assert sb_cli.main(['compare', 'config.json', '--out', 'out', '--models',
+        assert sb_cli.main(['compare', config_file, '--out', 'out', '--models',
                             'Sideband', 'Sideband_3st_Linear', '--h-ppm-c', 'A1=7.1',
                             'G2=8.2', '--pdf', '--workers', '2']) == 0
         models.assert_called_once_with(config, ROOT, 'out',
                                        models=('Sideband', 'Sideband_3st_Linear'),
                                        h_ppm_c={'A1': 7.1, 'G2': 8.2}, no_pdf=False, workers=2)
-        assert sb_cli.main(['compare', 'config.json', '--out', 'out', '--models', 'Sideband']) == 0
+        assert sb_cli.main(['compare', config_file, '--out', 'out', '--models', 'Sideband']) == 0
         assert models.call_args.kwargs['h_ppm_c'] is None
-        assert sb_cli.main(['compare', 'config.json', '--out', 'out']) == 0
+        assert sb_cli.main(['compare', config_file, '--out', 'out']) == 0
         residues.assert_called_once_with(config, ROOT, 'out', no_pdf=True, workers=1)
         models.reset_mock()
         for shift in ('A1=bad', 'A1', '=7.1', 'A1='):
             with contextlib.redirect_stderr(io.StringIO()):
                 try:
-                    sb_cli.main(['compare', 'config.json', '--out', 'out', '--models',
+                    sb_cli.main(['compare', config_file, '--out', 'out', '--models',
                                  'Sideband', '--h-ppm-c', shift])
                 except SystemExit as exc:
                     assert exc.code == 1

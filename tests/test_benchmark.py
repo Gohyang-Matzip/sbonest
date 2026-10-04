@@ -1,10 +1,8 @@
 """Real CLI checks for Sideband/ONEST dispatch and preserved profile artifacts."""
 
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import json
 import os
@@ -16,8 +14,6 @@ import numpy as np
 from optimalcontrol.io import Waveform, export_json
 
 from test_sideband import reference
-
-
 
 
 def run_cli(folder, config, *args):

@@ -1,16 +1,11 @@
 """Sideband web runner: upload, preflight, background fit, resume, report and downloads."""
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+import _env  # noqa: F401
 
 import os
 
-for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import io
 import json
@@ -175,6 +170,11 @@ def check_rejections():
     wrong = upload(client, folder, onest)
     assert wrong.status_code == 400 and 'Sideband' in wrong.get_json()['error']
     assert upload(client, folder, config, workers='0').status_code == 400
+    for bad in ({**config, 'init': ['Sideband']}, {**config, 'sideband': []}):
+        before = {p.name for p in JOBS.iterdir()}
+        response = upload(client, folder, bad)
+        assert response.status_code == 400 and 'object' in response.get_json()['error'], response.get_data(as_text=True)
+        assert {p.name for p in JOBS.iterdir()} == before, 'rejected upload left a job folder'
     assert not any(p.is_dir() and (p / 'config.json').exists() and json.loads((p / 'config.json').read_text()).get('init', {}).get('Method') == 'Baldwin'
                    for p in JOBS.iterdir())
 
@@ -182,7 +182,6 @@ def check_rejections():
 def check_running_archive():
     """Rejected archives preserve files while a real child is awaiting input."""
     import subprocess
-    import sys
 
     folder = JOBS / 'running-archive'
     folder.mkdir()

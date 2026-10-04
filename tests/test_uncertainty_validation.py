@@ -1,9 +1,7 @@
 """Independent coverage arithmetic and a real Sideband study CLI check."""
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import copy
 import importlib
@@ -15,8 +13,6 @@ import tempfile
 from numpy.testing import assert_allclose
 
 from test_sb_output import small_config
-
-
 
 
 def runner():

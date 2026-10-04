@@ -1,9 +1,6 @@
 """Parametric bootstrap checks against an independent Gaussian-mean model."""
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import _env  # noqa: F401
 
 from types import SimpleNamespace
 import json

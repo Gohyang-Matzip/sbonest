@@ -6,13 +6,14 @@ The model lives in sbfit.py; this module owns the configuration-level workflow
 import argparse
 import contextlib
 import json
+import sys
 from pathlib import Path
 import tempfile
 import time
 
 import numpy as np
 
-from run import load_config
+from run import load_config, validate_config_shape
 from sb_analysis import (
     MultiStartError, _json_safe, fit_multistart, profile_intervals, profile_likelihood,
     restore_fit, snapshot_fit,
@@ -47,14 +48,7 @@ def check_config(config, config_dir=".", *, no_pdf=False, identifiability=False,
     summary = {"valid": False, "method": "Sideband", "errors": [], "warnings": [],
                "datasets": [], "waveforms": [], "outputs": [], "output_conflicts": []}
     try:
-        if (not isinstance(config, dict)
-                or not isinstance(config.get("Project Name"), str)
-                or not config["Project Name"].strip()
-                or not isinstance(config.get("datasets"), list) or not config["datasets"]
-                or not all(isinstance(path, str) and path for path in config["datasets"])
-                or not isinstance(config.get("residues"), list)
-                or not isinstance(config.get("init"), dict)):
-            raise ValueError("Invalid config value types or missing required sections")
+        validate_config_shape(config)
         outputs = _output_paths(config, no_pdf)
         outputs.append(Path(config["Project Name"] + "_checkpoint"))
         summary["project"] = str(Path(config["Project Name"]).absolute())
@@ -291,42 +285,53 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False, workers=1)
     return fitted
 
 
-def main():
-    """Command line shared by run.py and sbfit.py for Sideband configurations."""
-    parser = argparse.ArgumentParser(description=__doc__)
+def build_parser(description=None):
+    """Argument parser shared by run.py, sbfit.py and ``sbonest check|fit|resume``."""
+    parser = argparse.ArgumentParser(description=description or __doc__)
     parser.add_argument("config_file")
-    parser.add_argument("--no-pdf", action="store_true")
-    parser.add_argument("--check", action="store_true", help="Validate without fitting or writing outputs")
+    parser.add_argument("--no-pdf", action="store_true", help="Skip PDF reports; save numeric results only.")
+    parser.add_argument("--check", action="store_true", help="Validate Sideband inputs without fitting or writing outputs")
     parser.add_argument("--identifiability", action="store_true",
                         help="With --check: add local Jacobian diagnostics at the initial point")
     parser.add_argument("--resume", action="store_true", help="Resume a matching Sideband checkpoint")
     parser.add_argument("--workers", type=int, default=1,
-                        help="Worker processes for Jacobian columns, restarts, profile points and bootstrap replicates (default 1)")
-    args = parser.parse_args()
+                        help="Sideband worker processes for Jacobian columns, restarts, profile points and bootstrap replicates (default 1)")
+    return parser
+
+
+def parse_arguments(parser, argv=None):
+    """Parse and cross-validate the shared command line; errors exit through the parser."""
+    args = parser.parse_args(argv)
     if args.check and args.resume:
         parser.error("--check and --resume cannot be combined")
     if args.identifiability and not args.check:
         parser.error("--identifiability requires --check")
     if args.workers < 1:
         parser.error("--workers must be a positive integer")
+    return args
+
+
+def dispatch(parser, args, config, config_dir):
+    """Run ``--check`` or the fit for parsed arguments and return the exit status."""
     try:
-        config = load_config(args.config_file)
-        config_dir = Path(args.config_file).resolve().parent
         if args.check:
             summary = check_config(config, config_dir, no_pdf=args.no_pdf,
                                    identifiability=args.identifiability, workers=args.workers)
             print(json.dumps(summary, indent=2, allow_nan=False))
-            parser.exit(0 if summary["valid"] else 1)
-        run_config(
-            config,
-            config_dir,
-            args.no_pdf,
-            resume=args.resume,
-            workers=args.workers,
-        )
+            return 0 if summary["valid"] else 1
+        run_config(config, config_dir, args.no_pdf, resume=args.resume, workers=args.workers)
+        return 0
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
         parser.exit(1, f"Error: {exc}\n")
 
 
+def main(argv=None):
+    """Command line shared by run.py and sbfit.py for Sideband configurations; returns the exit status."""
+    parser = build_parser()
+    args = parse_arguments(parser, argv)
+    config = load_config(args.config_file)
+    return dispatch(parser, args, config, Path(args.config_file).resolve().parent)
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -18,6 +18,11 @@ import numpy as np
 _NORMAL = NormalDist()
 
 
+def number_text(value, digits=4):
+    """Format a value for text reports; None becomes 'unavailable'."""
+    return 'unavailable' if value is None else f'{value:.{digits}g}'
+
+
 def runs_test(values):
     """Two-sided Wald-Wolfowitz runs test on the signs of ``values`` (zeros dropped)."""
     signs = np.sign(np.asarray(values, dtype=float))
@@ -151,8 +156,7 @@ def residual_diagnostics(rows, n_parameters, covariance=None, *, runs_alpha=0.01
 
 def diagnostics_lines(report, parameter_names=None):
     """Plain-text lines summarizing a residual_diagnostics report."""
-    def number(value, digits=4):
-        return 'unavailable' if value is None else f'{value:.{digits}g}'
+    number = number_text
 
     lines = ['Residual diagnostics (supplied absolute sigma)',
              f'reduced chi2 {number(report["reduced_chi2"])} (expected 1 +/- {number(report["reduced_chi2_expected_sd"], 2)}), '
