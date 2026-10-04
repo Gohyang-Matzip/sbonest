@@ -116,7 +116,7 @@ jobs:
 
   historical:
     name: historical golden (macOS ARM64, Python 3.12)
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 20
     env:
       PYTHONDONTWRITEBYTECODE: "1"
@@ -124,10 +124,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12.14"
           cache: pip
       - run: test "$(uname -m)" = arm64
       - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
+      - name: Record numerical backend
+        run: python -c "import platform, numpy, scipy; print(platform.platform()); numpy.show_config(); scipy.show_config()"
       # The immutable optimizer endpoint is reproduced on macOS ARM64.
       # Linux still runs the canonical fits and exact worker comparison above.
       - name: Canonical historical golden and exact worker identity
