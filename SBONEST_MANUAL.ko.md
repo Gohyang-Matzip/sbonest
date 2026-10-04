@@ -465,6 +465,21 @@ profile과 표준화 residual을 확인할 수 있다. 새 실행은 fitting·�
 생성한다. `REPORT.txt`와 `verification.json`은 배포 결과에 별도로 작성한 기록이며,
 비교 script가 자동 생성하는 파일은 아니다.
 
+**두 자기장 공동 fitting.** `compare_joint_fields.py --source INPUTS --out NEW_DIR
+[--workers N]`은 두 자기장의 "full" dataset 여섯 개를 12.1절의 자기장 그룹 모델로
+함께 fitting해 위의 개별 fitting과 비교한다. 보관된 실행은
+[`results/field_comparison_joint_20261004/summary.json`](results/field_comparison_joint_20261004/summary.json)이다.
+생성에 쓴 양성자 이완을 고정하면(벤치마크 가정) 공동 fitting은 kex = 298.9 ± 0.9 s⁻¹
+(참값 300)를 주며, 600 MHz 단독 297.9 ± 1.6, 800 MHz 단독 299.9 ± 1.2과 비교된다.
+자기장 그룹별 양성자 이완을 fitting해도 kex·pB는 그대로지만(298.9 ± 1.0, 0.0501)
+양성자 이완 자체는 이 자기장에서 결정되지 않는다. 상한이 없으면 R1H는 하한으로,
+R2H는 수만 s⁻¹로 흘러가고(질소 이완까지 자기장별이면 질소 이완도 편향된다)
+경계 변형은 `init.bounds` 50·500 s⁻¹(`--proton-bounds`)를 쓴다. AICc는 고정 이완
+설명을 선호한다(자기장별 양성자 이완 ΔAICc +7.8, 질소 이완까지 +12.5). 추가
+파라미터가 정보를 담지 않을 때 예상되는 결과다. 자기장당 잡음 한 번의 합성
+참값이므로 추가 자유도의 비용을 보여 줄 뿐 실험 데이터에서의 이득을 보여 주지
+않는다.
+
 ## 8. 출력 파일과 결과 해석
 
 `Project Name = results/my_sideband_fit`이면 다음 파일이 만들어진다.
@@ -648,6 +663,15 @@ coverage를 주장하지 않는다. 출력에는 `study.json`, config/truth 사�
 `samples.json`, 개별 `samples/` 기록도 보존한다. 작은 연구는 표본 불확실성이
 크며 실험 타당성이나 보편적인 coverage를 입증하지 않는다.
 
+`--profile-interval kex pB`와 `--inner-bootstrap B`는 연구를 확장한다. 각 replicate가
+자신의 데이터에서 likelihood-ratio 구간(8.5절)과 B회 parametric bootstrap(seed
+`seed·1000003 + index`)도 받고, `coverage.json`에 profile·bootstrap 구간의 coverage
+비율·binomial SE·Wilson 구간·평균 폭을 담은 `intervals` 블록이 국소 SE coverage
+옆에 추가된다. 열린(한쪽) profile 구간과 실패한 내부 bootstrap은 따로 세고 비율에서
+제외한다. replicate마다 fitting 한 번 + 구간 양당 약 여섯 번의 재fitting + B번의
+fitting이 들므로 `--workers N`을 쓴다(replicate를 병렬로 돌리며 직렬 결과와
+동일하다). 100회 미만은 여전히 시연이다.
+
 ## 8.3. Checkpoint, 재개, 저장 결과 보고서
 
 일반 fitting은 기본적으로 `PROJECT_checkpoint/`를 만든다. 변경하지 않는
@@ -825,6 +849,18 @@ sigma와 고정 입력 아래에서 설명을 비교할 뿐이다. 공유 속도
 교환 과정과 부합하지만 증명은 아니며, 개별 속도가 선호되는 것은 모델 불일치나
 잘못 보정된 오차 때문일 수도 있다.
 
+**2상태인가 3상태인가.** `sb_workflow.py compare CONFIG --out DIR --models Sideband
+Sideband_3st_Linear [--h-ppm-c A1=7.1 ...]`은 같은 데이터를 2상태 설정과 거기서
+유도한 3상태 모델(12.2절)로 fitting한다. 유도 설정은 `--h-ppm-c`가 없으면 C 상태에
+B 상태의 양성자 이동을 재사용하고, `kbc`/`kcb`와 `dwC_ppm`을 2상태 교환 속도
+주변의 명시적 multistart 조합 다섯 개에서 시작하며, 2상태 분석은 제외한다.
+`comparison.json`/`.txt`에는 모델별 chi²·AICc·BIC·분포·속도·경계 표시와 2상태
+대비 AICc/BIC 차이가 담긴다. 3상태 모델은 파라미터 공간의 경계에서만 2상태로
+환원되므로 F-검정은 보고하지 않는다. 복귀 속도(`kcb`)가 하한에 닿으면 C 상태가
+흡수 상태가 되므로 경고가 그런 fitting을 퇴화로 표시하고 분포는 의미가 없다.
+합성 3상태 데이터에서는 ΔAICc ≈ −26,000으로 3상태가 선호되고 속도가 복원되며,
+2상태 데이터에서는 3상태 fitting이 퇴화하고 AICc가 2상태를 선호한다(+6.9).
+
 ## 8.8. 잔차·sigma 진단
 
 이 매뉴얼의 모든 불확실성 진술은 입력 absolute sigma와 데이터를 설명하는 모델을
@@ -974,7 +1010,9 @@ decoupling 항목의 `h_larmor_mhz`가 같은 dataset들은 하나의 **자기�
 
 자기장별 이완은 파라미터를 늘리므로 `--check --identifiability`로 식별성을
 확인하고, 공유·자기장별 fitting을 서로 다른 출력 접두사로 비교한 뒤 결론을
-내린다. 7.1절의 600/800 MHz 벤치마크는 이 옵션으로 다시 실행하지 않았다.
+내린다. 7.1절은 이 옵션으로 실행한 600/800 MHz 공동 벤치마크를 보고한다. kex·pB는
+그대로이고, 양성자 이완은 그 자기장에서 결정되지 않아 bounds가 필요하며, AICc는
+고정 이완 설명을 선호한다.
 
 ### 12.2. 3상태 교환
 

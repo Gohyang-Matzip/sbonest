@@ -115,6 +115,16 @@ def bootstrap_task(payload):
                                payload['index'], observed)
 
 
+def study_task(payload):
+    """One coverage-study replicate (draws, refit, optional intervals and inner bootstrap)."""
+    from validate_uncertainty import study_replicate
+
+    model = _model()
+    return study_replicate(model, np.asarray(payload['p'], dtype=float), payload['cfg'], payload['settings'],
+                           payload['index'], interval_settings=payload['interval_settings'],
+                           inner_settings=payload['inner_settings'])
+
+
 class WorkerPool:
     """Process pool bound to one configuration; use as a context manager."""
 

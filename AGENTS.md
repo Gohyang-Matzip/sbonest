@@ -74,6 +74,11 @@ tools) on Python 3.12, 3.13 and 3.14 and the full workflow on 3.12; add a new
 its warnings are indicators and `stderr_rescaled` is an explicitly labelled
 alternative, never the default error. Keep `CHANGELOG.md`, `CITATION.cff` and
 `pyproject.toml` versions in step.
+`compare_joint_fields.py` is a longer study like `compare_field_models.py` (not in
+CI); its archived run lives in `results/field_comparison_joint_*/` without
+checkpoints or input copies. `sb_compare.compare_models`/`three_state_config`
+derive three-state configurations from a two-state one; keep the degenerate
+(absorbing-state) warning when return rates hit their bounds.
 Every run retains a `<Project Name>_checkpoint` directory. `--resume` requires the
 same configuration, inputs, source/dependency identity, thread settings and PDF
 mode; preserve checkpoints and do not manually edit their records. The synthetic

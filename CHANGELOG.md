@@ -15,6 +15,14 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
   spectrum rows on the Fisher information for kex, pB, D or a parameter criterion,
   with uniform-budget comparison.
 - CI runs three test shards on Python 3.12, 3.13 and 3.14; CHANGELOG and CITATION added.
+- `validate_uncertainty.py --profile-interval ... --inner-bootstrap B --workers N`:
+  coverage of profile-likelihood and bootstrap percentile intervals in the same
+  seeded study.
+- `compare_joint_fields.py` and `results/field_comparison_joint_20261004/`: joint
+  600/800 MHz fits with field-group proton/nitrogen relaxation; proton rates are
+  not determined at those fields and need bounds, kex/pB unchanged.
+- `sb_workflow.py compare --models`: two-state versus three-state Sideband models
+  with multistart-based three-state initialization, AICc/BIC and degeneracy warnings.
 
 ## 1.1.0 — 2026-10-04
 

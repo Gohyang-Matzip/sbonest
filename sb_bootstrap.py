@@ -40,12 +40,41 @@ def bootstrap_draws(model, p, settings, index):
             for (_, _, _, _, sigma), mean in zip(data, means)]
 
 
-def bootstrap_replicate(model, p, cfg, index, observed):
+def sample_row(model, fitted, covariance, index):
+    """JSON-safe summary of one refit: parameters, errors, kex/pB, chi2, bounds."""
+    names = list(model.parameter_names)
+    fitted = np.asarray(fitted, dtype=float)
+    if not model.result.success or not np.isfinite(fitted).all():
+        raise RuntimeError('Bootstrap fit did not converge to finite parameters')
+    residual = np.asarray(model.errFunc(fitted), dtype=float)
+    if not np.isfinite(residual).all():
+        raise RuntimeError('Nonfinite bootstrap residual')
+    total = fitted[names.index('kab')] + fitted[names.index('kba')]
+    if total <= 0:
+        raise ValueError('Invalid bootstrap exchange rates')
+    two_state = 'kbc' not in names
+    rate_indices = [names.index('kab'), names.index('kba')]
+    errors = (derived_errors(fitted[rate_indices], covariance[np.ix_(rate_indices, rate_indices)])
+              if two_state else {'kex': None, 'pB': None})
+    free = set(int(i) for i in model.free)
+    return {'index': int(index), 'success': True, 'parameters': fitted.tolist(),
+            'stderr': [float(np.sqrt(value)) if np.isfinite(value) and value >= 0 else None
+                       for value in np.diag(covariance)],
+            'derived_se': errors, 'kex': float(total) if two_state else None,
+            'pB': float(fitted[names.index('kab')]/total) if two_state else None,
+            'chi2': float(residual @ residual), 'message': str(model.result.message),
+            'at_bounds': [name for i, name in enumerate(names) if i in free and (
+                np.isclose(fitted[i], model.lower[i], rtol=1e-5, atol=1e-8)
+                or np.isclose(fitted[i], model.upper[i], rtol=1e-5, atol=1e-8))]}
+
+
+def bootstrap_replicate(model, p, cfg, index, observed, *, analyses=None):
     """Fit one replicate's observations from the baseline; restore the model's data.
 
     Returns the JSON-safe sample row. Shared by the serial loop and pool workers.
+    ``analyses(model, fitted, covariance)`` may run further analyses on the
+    replicate's data while it is in place and return a dict merged into the row.
     """
-    names = list(model.parameter_names)
     p = np.asarray(p, dtype=float)
     data = model._prepare_data()
     if len(observed) != len(data) or any(np.shape(values) != np.shape(es.int) for values, (_, es, *_) in zip(observed, data)):
@@ -62,28 +91,9 @@ def bootstrap_replicate(model, p, cfg, index, observed):
         model._fit_data = None
         try:
             fitted, covariance = model.fit(p0=p.copy(), fitting_config=cfg)
-            if not model.result.success or not np.isfinite(fitted).all():
-                raise RuntimeError('Bootstrap fit did not converge to finite parameters')
-            residual = np.asarray(model.errFunc(fitted), dtype=float)
-            if not np.isfinite(residual).all():
-                raise RuntimeError('Nonfinite bootstrap residual')
-            total = fitted[names.index('kab')] + fitted[names.index('kba')]
-            if total <= 0:
-                raise ValueError('Invalid bootstrap exchange rates')
-            two_state = 'kbc' not in names
-            rate_indices = [names.index('kab'), names.index('kba')]
-            errors = (derived_errors(fitted[rate_indices], covariance[np.ix_(rate_indices, rate_indices)])
-                      if two_state else {'kex': None, 'pB': None})
-            free = set(int(i) for i in model.free)
-            row.update(success=True, parameters=fitted.tolist(),
-                       stderr=[float(np.sqrt(value)) if np.isfinite(value) and value >= 0 else None
-                               for value in np.diag(covariance)],
-                       derived_se=errors, kex=float(total) if two_state else None,
-                       pB=float(fitted[names.index('kab')]/total) if two_state else None,
-                       chi2=float(residual @ residual), message=str(model.result.message),
-                       at_bounds=[name for i, name in enumerate(names) if i in free and (
-                           np.isclose(fitted[i], model.lower[i], rtol=1e-5, atol=1e-8)
-                           or np.isclose(fitted[i], model.upper[i], rtol=1e-5, atol=1e-8))])
+            row.update(sample_row(model, fitted, covariance, index))
+            if analyses is not None:
+                row.update(analyses(model, fitted, covariance))
         except Exception as exc:
             row['message'] = f'{type(exc).__name__}: {exc}'
     finally:

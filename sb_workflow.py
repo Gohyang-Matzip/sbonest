@@ -46,6 +46,10 @@ def main():
     compare.add_argument('--out', required=True, help='New output directory')
     compare.add_argument('--workers', type=int, default=1, help='Worker processes for every sub-fit')
     compare.add_argument('--pdf', action='store_true', help='Also write fit PDFs for every sub-fit')
+    compare.add_argument('--models', nargs='+', metavar='MODEL',
+                         help='Compare Sideband models on the same data instead of residues, e.g. Sideband Sideband_3st_Linear')
+    compare.add_argument('--h-ppm-c', nargs='+', metavar='LABEL=ppm',
+                         help='State-C proton shifts for three-state models (default: the state-B shift)')
     args = parser.parse_args()
     if getattr(args, 'workers', 1) < 1:
         parser.error('--workers must be a positive integer')
@@ -69,12 +73,25 @@ def main():
                 print(f'{label}: {path}')
         else:
             from run import load_config
-            from sb_compare import run_comparison
+            from sb_compare import compare_models, run_comparison
             config = load_config(args.config_file)
             if not str(config['init'].get('Method', '')).startswith('Sideband'):
                 raise ValueError('compare requires a Sideband init.Method')
-            paths = run_comparison(config, Path(args.config_file).resolve().parent, args.out,
-                                   no_pdf=not args.pdf, workers=args.workers)
+            if args.models:
+                shifts = None
+                if args.h_ppm_c:
+                    shifts = {}
+                    for item in args.h_ppm_c:
+                        label, _, value = item.partition('=')
+                        if not label or not value:
+                            raise ValueError('--h-ppm-c entries must be LABEL=ppm')
+                        shifts[label] = float(value)
+                paths = compare_models(config, Path(args.config_file).resolve().parent, args.out,
+                                       models=tuple(args.models), h_ppm_c=shifts, no_pdf=not args.pdf,
+                                       workers=args.workers)
+            else:
+                paths = run_comparison(config, Path(args.config_file).resolve().parent, args.out,
+                                       no_pdf=not args.pdf, workers=args.workers)
             for label, path in paths.items():
                 print(f'{label}: {path}')
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
