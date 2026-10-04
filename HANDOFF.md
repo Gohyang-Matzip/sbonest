@@ -1,190 +1,150 @@
-# HANDOFF: SBONEST public release and fitting workflow
+# HANDOFF: SBONEST loader debugging and refactor
 
-**Updated:** 2026-10-03 · **Working directory:** `/Users/donghanlee/work/projects/sbonest`
+**Written:** 2026-10-04 (Asia/Seoul)
+**Working directory:** `/Users/donghanlee/work/projects/sbonest`
+**Repository:** https://github.com/Gohyang-Matzip/sbonest
+**Implementation branch:** `codex/refactor-spectrum-loader`
+**Target branch:** `main`
+**Starting commit:** `010ad74299d09ec1b97de95674849866b0340f31`
 
-**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Published branch:** `main`
+## User requests and completion criteria
 
-## Purpose
+The user requested, in order: `debugging this repo`, `refactor`, `handoff`,
+and `commit push PR merge`. The final request authorizes committing these
+changes, pushing the branch, opening a PR, merging after passing CI, verifying
+the merged commit's CI, and synchronizing local `main`.
 
-Maintain the SBONEST program, portable synthetic examples, numerical evidence,
-and English/Korean documentation. This handoff records the published scientific
-baseline through PR #3; inspect GitHub for subsequent documentation or code work.
-The original release workflow is complete, not a pending task to repeat.
+The code work is complete and locally validated. No further feature or research
+work is pending. Check live GitHub state before repeating delivery actions; this
+file is part of the change being published, not proof that publication finished.
 
-## Implementation status
+## Changes in this delivery
 
-The public repository includes the SBONEST release ([PR #1](https://github.com/Gohyang-Matzip/sbonest/pull/1)),
-the manuscript with fitting uncertainties ([PR #2](https://github.com/Gohyang-Matzip/sbonest/pull/2)),
-and the 600/800 MHz model comparison ([PR #3](https://github.com/Gohyang-Matzip/sbonest/pull/3)).
-PR #3 merged as `8d484de94a198b9f943ec75cb053b3f1007aaf34`; its
-[post-merge CI](https://github.com/Gohyang-Matzip/sbonest/actions/runs/37114856838)
-passed, and local `main` was synchronized on 2026-10-03.
-No experimental dataset has been fitted; supplied demonstrations are synthetic.
+Every change below is **still applied**; no production fix was reverted.
 
-## What is applied
+- **[still applied] `est_data.py`:** reject missing fourth column-header lines,
+  observations outside residue blocks, empty files, and empty residue blocks.
+  Previously a standalone comment inside a spectrum could silently discard all
+  remaining points, and a missing column-header line could swallow the first
+  residue. Invalid inputs now raise `ValueError` with the filename and a useful
+  explanation. A `#` line still terminates a data block; comments between complete
+  residue blocks and blank lines remain accepted.
+- **[still applied] `est_data.py` refactor:** module-level regexes share one numeric
+  pattern; `_read_conditions()` parses acquisition values; `_read_points()` fills
+  one spectrum and returns the next comment/header. `addData()` retains its public
+  signature and handles residue format validation and attachment. File length
+  decreased from 293 lines after the bug fix to 213. Numerical fitting code,
+  accepted numeric grammar, error messages, and random draw order are preserved.
+- **[still applied] `test_debugging.py`:** `check_loader_structure()` covers eight
+  malformed input cases plus valid data. `check_loader_formats_and_noise()` covers
+  full/simple headers, multi-file residue ordering, defaults, inline comments,
+  mixed-format rejection, and seeded RF/intensity perturbations. Both are called
+  by the executable test runner.
+- **[still applied] `SBONEST_MANUAL.md` and `SBONEST_MANUAL.ko.md`:** matching input
+  rules and troubleshooting entries for the stricter loader.
+- **[still applied] `HANDOFF.md`:** this current briefing. Its previous complete
+  version is archived locally at `.archive/handoff-before-loader-20261004-094051.md`.
 
-- **[still applied]** `sideband.py`: OC-based two-state NH propagation through
-  the actual repeated 90°x–240°y–90°x pulse segments, including partial periods.
-  `sbfit.py`: shared exchange, peakwise nitrogen shifts/relaxation, fixed/common
-  scale/per-dataset nitrogen RF, and diagnostics. `run.py` routes `Sideband`.
-- **[still applied]** Omitting both R1H/R2H selects automatic peakwise nuisance
-  fitting, initialized at (2, 25) s⁻¹. Each peak shares its H rates across RF
-  files and states A/B. Different peaks do not share H rates. The current
-  automatic mode accepts one proton magnetic field. Explicit legacy H inputs
-  preserve fixed-rate behavior. Users need not enter or measure H rates.
-- **[still applied]** `fit.py` accepts a grouped finite-difference step used by
-  the sideband model. The dense Jacobian retains covariance estimation.
-  `estmodel.py` saves PDF figures with the external legend included.
-- **[still applied]** `example/sideband_auto_H/{two_RF,three_RF}.json` use
-  checkout-relative datasets, contain no H-rate inputs, and fit all three peaks
-  over 105–135 ppm at 1.2 GHz. Two RF means 25/100 Hz at one magnetic field;
-  three RF means 25/50/100 Hz. Each peak/profile has 147 points (~24.985 Hz).
-- **[still applied]** `refit_automatic_proton.py` relocates archived input
-  basenames to this checkout, so reproducing the ten-fit study needs no original
-  machine paths. It writes a new output directory and records source/input hashes.
-- **[still applied]** README, both `SBONEST_MANUAL` files, and `SIDEBAND.md`
-  describe the portable automatic workflow. Inherited `MANUAL` files point to
-  the SBONEST manuals. The original ONEST handoff is preserved locally as
-  `.archive/onest-handoff-before-sbonest-20261002.md`.
-- **[still applied]** `.gitignore` excludes environments, backups, raw Bruker
-  files, diagnostics, and historical manuscript drafts/renderings. Selected
-  manuscript DOCX files, evidence, and QA records are published; consult
-  `manuscript/sideband_30ppm/README.md`. Small synthetic fixtures under
-  `manuscript/sideband_30ppm/results/1200/` remain for older examples.
-  `results/auto_H_refit/fits/executed_source/` preserves scientific provenance.
-- **[still applied]** `compare_field_models.py` and
-  `results/field_comparison_600_800_20261003_02/` preserve the separate 600/800 MHz
-  study, including portable input copies, three-start fits, noiseless controls,
-  full covariance, source hashes, and PNG/PDF figures. Root and bilingual manuals
-  explain its fixed-H conditions separately from automatic H-rate fitting.
-- **[still applied]** GitHub CI installs Python 3.12 and PyPI `optimalcontrol-nmr`,
-  checks root Python files, runs inherited and sideband regression checks, the
-  synthetic demo, and the portable two-RF CLI fit.
+The initial worktree was clean. Only the five files listed above belong in this
+PR. Temporary environments, generated fits, verification logs, and backups are
+ignored local artifacts, not files to add to Git.
 
-## Evidence and commands
+## Verified results
 
-From a new checkout, create a Python 3.12 environment and install
-`requirements-sideband.txt`. A sibling OC checkout is unnecessary.
+The eight checks in `session_artifacts/refactor_20261004/verification/summary.json`
+all exited 0 under Python 3.12.14:
+
+1. `ruff check *.py --select F`
+2. `python -m py_compile *.py`
+3. `python test_performance.py`
+4. `python test_debugging.py`
+5. `python verify_3state.py`
+6. `python test_sideband.py`
+7. `python demo_sideband.py --out <fresh directory>`
+8. The real `run.py` CLI on a copy of `example/sideband_auto_H/two_RF.json` with
+   absolute input paths and a fresh output prefix, using `--no-pdf`.
+
+`session_artifacts/refactor_20261004/parser_parity.json` records 272 exact
+comparisons (68 tracked spectrum files, each with all four noise-flag
+combinations), plus 64 boundary/error comparisons against the pre-refactor
+loader. Parsed state, exceptions, partial state after failure, and subsequent
+random draws matched. Independent review found no actionable regression.
+
+`session_artifacts/refactor_20261004/fit_parity.json` records exact equality
+of all result fields except configuration paths for five demo fits and the
+automatic-H fit, compared with `session_artifacts/debug_20261004/`.
+The automatic-H fit has 882 observations, 24 parameters, rank 24, 858 degrees
+of freedom, and chi2 = 802.8203212916861. This is synthetic evidence.
+
+Before the initial fix, the new structure test failed on all eight malformed
+inputs. After the fix, the ONEST CLI, MC CLI, and both Sideband entry points
+rejected the interrupted-block reproduction without tracebacks or fit outputs.
+Their local logs are in `session_artifacts/debug_20261004/reproductions/`.
+
+## Environment and reproducible commands
+
+Use `session_artifacts/debug_20261004/.venv/bin/python` for Python 3.12 locally.
+The root `.venv/bin/python` is Python 3.14.7 and `.venv/bin/ruff` was absent;
+that original environment is preserved. Do not mistake it for the CI environment.
+A fresh checkout should create a Python 3.12 environment and install
+`requirements-sideband.txt` plus `ruff`. CI uses Python 3.12 and PyPI
+`optimalcontrol-nmr==0.5.0` was used for these local checks.
 
 ```bash
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
-.venv/bin/python run.py example/sideband_auto_H/two_RF.json
-.venv/bin/python test_performance.py
-.venv/bin/python test_debugging.py
-.venv/bin/python verify_3state.py
-.venv/bin/python test_sideband.py
-.venv/bin/python demo_sideband.py --out session_artifacts/demo_new
+session_artifacts/debug_20261004/.venv/bin/ruff check *.py --select F
+session_artifacts/debug_20261004/.venv/bin/python -m py_compile *.py
+session_artifacts/debug_20261004/.venv/bin/python test_performance.py
+session_artifacts/debug_20261004/.venv/bin/python test_debugging.py
+session_artifacts/debug_20261004/.venv/bin/python verify_3state.py
+session_artifacts/debug_20261004/.venv/bin/python test_sideband.py
 ```
 
-Choose a new `Project Name`/output directory before rerunning; existing fit
-outputs are protected. Dataset paths resolve from the JSON directory; output
-prefixes resolve from the working directory.
+The pre-refactor sources and diff are preserved in
+`session_artifacts/refactor_20261004/before_est_data.py`, `before_test_debugging.py`,
+and `before.diff`. Final local demo outputs are in
+`session_artifacts/refactor_20261004/demo/`; automatic-H results are
+`session_artifacts/refactor_20261004/auto_H_two_RF_result.{json,txt}`.
+Never rerun a saved config with its old `Project Name`; select a fresh output
+prefix. Dataset paths resolve from the config directory; output prefixes resolve
+from the process working directory.
 
-`results/auto_H_refit/fits/REFIT_REPORT.md` records the completed ten-fit study:
-
-| RF (Hz) | Points | Free parameters | kex (s⁻¹) | RF scale | Reduced χ² |
-|---|---:|---:|---:|---:|---:|
-| 25/100 | 882 | 24 | 299.68025 | 1.0822687 | 0.93569 |
-| 25/50/100 | 1323 | 24 | 299.49797 | 1.0806102 | 0.94625 |
-
-Three random H-rate starts per RF design agree in χ² within 2 × 10⁻⁷.
-Two noiseless controls recovered all 24 generating parameters. The report,
-`summary.json`, `predictions.csv`, `metadata.json`, and `full_profile_fit.png`
-are under `results/auto_H_refit/fits/`. H rates are weakly determined and some
-reach bounds; do not present them as measured precise proton relaxation rates.
-
-A clean Python 3.12 environment with the PyPI OC distribution was installed in
-`session_artifacts/github_publish_venv`. The index-only checkout is in
-`session_artifacts/github_publish_checkout`; its validation logs are in
-`session_artifacts/github_publish_checks/`. These local verification artifacts
-are intentionally not distributed. The clean-checkout lint/compile checks,
-`test_performance.py`, `test_debugging.py`, `verify_3state.py`, `test_sideband.py`,
-synthetic demo, and portable two-RF CLI (including PDF output) all passed.
-The portable fit recovered kex = 299.6802480565636 s⁻¹ and χ² = 802.8203212916861,
-with 882 observations and rank 24/24. README/manual local links were checked.
-Those paths describe the initial release's local checks. CI is the portable
-verification record. Archived scientific inputs and executed sources retain
-their calculation-time bytes and hashes.
-
-## 600/800 MHz comparison
-
-The fields are fitted separately using the same 105–135 ppm observations within
-each model comparison: 225 points at 600 MHz and 297 at 800 MHz, with nominal
-nitrogen RF = 25/50/100 Hz. R1H = 2 and R2H = 25 s⁻¹ are fixed. All models share
-eight free parameters, error weights, bounds, RF-scale handling, and optimizer.
-This is distinct from the current 24-parameter automatic-H examples.
+## Delivery: check live state, then resume only missing steps
 
 ```bash
-.venv/bin/python compare_field_models.py \
-  --source results/field_comparison_600_800_20261003_02/inputs \
-  --out results/field_comparison_repeat_01
+git status --short --branch
+git fetch origin
+gh pr list --repo Gohyang-Matzip/sbonest --state all \
+  --head codex/refactor-spectrum-loader \
+  --json number,state,url,headRefOid,mergeCommit
+gh run list --repo Gohyang-Matzip/sbonest --branch main --limit 5
 ```
 
-The explicit `--source` uses tracked copies; default historical manuscript
-600/800 MHz inputs are local only. Always use a new output directory. The script
-generates fit JSON, CSV, figures, predictions, and input copies. `REPORT.txt` and
-`verification.json` in the published bundle were written separately after review.
+At delivery preparation, local `main` equaled `origin/main` at the starting
+commit above, with no open PR. The branch was created from that commit.
+GitHub account `Gohyang-Matzip` was verified to have push/admin access;
+the globally active account was `dleess`. Use scoped authentication for
+`Gohyang-Matzip`, obtained through `gh auth token --user Gohyang-Matzip` into a
+subprocess environment. Never print or save the token, and do not change global
+credentials. Scoped Git pushes can use `credential.helper=!gh auth git-credential`.
 
-The noisy 600 MHz fits are nearly identical. At 800 MHz, noisy ONEST kex is
-301.414 s⁻¹ versus SBONEST 299.850 s⁻¹; the noiseless ONEST displacement is
-+0.51% from 300 s⁻¹. SBONEST recovers the noiseless truth at both fields.
-ONEST uses its actual zero-clamped Matrix worker; `N_signed_control` isolates
-that clamp. Three starts per model/noise/field produce 36 fits. Noisy ONEST starts
-reach slightly different minima; the lowest χ² is retained without asserting
-global optimality. See `REPORT.txt` and manual section 7.1 for uncertainty and limits.
+1. If this branch has an open PR, inspect its exact head and require passing CI
+   before merging. Do not recreate an existing PR.
+2. If merged, verify the push CI for the merge SHA, then fast-forward local `main`
+   to `origin/main`. Report the PR URL, merge SHA, and CI outcome.
+3. Preserve any unrelated work; do not reset or discard dirty files.
+4. When delivery is already complete, stop. This handoff does not authorize new
+   features, new experiments, or rerunning historical research studies.
 
-All 36 fits were independently reproduced from bundled inputs. Input/generator
-and J=0/clamp controls, full-rank covariance, saved objectives/predictions, and
-source hashes were checked. A tracked-files-only snapshot passed input/control
-checks. The four regression scripts and PR/main CI passed. The full field-study
-driver is not part of CI. Published CSV line endings were normalized to LF with
-cell-value equality verified; the original CRLF file remains in local `.archive/`.
+## Constraints and boundaries
 
-## Pitfalls already identified
+Follow `AGENTS.md`. Never destructively delete artifacts; archive them or ignore
+large raw data. Preserve public names, parameter order, units, tolerances, and
+calculation-time source hashes. The 600/800 MHz study uses fixed H rates and
+separate field fits; the current examples fit H rates automatically. Synthetic
+fits and local covariance are not experimental validation.
 
-- Archived configs/results may contain original-machine absolute paths and
-  calculation-time hashes. **[still applied: archives preserved]** Use the
-  portable example configs; do not rewrite scientific provenance to current hashes.
-- Older `check_two_rf.py` checks historical source hashes and is not the release
-  smoke test. Use `test_sideband.py`, the portable CLI, or the new refit driver.
-- The first field-comparison attempt stopped because a temporary assertion
-  required all ONEST starts to reach identical minima. **[reverted]** That
-  assumption was removed; the completed driver records objective spreads and
-  `multistart_agreement`. The partial run is preserved in
-  `.archive/field_comparison_600_800_initial_partial_20261003/`.
-- `git push` as `dleess` was rejected for this repository on 2026-10-03.
-  `Gohyang-Matzip` had write access and completed the publication using scoped
-  authentication. Check account permissions before retrying; avoid changing
-  global credentials for unrelated repositories. No credentials are stored here.
-- Local `.venv/bin/python` is Python 3.14 and lacks the `pip` module. The clean
-  publication environment was installed with `uv pip install --python ...`.
-  **[still applied: original environment preserved]** Do not assume every local
-  interpreter has pip; the documented fresh `python3 -m venv` workflow supplies it.
-- The inherited web interface, `prepare.py`, and `mcrun.py` are not supported
-  Sideband workflows. Profile likelihood/bootstrap are not built-in Sideband CLI commands.
-- The ±2400 Hz demo spans ~39.48 ppm at 1.2 GHz; use `sideband_auto_H` for 30 ppm.
-
-## Future maintenance
-
-1. Run `git status --short --branch` and `git remote -v`. Preserve untracked
-   work, local manuscripts, and `.archive/`; do not destructively delete artifacts.
-2. Inspect `gh pr list --repo Gohyang-Matzip/sbonest --state all` and
-   `gh run list --repo Gohyang-Matzip/sbonest`. The release and comparison PRs
-   above are complete; act on subsequent PRs only within the current user task.
-   Require passing CI before merging a reviewed head.
-3. Fetch `origin`, switch to `main`, and fast-forward to `origin/main` after merge.
-   Verify the merged SHA's CI, repository visibility, and documentation links.
-4. For documentation changes, verify local links, bilingual agreement, numbers
-   against result JSON, and archived source hashes. Follow `AGENTS.md`.
-5. No further work is authorized by this handoff alone.
-   Experimental validation is a future user task, not a completed result.
-
-## Scientific limits
-
-Nitrogen relaxation is shared across files for a peak; there is no independent
-per-field nitrogen relaxation. The NH model omits extra proton spins, separate
-water/proton exchange, and CSA–DD cross-correlation. Automatic H-rate fitting
-cannot repair wrong proton shifts, RF calibration, or pulse timing. Whether
-sidebands improve real 1.2 GHz fits remains unverified experimentally. The
-local covariance uses absolute intensity errors, with no reduced-χ² rescaling;
-boundary errors are not formal confidence intervals.
+No behavior changed in `sideband.py`, `sbfit.py`, `fit.py`, or `estmodel.py`.
+No dependencies were added. No manuscript, historical result, or figure was
+modified. The longer field-comparison study was not rerun during this task.
+Remote PR/merge CI is live state and must be verified as described above.
