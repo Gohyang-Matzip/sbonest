@@ -23,7 +23,9 @@ def run_single_mc_iteration(args_tuple):
         load_datasets(mmc, conf, with_error=True)
         out_mc_fit = mmc.fit(p0=pp_optimized_params_for_mc, fitting_config=conf["init"])
         return out_mc_fit[0]
-    except Exception:
+    except Exception as exc:
+        # Report the cause; a silently excluded run hides environment problems.
+        sys.stderr.write(f"MC run {_worker_id} failed: {type(exc).__name__}: {exc}\n")
         return None
 
 
