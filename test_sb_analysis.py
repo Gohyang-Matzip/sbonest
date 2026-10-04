@@ -10,12 +10,14 @@ import copy
 import json
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 import numpy as np
 from numpy.testing import assert_allclose
 from scipy.optimize import least_squares
 
-from sb_analysis import MultiStartError, fit_multistart, profile_likelihood
+from sb_analysis import (MultiStartError, fit_multistart, profile_likelihood,
+                         restore_fit, snapshot_fit)
 
 
 class QuadraticModel:
@@ -265,6 +267,155 @@ def check_lower_profile_and_failed_solver():
     assert out["kex"][0]["optimization_performed"]
 
 
+def check_snapshot_and_resumed_starts():
+    # Failure caught: completed starts rerun, changed RNG draws, lost uncertainty.
+    settings = {"starts": [{"nuisance": 19.}], "seed": 317, "random_starts": 3}
+    reference = QuadraticModel()
+    p, covariance, expected = fit_multistart(reference, settings)
+    saved = json.loads(json.dumps(snapshot_fit(reference, p, covariance), allow_nan=False))
+    restored = QuadraticModel()
+    actual_p, actual_covariance = restore_fit(restored, saved)
+    assert_allclose(actual_p, p, rtol=0, atol=0)
+    assert_allclose(actual_covariance, covariance, rtol=0, atol=0)
+    assert snapshot_fit(restored, actual_p, actual_covariance) == saved
+    unavailable = covariance.copy()
+    unavailable[0, 0] = np.nan
+    reference.condition = np.inf
+    nonfinite = json.loads(json.dumps(snapshot_fit(reference, p, unavailable), allow_nan=False))
+    _, restored_covariance = restore_fit(restored, nonfinite)
+    assert np.isnan(restored_covariance[0, 0]) and np.isinf(restored.condition)
+    assert np.isneginf(restored.lower[0]) and np.isposinf(restored.upper[0])
+    # Restore the finite reference before comparing the later resumed winner.
+    restore_fit(reference, saved)
+    interrupted = []
+
+    def stop(row):
+        interrupted.append(json.loads(json.dumps(row, allow_nan=False)))
+        if len(interrupted) == 3:
+            raise KeyboardInterrupt
+
+    try:
+        fit_multistart(QuadraticModel(), settings, on_complete=stop)
+    except KeyboardInterrupt:
+        pass
+    else:
+        raise AssertionError("Completion interrupts must propagate")
+    resumed = QuadraticModel()
+    with patch.object(resumed, "fit", wraps=resumed.fit) as fit:
+        resumed_p, resumed_covariance, rows = fit_multistart(
+            resumed, settings, completed=interrupted)
+    assert fit.call_count == 2, fit.call_count
+    assert rows == expected
+    assert_allclose(resumed_p, p, rtol=0, atol=0)
+    assert_allclose(resumed_covariance, covariance, rtol=0, atol=0)
+    assert snapshot_fit(resumed, resumed_p, resumed_covariance) == saved
+    with patch.object(resumed, "fit", side_effect=AssertionError("Refit completed attempt")):
+        assert fit_multistart(resumed, settings, completed=rows)[2] == expected
+    for invalid in ([*rows, rows[-1]], [{**rows[0], "index": 1}],
+                    [{**rows[0], "source": "random"}]):
+        with patch.object(resumed, "fit", side_effect=AssertionError("Invalid checkpoint optimized")):
+            try:
+                fit_multistart(resumed, settings, completed=invalid)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Malformed completed attempts accepted")
+
+
+def check_resumed_profiles_and_callback_errors():
+    model = QuadraticModel()
+    p, _ = model.fit()
+    state = model.result, model.free.copy(), model.chi2, model.npar, model.dof
+    settings = {"kex": [10., 12., -1.], "pB": [.2, .25]}
+    expected = profile_likelihood(model, p, settings)
+    completed = {}
+
+    def stop(name, row):
+        completed.setdefault(name, []).append(copy.deepcopy(row))
+        if sum(map(len, completed.values())) == 2:
+            raise KeyboardInterrupt
+
+    try:
+        profile_likelihood(model, p, settings, on_complete=stop)
+    except KeyboardInterrupt:
+        pass
+    else:
+        raise AssertionError("Profile completion interrupts must propagate")
+    assert model.result is state[0]
+    assert_allclose(model.free, state[1])
+    assert_allclose([model.chi2, model.npar, model.dof], state[2:])
+    with patch("sb_analysis.least_squares", wraps=least_squares) as solver:
+        actual = profile_likelihood(model, p, settings, completed=completed)
+    assert solver.call_count == 2, solver.call_count
+    assert actual == expected
+    with patch("sb_analysis.least_squares", side_effect=AssertionError("Refit completed profile")):
+        assert profile_likelihood(model, p, settings,
+                                  completed={name: actual[name] for name in settings}) == expected
+        for invalid in ({"unknown": []}, {"kex": actual["kex"] * 2},
+                        {"kex": [{**actual["kex"][0], "target": 99.}]}):
+            try:
+                profile_likelihood(model, p, settings, completed=invalid)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Malformed completed profile accepted")
+
+    def persistence_error(*args):
+        raise OSError("deliberate persistence failure")
+
+    failed = QuadraticModel()
+    failed.config["init"]["max_nfev"] = 1
+    for run in (lambda: fit_multistart(QuadraticModel(), {}, on_complete=persistence_error),
+                lambda: fit_multistart(failed, {}, on_complete=persistence_error),
+                lambda: profile_likelihood(model, p, {"kex": [10.]}, on_complete=persistence_error),
+                lambda: profile_likelihood(model, p, {"kex": [-1.]}, on_complete=persistence_error)):
+        try:
+            run()
+        except OSError as exc:
+            assert "persistence" in str(exc)
+        else:
+            raise AssertionError("Persistence failures must never become solver failures")
+
+
+def check_snapshot_integrity_and_failed_restore_state():
+    # A self-consistent record can still disagree with the current model/data.
+    model = QuadraticModel([0, 2])
+    p, covariance = model.fit()
+    valid = snapshot_fit(model, p, covariance)
+    variants = []
+    changed = copy.deepcopy(valid)
+    changed["state"]["chi2"] = 123456.
+    variants.append(changed)
+    changed = copy.deepcopy(valid)
+    changed["state"]["free"] = [1, 2]
+    changed["state"]["result"]["x"] = p[[1, 2]].tolist()
+    variants.append(changed)
+    changed = copy.deepcopy(valid)
+    changed["state"]["lower"][0] = -100.
+    variants.append(changed)
+    changed = copy.deepcopy(valid)
+    changed["state"]["result"]["fun"][0] += 1.
+    changed["state"]["chi2"] = float(np.sum(np.asarray(changed["state"]["result"]["fun"])**2))
+    variants.append(changed)
+    changed = copy.deepcopy(valid)
+    changed["state"]["result"]["fun"].append(0.)
+    changed["state"]["result"]["jac"].append([0., 0.])
+    changed["state"]["nvar"] += 1
+    changed["state"]["dof"] += 1
+    variants.append(changed)
+    original_result = model.result
+    for changed in variants:
+        with patch.object(model, "fit", side_effect=AssertionError("Snapshot validation must not fit")):
+            try:
+                restore_fit(model, changed)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Snapshot inconsistent with live model was accepted")
+        assert model.result is original_result
+        assert snapshot_fit(model, p, covariance) == valid, "Rejected restore changed model state"
+
+
 def check_real_sideband():
     # Small integration: the real model's initial overrides and stats must survive.
     from sbfit import SidebandModel
@@ -300,6 +451,34 @@ def check_real_sideband():
     assert model.result is stats[0] and covariance.shape == (8, 8)
     assert_allclose([model.chi2, model.npar, model.dof], stats[1:])
     json.dumps({"attempts": attempts, "profiles": out}, allow_nan=False)
+    diagnostic = model.diagnostics(p, covariance)
+    snapshot = json.loads(json.dumps(snapshot_fit(model, p, covariance), allow_nan=False))
+    restored = SidebandModel(copy.deepcopy(cfg))
+    restored_p, restored_covariance = restore_fit(restored, snapshot)
+    assert restored.diagnostics(restored_p, restored_covariance) == diagnostic
+    with patch.object(restored, "fit", side_effect=AssertionError("Completed real fit reran")):
+        rp, rc, records = fit_multistart(restored, {"starts": [{"v1n_scale": 1.1}]},
+                                       completed=attempts)
+    assert_allclose(rp, p, rtol=0, atol=0)
+    assert_allclose(rc, covariance, rtol=0, atol=0)
+    assert records == attempts
+    # Validate effective bounds from configuration on a fresh, unprepared model,
+    # preserving its original state if the checkpoint is rejected.
+    fresh = SidebandModel(copy.deepcopy(cfg))
+    original_keys = set(fresh.__dict__)
+    original_statistics = [fresh.chi2, fresh.nvar, fresh.npar, fresh.dof]
+    changed = copy.deepcopy(snapshot)
+    changed["state"]["lower"][2] = .7
+    with patch.object(fresh, "fit", side_effect=AssertionError("Restore must not optimize")):
+        try:
+            restore_fit(fresh, changed)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Snapshot changing configured Sideband bounds was accepted")
+    assert set(fresh.__dict__) == original_keys
+    assert fresh.result is None and fresh._fit_data is None
+    assert [fresh.chi2, fresh.nvar, fresh.npar, fresh.dof] == original_statistics
 
     # Failure caught: rejected baseline preventing valid restarts, or stale
     # initialization on a reused model silently restoring an old fixed R1.
@@ -326,5 +505,8 @@ if __name__ == "__main__":
     check_multistart_selection_and_failures()
     check_random_starts_and_validation()
     check_lower_profile_and_failed_solver()
+    check_snapshot_and_resumed_starts()
+    check_resumed_profiles_and_callback_errors()
+    check_snapshot_integrity_and_failed_restore_state()
     check_real_sideband()
     print("PASS: exact nuisance profiles, fixed rates/bounds, starts/failures/state")

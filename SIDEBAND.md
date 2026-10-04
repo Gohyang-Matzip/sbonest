@@ -214,8 +214,32 @@ zero clamp를 제거한 nitrogen-only 대조를 각각 fitting한다. 두 자기
 
 ## 구현 범위와 출처
 
-전용 웹 UI와 sideband Monte Carlo 경로는 추가하지 않았다. 기존 ONEST 웹/MC는 원래
-모델들에 사용한다. 새 Sideband config를 기존 MC에 전달하면 unsupported method로 실패한다.
+전용 웹 UI는 추가하지 않았다. Sideband의 parametric Gaussian bootstrap은
+`init.bootstrap`으로 실행하며, 기존 ONEST 웹/MC는 원래 모델들에 사용한다.
+새 Sideband config를 기존 `mcrun.py`에 전달하면 unsupported method로 실패한다.
 GPL-3.0 ONEST 소스와 LICENSE를 유지했다. 원본 복사 기준 ONEST commit:
 `6d178f3e5d6dc82b4cfc7a546d9004c17ff492d9`; OC source commit:
 `139ff23aa53cb03902d725a818d847ad55895fc1`.
+
+## 검사·재개·불확실성 분석
+
+`run.py CONFIG --check`는 optimizer 없이 입력·초기값·bounds·분석 설정과 출력
+충돌을 검사한다. 초기값 grid 계산은 수행할 수 있다. 일반 실행은 결과 접두사에
+`_checkpoint`를 붙인 폴더에 완료한 fit·restart·profile·bootstrap replicate를
+저장한다. `--resume`은 같은 입력·설정·소스·실행환경·PDF 모드에서 완료한 계산을
+재사용한다. 파일을 임의로 수정하지 말고, 조건을 바꾸면 새 출력 접두사를 사용한다.
+
+Profile scan은 제약 좌표에서도 잔기별 독립성을 이용해 3-point Jacobian 계산을
+묶는다. 수치미분 간격과 optimizer 허용오차는 유지한다. 일반 모델의 구조를
+확인할 수 없으면 dense 미분을 사용한다.
+
+`init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
+받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
+재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을
+보고한다. 모델·고정 입력에 조건부인 구간이고 모델 불일치를 포함하지 않는다.
+`validate_uncertainty.py`는 알려진 합성 참값에서 **국소 SE 구간의 coverage**를
+별도로 확인하며, bootstrap percentile 구간의 coverage 검증은 아니다.
+
+`sb_workflow.py init-demo --out NEW_DIRECTORY`와 저장 결과 전용 `report` 명령은
+[한국어 dummy 가이드](DUMMY_GUIDE.ko.md)에 설명되어 있다. 상세 설정·실패 해석은
+[매뉴얼](SBONEST_MANUAL.ko.md)을 참고한다.

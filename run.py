@@ -89,17 +89,29 @@ def main():
         action="store_true",
         help="Skip PDF reports; save numeric results only.",
     )
+    parser.add_argument("--check", action="store_true", help="Validate Sideband inputs without fitting or writing outputs")
+    parser.add_argument("--resume", action="store_true", help="Resume a matching Sideband checkpoint")
     args = parser.parse_args()
+    if args.check and args.resume:
+        parser.error("--check and --resume cannot be combined")
     config = load_config(args.config_file)
 
     if config["init"].get("Method") == "Sideband":
-        from sbfit import run_config
+        from sbfit import check_config, run_config
 
         try:
-            run_config(config, Path(args.config_file).resolve().parent, args.no_pdf)
+            if args.check:
+                summary = check_config(config, Path(args.config_file).resolve().parent,
+                                       no_pdf=args.no_pdf)
+                print(json.dumps(summary, indent=2, allow_nan=False))
+                parser.exit(0 if summary["valid"] else 1)
+            run_config(config, Path(args.config_file).resolve().parent, args.no_pdf, resume=args.resume)
         except (ValueError, KeyError, OSError, RuntimeError) as exc:
             parser.exit(1, f"Error: {exc}\n")
         return
+
+    if args.check or args.resume:
+        parser.exit(1, "Error: --check/--resume currently support init.Method = Sideband\n")
 
     model = est_model()
     model.verbose = True
