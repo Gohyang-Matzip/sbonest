@@ -1,127 +1,88 @@
-# HANDOFF: SBONEST improvement programme — PR 1 (parallel workers and diagnostics)
+# HANDOFF: SBONEST improvement programme — PR 2 (design, profile intervals, model comparison)
 
 **Written:** 2026-10-04 (Asia/Seoul)
 **Repository:** https://github.com/Gohyang-Matzip/sbonest
 **Main checkout:** `/Users/donghanlee/work/projects/sbonest`
-**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve2_20261004/tree`
-**Branch:** `codex/parallel-and-diagnostics`
-**Base:** `791fb1dee0f1d8b2e1a0d34fd43b264044c18a73` (main after PR #8)
+**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve3_20261004/tree`
+**Branch:** `codex/design-intervals-comparison` (stacked on `codex/parallel-and-diagnostics`, PR #9)
+**Programme plan:** `docs/superpowers/plans/2026-10-04-full-improvements.md`
 
 ## Goal and current status
 
-The user approved the complete 2026-10-04 improvement list ("제안대로 전부 해").
-The programme is delivered as four themed PRs described in
-`docs/superpowers/plans/2026-10-04-full-improvements.md`; this handoff covers
-PR 1. Each PR follows the same delivery rule: executable regressions, bilingual
-documentation, local verification, PR CI, merge, merged-commit CI, main sync.
+The user approved the complete 2026-10-04 improvement list. PR 1 (worker pool,
+identifiability preflight, balanced report pages, CI split) is PR #9. This
+handoff covers PR 2: experimental design, likelihood-ratio profile intervals and
+shared-versus-individual model comparison. Implementation and local validation
+are complete; the branch must be rebased onto main after PR #9 merges, then
+pushed, CI-checked and merged. The previous handoff is archived at
+`.archive/HANDOFF.before-design-20261004.md`.
 
-PR 1 implementation and local validation are complete; at the time of writing
-the changes are uncommitted in the worktree above. This file is part of the
-change, so it is not evidence that delivery happened. Inspect live Git/GitHub
-state before repeating any delivery action. The previous handoff (PR #8,
-reliable analysis workflow) is archived locally at
-`.archive/HANDOFF.before-parallel-20261004.md`.
-
-## Applied changes (PR 1)
+## Applied changes (PR 2)
 
 Every item below is **still applied**.
 
-- **[still applied] `sb_parallel.py` (new):** spawn-based `WorkerPool` holding one
-  `SidebandModel` per worker with cached prepared data; module-level tasks
-  `residual_task`, `multistart_task`, `profile_task`, `bootstrap_task` reuse the
-  serial code paths; `map` yields in submission order; `Progress` prints
-  elapsed time and an ETA. `validate_workers` rejects non-positive/bool/float.
-- **[still applied] `fit._block_jacobian(evaluate_many=...)`:** the base vector is
-  evaluated first (its dtype selects the 3-point epsilon exactly as before), then
-  all perturbed vectors are evaluated in one batch. Stencils, steps and arithmetic
-  are unchanged; `test_grouped_jacobian.py` and `test_profile_jacobian.py` pass.
-- **[still applied] `SidebandModel.fit`:** when `model.pool` is set, Jacobian
-  columns are evaluated in workers. The residual closure memoizes the last
-  evaluated vector: SciPy evaluates the residual at an accepted step and then
-  requests the Jacobian at the same point, so the base evaluation is reused.
-  Results are identical (882-point example: chi2 802.8203212916861, same
-  parameters and covariance); serial time 36 s → 33 s, 8 workers 16 s.
-- **[still applied] `sb_analysis.py`:** `fit_attempt`, `profile_point`,
-  `base_fit_config`, `local_jacobian`, `identifiability`; `fit_multistart` and
-  `profile_likelihood` accept `pool=` and run pending items in index order
-  (the configured initial fit always runs in the main process). The profile
-  residual closure also memoizes its last vector. Completed-prefix and
-  `on_complete` semantics are unchanged.
-- **[still applied] `sb_bootstrap.py`:** `bootstrap_draws` (SeedSequence([seed,
-  index]) draws in the main process) and `bootstrap_replicate` (fit one replicate,
-  restore data); `bootstrap_fit(pool=)` sends drawn observations to workers.
-- **[still applied] `sbfit.run_config(workers=)`, `check_config(identifiability=,
-  workers=)`, `run.py`/`sbfit.py` flags `--workers N` and `--identifiability`
-  (requires `--check`).** Provenance records `workers`; the checkpoint identity
-  excludes it, so a parallel run resumes serially and vice versa.
-- **[still applied] Identifiability report:** column-scaled singular values, rank,
-  condition, expected and relative SE from `(J^T J)^-1`, zero-sensitivity and weak
-  parameters (relative SE > 100% or no finite SE), correlations ≥ 0.95 and derived
-  kex/pB SE at the initial point; `--check` adds warnings for rank deficiency,
-  weak parameters and strong correlations. On the bundled example it names
-  `A1.R1H, G2.R1H, S3.R1H` and the three R1H/R2H pairs before any fit.
-- **[still applied] `sb_report._paginate`:** section-aware, balanced pagination of
-  the report summary text (no near-empty orphan page).
-- **[still applied] CI:** `checks` job (ruff, compile, 15 fast scripts) on Python
-  3.12 and 3.13; `workflow` job (test_sb_output, demo, dummy-guide commands with
-  `--check --identifiability`, `--workers 2` fit, serial `--resume`, report) on 3.12.
-  The pinned constraints install and the fast scripts pass locally on 3.13.15.
-- **[still applied] `test_sb_parallel.py` (new):** worker validation, Progress
-  output, exact Jacobian/identifiability parity through a 2-worker pool, task
-  error propagation and pool reuse, serial-vs-parallel `run_config` with
-  multistart/profile/bootstrap (result JSON and every checkpoint record identical),
-  resume across worker counts without refitting, CLI flag errors and
-  `--check --identifiability --workers 2` output.
-- **[still applied] Docs:** README, both SBONEST manuals (section 8.4, --check
-  identifiability, troubleshooting), both dummy guides, SIDEBAND.md, AGENTS.md.
+- **[still applied] `sb_analysis.profile_intervals`, `_interval_settings`:**
+  `init.profile_interval = {parameters, confidence=0.95, max_evaluations=40,
+  relative_tolerance=1e-3, max_doublings=8}` for kex, pB and (scale mode)
+  v1n_scale. Each side is bracketed outward in doubling steps from z×local SE,
+  then `brentq` locates the crossing of the chi-square(1) quantile on the exact
+  nuisance-refit profile. Every evaluated point is retained in evaluation order;
+  a target cache avoids re-evaluating bracket ends. Open sides, below-base
+  profiles and failed refits are reported, not raised. Completed rows are replayed
+  by position and a mismatching target is rejected.
+- **[still applied] `profile_point(pool=)`, `_profile_jacobian(evaluate_many=)`:**
+  the constrained refit's Jacobian columns can run in the worker pool, which
+  speeds the sequential root finding.
+- **[still applied] `sbfit.run_config`:** `profile_interval-<name>-N` checkpoint
+  records; `info["profile_intervals"]`; validation accepts the new key;
+  `check_config` lists the analysis. `sb_report`: validation, summary lines and
+  a profile-interval plot with the threshold.
+- **[still applied] `sb_design.py` (new), `sb_workflow.py design`:** design JSON
+  (base config, `truth` or `truth_result`, scenarios with datasets of v1n_hz, T,
+  sigma, absolute or relative offset grids, optional v1err_hz/field_mhz/decoupling).
+  Writes noise-free synthetic inputs and `design_config.json` per scenario,
+  evaluates `identifiability` at the truth, writes `design.json/.txt/.pdf` with
+  points, Σ(points×T), rank/condition, expected and relative SE, derived kex/pB
+  SE, weak parameters and strong correlations. Rejects existing outputs and
+  malformed designs before writing.
+- **[still applied] `sb_compare.py` (new), `sb_workflow.py compare`:** global
+  (shared kab/kba) fit plus per-residue individual fits through `run_config`
+  (own checkpoints), `_residue_config` pruning of per-residue settings, AICc/BIC
+  (Gaussian, absolute sigma), nested F-test, preferred model by AICc, warnings
+  for failed sub-fits or a global chi2 below the individual sum; JSON/TXT/PDF.
+- **[still applied] Tests:** `test_profile_interval.py` (settings, intervals vs
+  1.96·SE within 0.7–1.4, crossings at the threshold, replay without refits,
+  mismatch rejection, open intervals, failure recording, run_config/resume/report),
+  `test_sb_design.py` (validation, SE ordering, exact sigma scaling, noise-free
+  inputs reproduce the truth, pooled parity, truth_result, CLI),
+  `test_sb_compare.py` (statistics, config pruning, shared vs distinct synthetic
+  exchange → global vs individual preferred, CLI with workers).
+- **[still applied] Docs:** manual sections 8.5–8.7 (both languages), README,
+  both dummy guides, SIDEBAND.md, AGENTS.md, CI checks job, plan, this handoff.
 
-## Findings
+## Evidence
 
-- The first full-fit timing of the serial path showed 394 s wall time; the
-  result's own `elapsed_s` was 38 s. A concurrent Python 3.13 environment build
-  was saturating the machine. A clean rerun took 36 s (33 s with memoization).
-- Spawned workers re-import the caller's `__main__`; a script without an
-  `if __name__ == "__main__":` guard recursively starts pools. All repository
-  entry points have guards; the manual documents the requirement.
-- Single-fit speedup is bounded by the optimizer's serial residual evaluations and
-  the base Jacobian evaluation; bootstrap/profile/multistart items scale almost
-  linearly up to the item count.
+Bundled example at sigma 0.01 (`session_artifacts/improve3_20261004/tree/session_artifacts/design_try/out_01`):
+two RF × 147 offsets → expected kex SE 6.73 s⁻¹; two RF × 60 → 10.76 at 41% of the
+saturation time; three RF × 60 → 9.98; one RF (100 Hz) × 147 → 116.5. Small
+synthetic interval case: kex 95% [298.20, 302.09] around 300.15 with local SE
+0.994 (ratio to 1.96·SE ≈ 1.00), 6 evaluations per quantity. Comparison on
+synthetic three-residue data: shared truth → global preferred (F-test p = 0.56),
+one residue with doubled kex → individual preferred (p ≈ 5e-40).
 
-## Verified evidence and commands
-
-```bash
-export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
-cd /Users/donghanlee/work/projects/sbonest/session_artifacts/improve2_20261004/tree
-ruff check *.py --select F
-.venv/bin/python -m py_compile *.py
-for t in test_performance test_debugging verify_3state test_sideband \
-         test_grouped_jacobian test_benchmark test_sb_analysis test_sb_output \
-         test_sb_check test_sb_checkpoint test_profile_jacobian test_sb_bootstrap \
-         test_sb_workflow test_uncertainty_validation test_sb_parallel; do .venv/bin/python $t.py; done
-.venv/bin/python demo_sideband.py --out session_artifacts/final_demo_NEW
-```
-
-Evidence under `session_artifacts/improve2_20261004/` (main checkout, ignored):
-`verification_01/summary.json` (all commands exit 0), `parity_small.py`
-(serial vs 3 workers identical result JSON), `tree/session_artifacts/par_full/`
-(882-point fits with 1/4/8 workers, all chi2 802.8203212916861 and identical
-parameters), `py313_*.log` (fast scripts on Python 3.13.15), `guide_workers/`
-(dummy-guide workflow with `--workers`, rendered report pages).
+Verification: `session_artifacts/improve3_20261004/verification_01/summary.json`.
 
 ## Delivery steps — perform only those still missing
 
-1. Check worktree and remote state; do not discard user edits in the main checkout.
-2. Stage implementation, tests, CI, docs, plan and this handoff; commit with
-   `perf:`/`feat:` prefix; push `codex/parallel-and-diagnostics`.
-3. Use `session_artifacts/improve_20261004/github.py` for `Gohyang-Matzip`-scoped
-   gh/Git commands; preserve the global `dleess` account.
-4. Find or create the PR; require CI success for the exact head SHA; merge.
-5. Verify merge-commit CI, fast-forward the clean main checkout, report.
-6. Continue with PR 2 (`codex/design-intervals-comparison`) from the merged main.
+1. After PR #9 merges, `git rebase origin/main` in this worktree (expect no
+   conflicts: PR 2 adds files and appends to shared ones), rerun the verification.
+2. Push, open the PR with `session_artifacts/improve3_20261004/pr2_body.md`,
+   require CI for the exact head, merge, verify merge CI, fast-forward main.
+3. Continue with PR 3 (`codex/multifield-and-three-state`).
 
 ## Scientific boundaries
 
-Parallel execution changes only where residuals are evaluated. Identifiability
-diagnostics are local linear properties of the initial point and the design with
-the supplied absolute sigma; they do not guarantee convergence or replace the
-fitted covariance. All evidence is synthetic.
+Profile intervals, design errors and model-comparison statistics are
+within-model statements under the supplied absolute sigma and the configured
+fixed inputs. They rank descriptions and designs; they do not validate a sample
+or prove a mechanism. All evidence is synthetic.

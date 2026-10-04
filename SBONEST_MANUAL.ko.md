@@ -715,6 +715,94 @@ fitting은 worker 1개로 약 33초, 8개로 16초가 걸렸다. optimizer 자�
 시간과 남은 시간 추정이 담긴 진행 표시가 출력된다. Ctrl-C 후 worker는 진행
 중인 항목을 마치고 종료하며, 완료된 항목은 이미 checkpoint에 있다.
 
+## 8.5. Profile에서 구하는 likelihood-ratio 구간
+
+`init.profile`(8.1절)은 정해진 격자를 계산한다. `init.profile_interval`은
+정확한 nuisance 재fitting profile이 chi-square 임계값과 만나는 두 점을 찾아
+likelihood가 2차식이라는 가정 없이 모델 내 신뢰구간을 준다.
+
+```json
+"profile_interval": {
+  "parameters": ["kex", "pB"],
+  "confidence": 0.95,
+  "max_evaluations": 40,
+  "relative_tolerance": 0.001,
+  "max_doublings": 8
+}
+```
+
+`parameters`에는 `kex`, `pB`, scale RF 모드에서는 `v1n_scale`을 쓸 수 있다.
+임계값은 자유도 1의 chi-square 분위수(95%에서 3.84)다. 추정값에서 양쪽으로
+`z × 국소 SE`(유한한 국소 오차가 없으면 추정값의 10%)에서 시작해 두 배씩
+넓혀 가며 교차점을 가두고, Brent 방법으로 `relative_tolerance × |추정값|`
+정밀도까지 찾는다. 계산한 모든 profile 점은 계산 순서대로 결과의
+`profile_intervals.<name>.points`와 checkpoint의 `profile_interval-<name>-N`
+기록에 남으므로 `--resume`는 재fitting 없이 탐색을 재생한다. 파라미터 bound나
+`max_doublings` 안에서 profile이 임계값에 닿지 않으면 그쪽은 숫자 대신
+메시지와 함께 열린 구간으로 보고한다. 기준 chi2보다 낮은 점이 나오면 기준
+fit이 최적이 아니며 구간을 신뢰할 수 없다고 표시한다. nuisance 재fitting이
+실패하면 `message`에 기록하고 나머지 파라미터는 계속 계산한다. 계산 한 번은
+제약 재fitting 한 번이며(제공 예제에서 직렬 10–17초; `--workers`로 Jacobian
+열을 병렬화한다) 보고서에는 구간, 계산한 모든 점, 임계값을 함께 그린 profile
+그림이 들어간다. 이 구간은 모델·고정 입력·입력 absolute sigma에 조건부이며
+전역 최적을 보장하지 않는다.
+
+## 8.6. 실험 설계: 측정 전에 기대 오차 계산하기
+
+`python sb_workflow.py design DESIGN_JSON --out NEW_DIRECTORY [--workers N]`은
+알려진 참값에서 모델과 국소 Fisher 정보만으로 계획한 측정이 파라미터를 얼마나
+잘 결정하는지 평가한다. optimizer는 실행하지 않는다. 설계 파일은 기준 설정
+(decoupling, 잔기, RF·proton 설정, bounds, `vary`를 재사용), 참값, 시나리오를
+담는다.
+
+```json
+{
+  "config": "fit.json",
+  "truth_result": "results/auto_H_two_RF_result.json",
+  "scenarios": [
+    {"name": "two_rf_147", "datasets": [
+      {"v1n_hz": 25, "T": 0.4, "sigma": 0.01, "offsets_ppm": {"min": 105, "max": 135, "n": 147}},
+      {"v1n_hz": 100, "T": 0.4, "sigma": 0.01, "offsets_ppm": {"min": 105, "max": 135, "n": 147}}]},
+    {"name": "three_rf_60", "datasets": [
+      {"v1n_hz": 25, "T": 0.4, "sigma": 0.01, "offsets_rel_ppm": {"min": -15, "max": 15, "n": 60}},
+      {"v1n_hz": 50, "T": 0.4, "sigma": 0.01, "offsets_rel_ppm": {"min": -15, "max": 15, "n": 60}},
+      {"v1n_hz": 100, "T": 0.4, "sigma": 0.01, "offsets_rel_ppm": {"min": -15, "max": 15, "n": 60}}]}
+  ]
+}
+```
+
+`truth`는 모든 모델 파라미터 이름에 값을 대응시키고, 대신 `truth_result`로
+저장된 결과 JSON의 fitting 값을 참값으로 쓸 수 있다(fitting 추정값은 계획용
+가정이지 독립적으로 알려진 값이 아니다). 시나리오의 각 dataset은 질소 RF
+세기, saturation 시간, absolute sigma, offset 격자(절대 `offsets_ppm` 또는
+각 잔기 `peak_ppm` 기준 상대 `offsets_rel_ppm`)를 주며 `v1err_hz`, `field_mhz`,
+`decoupling` 덮어쓰기는 선택이다. 시나리오마다 잡음 없는 완전한 합성 입력과
+`design_config.json`을 `scenarios/<name>/`에 쓰고, 참값에서 grouped Jacobian을
+계산해 `design.json`, `design.txt`, `design.pdf`에 관측점 수, 측정 시간 대리값
+Σ(점 수 × T), rank와 조건수, 자유 파라미터별 기대 표준오차와 상대오차, 유도
+kex/pB 오차, 약하게 결정되는 파라미터, 강한 상관을 보고한다. 기대 오차는
+sigma에 정확히 비례하는 참값에서의 국소 선형값이며 모델 안에서 설계를
+비교할 뿐 시료를 검증하지 않는다. 제공 예제에서 sigma 0.01일 때 RF 두 세기와
+offset 147개는 kex 기대 오차 6.7 s⁻¹, 세기당 60개는 saturation 시간 41%로
+10.8 s⁻¹, 100 Hz 한 세기만 쓰면 116 s⁻¹이다.
+
+## 8.7. 공유 교환 대 잔기별 교환 비교
+
+`python sb_workflow.py compare CONFIG --out NEW_DIRECTORY [--workers N] [--pdf]`는
+설정한 모델을 두 방식으로 fitting한다. 하나는 설정대로 모든 활성 잔기가
+kab/kba(와 RF scale)를 공유하는 전역 모델이고, 다른 하나는 다른 잔기를 모두
+끄고 잔기별로 따로 fitting한 개별 모델이다. 잔기별 `initial`, `bounds`,
+`vary`, multistart 시작값은 해당 잔기의 것만 유지하고 profile·bootstrap·구간
+분석은 반복하지 않는다. 각 하위 fitting은 `global/`과 `individual/<잔기>/`
+아래에서 보통의 checkpoint 경로로 실행된다. `comparison.json`,
+`comparison.txt`, `comparison.pdf`에는 모델별 chi2, 파라미터 수, 국소 오차가
+붙은 kex·pB, 개별 chi2 합, 두 설명의 AICc·BIC(입력 absolute sigma의 Gaussian,
+공통 상수 제외), AICc 기준 선호 모델, 공유 모델 대 잔기별 모델의 중첩 F-검정이
+담긴다. 하위 fitting이 실패하면 보고하고 비교는 비워 둔다. 이 통계는 입력
+sigma와 고정 입력 아래에서 설명을 비교할 뿐이다. 공유 속도가 선호되면 하나의
+교환 과정과 부합하지만 증명은 아니며, 개별 속도가 선호되는 것은 모델 불일치나
+잘못 보정된 오차 때문일 수도 있다.
+
 ## 9. 실험 fitting 순서와 모델 한계
 
 1. 두 핵의 장비 주파수, carrier, pulse 위상과 길이, 보정한 ¹H amplitude,

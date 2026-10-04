@@ -125,6 +125,16 @@ intervals; it does not measure bootstrap-interval coverage. See manual sections
 [report sources](sb_report.py), [bootstrap sources](sb_bootstrap.py) and
 [coverage-study sources](validate_uncertainty.py).
 
+Three further tools (manual sections 8.5–8.7): `init.profile_interval` locates
+the likelihood-ratio interval of kex, pB or the RF scale on the exact nuisance-refit
+profile (every evaluated point retained and resumable);
+`sb_workflow.py design DESIGN_JSON --out DIR` reports expected standard errors,
+rank and correlations of planned acquisitions at a known truth without fitting
+([design sources](sb_design.py)); `sb_workflow.py compare CONFIG --out DIR` fits the
+shared-exchange model and per-residue models and compares chi2, AICc, BIC and a
+nested F-test ([comparison sources](sb_compare.py)). All three are within-model
+statements under the supplied absolute sigma.
+
 [Preview of the new residual report](docs/diagnostics-preview.png)
 (A1 from the same synthetic two-RF example).
 
@@ -177,6 +187,9 @@ After setting the thread variables above:
 .venv/bin/python test_profile_jacobian.py
 .venv/bin/python test_sb_bootstrap.py
 .venv/bin/python test_sb_parallel.py
+.venv/bin/python test_profile_interval.py
+.venv/bin/python test_sb_design.py
+.venv/bin/python test_sb_compare.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 

@@ -155,7 +155,7 @@ def restore_fit(model, snapshot):
         # expose their current bounds directly.
         if hasattr(model, "prepare_fit"):
             cfg = {key: value for key, value in model.config["init"].items()
-                   if key not in ("initial", "multistart", "profile", "bootstrap")}
+                   if key not in ("initial", "multistart", "profile", "bootstrap", "profile_interval")}
             model.prepare_fit(p0=p, fitting_config=cfg)
         for name in ("lower", "upper"):
             if not hasattr(model, name) or not np.array_equal(state[name], getattr(model, name)):
@@ -644,7 +644,7 @@ def _constrained_coordinates(model, p, name, target):
     return np.asarray(q0), np.asarray(lo), np.asarray(hi), expand, labels, full_indices
 
 
-def _profile_jacobian(model, residual, full_indices, lower, upper):
+def _profile_jacobian(model, residual, full_indices, lower, upper, evaluate_many=None):
     """Group only Sideband's verified global/residue parameter and row layout."""
     from sbfit import SidebandModel
 
@@ -663,17 +663,19 @@ def _profile_jacobian(model, residual, full_indices, lower, upper):
         return "3-point"
     grouped = _block_jacobian(residual, sizes, 2 + len(model.rf_names), len(model.local_keys),
                               relative_step=1e-5, free=full_indices,
-                              bounds=(lower, upper), method="3-point")
+                              bounds=(lower, upper), method="3-point",
+                              evaluate_many=evaluate_many)
     # SciPy's dense 3-point result is column-major. Matching that layout keeps
     # column norms and gradient reductions identical even for weak H rates.
     return lambda q: np.asfortranarray(grouped(q))
 
 
-def profile_point(model, p, name, target, baseline):
+def profile_point(model, p, name, target, baseline, *, pool=None):
     """Constrained nuisance refit for one target; returns its JSON-safe row.
 
     Requires the model's current bounds and free indices for the base fit and a
     cached ``_fit_data``. Shared by the serial scan and pool workers.
+    ``pool`` evaluates the refit's Jacobian columns in worker processes.
     """
     row = {"target": float(target), "start": None, "parameters": None,
            "success": False, "chi2": None, "delta_chi2": None,
@@ -698,7 +700,11 @@ def profile_point(model, p, name, target, baseline):
                 return r
 
             row["optimization_performed"] = True
-            jacobian = _profile_jacobian(model, residual, full_indices, lower, upper)
+            evaluate_many = None
+            if pool is not None:
+                def evaluate_many(vectors):
+                    return pool.evaluate_many([expand(q) for q in vectors])
+            jacobian = _profile_jacobian(model, residual, full_indices, lower, upper, evaluate_many)
             fit = least_squares(residual, q0, bounds=(lower, upper),
                                 jac=jacobian, diff_step=1e-5, x_scale="jac",
                                 ftol=1e-9, xtol=1e-9, gtol=1e-9,
@@ -813,6 +819,199 @@ def profile_likelihood(model, p, settings, *, completed=None, on_complete=None, 
             else:
                 for target in pending:
                     accept(target, profile_point(model, p, name, target, baseline))
+    finally:
+        try:
+            model.errFunc(p)
+        finally:
+            _restore(model, state)
+            if hasattr(model, "_fit_data"):
+                model._fit_data = old_data
+    return out
+
+
+INTERVAL_NAMES = ("kex", "pB", "v1n_scale")
+
+
+def _interval_settings(settings, names):
+    """Validate init.profile_interval; return normalized settings."""
+    allowed = {"parameters", "confidence", "max_evaluations", "relative_tolerance", "max_doublings"}
+    if not isinstance(settings, dict) or set(settings) - allowed or "parameters" not in settings:
+        raise ValueError("profile_interval requires parameters and allows confidence, max_evaluations, relative_tolerance, max_doublings")
+    parameters = settings["parameters"]
+    if (not isinstance(parameters, list) or not parameters or len(set(parameters)) != len(parameters)
+            or any(name not in INTERVAL_NAMES for name in parameters)):
+        raise ValueError("profile_interval.parameters must list unique names among kex, pB, v1n_scale")
+    if "v1n_scale" in parameters and "v1n_scale" not in names:
+        raise ValueError("v1n_scale intervals require scale RF mode")
+    confidence = settings.get("confidence", 0.95)
+    if isinstance(confidence, bool) or not _number(confidence) or not 0 < confidence < 1:
+        raise ValueError("profile_interval.confidence must be between 0 and 1")
+    budget = settings.get("max_evaluations", 40)
+    if isinstance(budget, bool) or not isinstance(budget, int) or budget < 4:
+        raise ValueError("profile_interval.max_evaluations must be an integer of at least 4")
+    tolerance = settings.get("relative_tolerance", 1e-3)
+    if isinstance(tolerance, bool) or not _number(tolerance) or not 0 < tolerance < 0.5:
+        raise ValueError("profile_interval.relative_tolerance must lie in (0, 0.5)")
+    doublings = settings.get("max_doublings", 8)
+    if isinstance(doublings, bool) or not isinstance(doublings, int) or doublings < 1:
+        raise ValueError("profile_interval.max_doublings must be a positive integer")
+    return {"parameters": list(parameters), "confidence": float(confidence),
+            "max_evaluations": budget, "relative_tolerance": float(tolerance),
+            "max_doublings": doublings}
+
+
+def _interval_value(model, p, name):
+    names = list(model.parameter_names)
+    if name == "v1n_scale":
+        return float(p[names.index(name)])
+    total = p[names.index("kab")] + p[names.index("kba")]
+    return float(total) if name == "kex" else float(p[names.index("kab")] / total)
+
+
+def _interval_range(model, p, name):
+    """Hard limits of the scanned quantity implied by the parameter bounds."""
+    names = list(model.parameter_names)
+    lower, upper = np.asarray(model.lower), np.asarray(model.upper)
+    if name == "v1n_scale":
+        i = names.index(name)
+        return float(lower[i]), float(upper[i])
+    a, b = names.index("kab"), names.index("kba")
+    if name == "kex":
+        return float(lower[a] + lower[b]), float(upper[a] + upper[b])
+    return 0.0, 1.0
+
+
+class ProfileIntervalError(RuntimeError):
+    pass
+
+
+def profile_intervals(model, p, covariance, settings, *, completed=None, on_complete=None, pool=None):
+    """Likelihood-ratio intervals from the exact nuisance-refit profile.
+
+    For each quantity the base value is bracketed outward in doubling steps from a
+    local-SE-sized start and the crossing of the chi-square threshold is located
+    with Brent's method on the profile delta chi2. Every evaluated point is
+    retained in evaluation order. ``completed`` maps names to ordered evaluated
+    rows that are replayed instead of refitted; the evaluation sequence is
+    deterministic for an unchanged base fit, so a mismatch is reported.
+    Intervals are within-model statements under the supplied absolute sigma.
+    """
+    from scipy.optimize import brentq
+    from scipy.stats import chi2 as chi2_dist, norm
+    from sb_report import derived_errors
+
+    settings = _interval_settings(settings, model.parameter_names)
+    p = np.asarray(p, dtype=float).copy()
+    names = list(model.parameter_names)
+    completed = {} if completed is None else copy.deepcopy(completed)
+    if not isinstance(completed, dict) or set(completed) - set(settings["parameters"]):
+        raise ValueError("Completed profile intervals contain unconfigured names")
+    threshold = float(chi2_dist.ppf(settings["confidence"], 1))
+    z = float(norm.ppf(0.5 + settings["confidence"] / 2))
+    state = _state(model)
+    old_data = getattr(model, "_fit_data", None)
+    out = {"confidence": settings["confidence"], "threshold_delta_chi2": threshold,
+           "warnings": [], "parameter_names": names,
+           "interpretation": ("Likelihood-ratio intervals where the exact nuisance-refit profile crosses "
+                              "the chi-square threshold; within-model statements under the supplied "
+                              "absolute sigma, not guarantees of global optimality.")}
+    try:
+        if hasattr(model, "_prepare_data") and old_data is None:
+            model._fit_data = model._prepare_data()
+        baseline = _chi2(model, p)
+        out["base_chi2"] = baseline
+        std = np.sqrt(np.diag(np.asarray(covariance, dtype=float)))
+        derived = derived_errors(p, np.asarray(covariance, dtype=float))
+        for name in settings["parameters"]:
+            estimate = _interval_value(model, p, name)
+            local = derived.get(name) if name != "v1n_scale" else (
+                float(std[names.index(name)]) if np.isfinite(std[names.index(name)]) else None)
+            hard = _interval_range(model, p, name)
+            result = {"estimate": estimate, "local_se": local, "lower": None, "upper": None,
+                      "lower_message": "", "upper_message": "", "points": [], "success": False,
+                      "message": "", "evaluations": 0,
+                      "search_range": [float(v) if np.isfinite(v) else None for v in hard]}
+            out[name] = result
+            rows = list(completed.get(name, []))
+            if not isinstance(rows, list):
+                raise ValueError("Completed interval rows must be a list")
+            cache = {}
+
+            def evaluate(target):
+                target = float(target)
+                if target in cache:
+                    return cache[target]
+                index = result["evaluations"]
+                if index < len(rows):
+                    row = rows[index]
+                    if not isinstance(row, dict) or row.get("target") != target:
+                        raise ValueError(f"Completed profile_interval rows for {name} do not match the evaluation sequence")
+                else:
+                    row = profile_point(model, p, name, target, baseline, pool=pool)
+                    if on_complete is not None:
+                        on_complete(name, copy.deepcopy(row))
+                result["evaluations"] += 1
+                result["points"].append(row)
+                if not row["success"]:
+                    raise ProfileIntervalError(f"profile refit failed at {name}={target:g}: {row['message']}")
+                if row["below_base_minimum"]:
+                    out["warnings"].append(f"{name}={target:g} lies below the base chi2; the base fit is not the best solution found and this interval is unreliable.")
+                cache[target] = float(row["delta_chi2"]) - threshold
+                return cache[target]
+
+            if local is None or not np.isfinite(local) or local <= 0:
+                step = 0.1 * abs(estimate) if estimate else 0.01
+                out["warnings"].append(f"No finite local standard error for {name}; bracketing starts from a 10% step.")
+            else:
+                step = z * local
+            try:
+                for side, sign in (("lower", -1.0), ("upper", 1.0)):
+                    limit = hard[0] if sign < 0 else hard[1]
+                    inner = estimate
+                    found = None
+                    for k in range(settings["max_doublings"] + 1):
+                        target = estimate + sign * step * 2**k
+                        clipped = False
+                        if (sign < 0 and target <= limit) or (sign > 0 and target >= limit):
+                            if not np.isfinite(limit):
+                                raise ProfileIntervalError(f"{side} bracket for {name} exceeded the search range")
+                            target, clipped = limit, True
+                            if name == "kex" and target <= 0:
+                                target = np.nextafter(0.0, 1.0)
+                        if result["evaluations"] >= settings["max_evaluations"]:
+                            raise ProfileIntervalError(f"{side} bracket for {name} exceeded max_evaluations")
+                        value = evaluate(target)
+                        if value >= 0:
+                            found = (inner, target) if sign > 0 else (target, inner)
+                            break
+                        inner = target
+                        if clipped:
+                            result[f"{side}_message"] = f"profile stays below the threshold up to the bound {limit:g}"
+                            break
+                    if found is None:
+                        if not result[f"{side}_message"]:
+                            result[f"{side}_message"] = f"no threshold crossing within {settings['max_doublings']} doublings"
+                        continue
+                    lo, hi = found
+                    remaining = settings["max_evaluations"] - result["evaluations"]
+                    if remaining < 2:
+                        raise ProfileIntervalError(f"{side} root finding for {name} exceeded max_evaluations")
+                    xtol = settings["relative_tolerance"] * max(abs(estimate), np.finfo(float).tiny)
+                    root = brentq(evaluate, lo, hi, xtol=xtol, rtol=4 * np.finfo(float).eps,
+                                  maxiter=remaining, full_output=False, disp=True)
+                    result[side] = float(root)
+                    result[f"{side}_message"] = "threshold crossing located"
+                result["success"] = result["lower"] is not None and result["upper"] is not None
+                if not result["success"]:
+                    result["message"] = "; ".join(m for m in (result["lower_message"], result["upper_message"]) if m)
+                    out["warnings"].append(f"Profile interval for {name} is one-sided or open: {result['message']}")
+                else:
+                    result["message"] = "both crossings located"
+            except (ProfileIntervalError, RuntimeError, ValueError) as exc:
+                if isinstance(exc, ValueError) and "do not match the evaluation sequence" in str(exc):
+                    raise
+                result["message"] = f"{type(exc).__name__}: {exc}"
+                out["warnings"].append(f"Profile interval for {name} failed: {result['message']}")
     finally:
         try:
             model.errFunc(p)

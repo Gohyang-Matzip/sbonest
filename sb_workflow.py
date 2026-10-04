@@ -1,4 +1,4 @@
-"""Prepare a portable Sideband demo or report an existing fit without refitting."""
+"""Sideband workflow helpers: demo setup, saved-result reports, design and model comparison."""
 import argparse
 import json
 from pathlib import Path
@@ -37,7 +37,18 @@ def main():
     report.add_argument('result_json')
     report.add_argument('--out', required=True, help='New report output prefix')
     report.add_argument('--predictions', help='Explicit predictions CSV, if renamed')
+    design = commands.add_parser('design', help='Expected errors of planned acquisitions at a known truth (no fitting)')
+    design.add_argument('design_json')
+    design.add_argument('--out', required=True, help='New output directory')
+    design.add_argument('--workers', type=int, default=1, help='Worker processes for the Jacobian columns')
+    compare = commands.add_parser('compare', help='Fit shared-exchange and per-residue models and compare them')
+    compare.add_argument('config_file')
+    compare.add_argument('--out', required=True, help='New output directory')
+    compare.add_argument('--workers', type=int, default=1, help='Worker processes for every sub-fit')
+    compare.add_argument('--pdf', action='store_true', help='Also write fit PDFs for every sub-fit')
     args = parser.parse_args()
+    if getattr(args, 'workers', 1) < 1:
+        parser.error('--workers must be a positive integer')
     try:
         if args.command == 'init-demo':
             path = init_demo(args.out)
@@ -46,9 +57,24 @@ def main():
             for name in config['datasets']:
                 print(f'Data: {path.parent / name}')
             print(f'Fit output prefix: {config["Project Name"]}')
-        else:
+        elif args.command == 'report':
             from sb_report import regenerate_report
             paths = regenerate_report(args.result_json, args.out, args.predictions)
+            for label, path in paths.items():
+                print(f'{label}: {path}')
+        elif args.command == 'design':
+            from sb_design import run_design
+            paths = run_design(args.design_json, args.out, workers=args.workers)
+            for label, path in paths.items():
+                print(f'{label}: {path}')
+        else:
+            from run import load_config
+            from sb_compare import run_comparison
+            config = load_config(args.config_file)
+            if config['init'].get('Method') != 'Sideband':
+                raise ValueError('compare requires init.Method = Sideband')
+            paths = run_comparison(config, Path(args.config_file).resolve().parent, args.out,
+                                   no_pdf=not args.pdf, workers=args.workers)
             for label, path in paths.items():
                 print(f'{label}: {path}')
     except (ValueError, KeyError, OSError, RuntimeError) as exc:

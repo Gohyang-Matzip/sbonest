@@ -253,6 +253,18 @@ and exits nonzero without repeating the attempts. Inspect the records, correct
 the settings and choose a fresh prefix; a failure result has no prediction CSV
 to report.
 
+Three more optional tools use the same files. Adding
+`"profile_interval": {"parameters": ["kex"]}` to `init` in a fresh copy of the
+configuration locates the 95% likelihood-ratio interval of kex on the profile
+(each evaluation is one refit; `--workers` helps). To ask before measuring how
+many offsets or RF levels a planned experiment needs, write a design file as in
+manual section 8.6 and run `sb_workflow.py design DESIGN_JSON --out NEW_DIR`;
+it fits nothing and reports expected standard errors per scenario. To test
+whether the three peaks share one exchange process, run
+`sb_workflow.py compare "$SBONEST_DEMO_DIR/fit.json" --out "$SBONEST_DEMO_DIR/compare_01"`;
+it fits the shared model and each peak alone and compares them with AICc and an
+F-test (manual section 8.7). Expect several full fits.
+
 ## 7. Optional: measure a single fit
 
 ```bash
