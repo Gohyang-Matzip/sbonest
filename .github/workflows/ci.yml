@@ -16,13 +16,14 @@ env:
 
 jobs:
   checks:
-    name: checks (Python ${{ matrix.python }})
+    name: checks ${{ matrix.shard }} (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.12", "3.13"]
+        python: ["3.12", "3.13", "3.14"]
+        shard: [core, analysis, tools]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,27 +33,37 @@ jobs:
       - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff
       - run: ruff check *.py --select F
       - run: python -m py_compile *.py
-      - run: python test_performance.py
-      - run: python test_debugging.py
-      - run: python verify_3state.py
-      - run: python test_sideband.py
-      - run: python test_grouped_jacobian.py
-      - run: python test_benchmark.py
-      - run: python test_sb_analysis.py
-      - run: python test_sb_check.py
-      - run: python test_sb_checkpoint.py
-      - run: python test_profile_jacobian.py
-      - run: python test_sb_bootstrap.py
-      - run: python test_sb_workflow.py
-      - run: python test_uncertainty_validation.py
-      - run: python test_sb_parallel.py
-      - run: python test_profile_interval.py
-      - run: python test_sb_design.py
-      - run: python test_sb_compare.py
-      - run: python test_sb_models.py
-      - run: python test_sb_import.py
-      - run: python test_sb_server.py
-      - run: python test_sb_cli.py
+      - name: Core numerics and inherited ONEST checks
+        if: matrix.shard == 'core'
+        run: |
+          python test_performance.py
+          python test_debugging.py
+          python verify_3state.py
+          python test_sideband.py
+          python test_grouped_jacobian.py
+          python test_benchmark.py
+          python test_sb_check.py
+          python test_sb_checkpoint.py
+          python test_sb_models.py
+      - name: Analysis checks
+        if: matrix.shard == 'analysis'
+        run: |
+          python test_sb_analysis.py
+          python test_profile_jacobian.py
+          python test_sb_bootstrap.py
+          python test_uncertainty_validation.py
+          python test_sb_parallel.py
+          python test_profile_interval.py
+          python test_sb_diagnostics.py
+      - name: Workflow tool checks
+        if: matrix.shard == 'tools'
+        run: |
+          python test_sb_workflow.py
+          python test_sb_design.py
+          python test_sb_compare.py
+          python test_sb_import.py
+          python test_sb_server.py
+          python test_sb_cli.py
 
   workflow:
     name: full fit, demo and dummy guide (Python 3.12)

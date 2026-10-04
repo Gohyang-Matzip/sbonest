@@ -95,3 +95,38 @@ otherwise, executable `test_*.py` regressions.
 
 - 2026-10-04: PR 1 worktree `session_artifacts/improve2_20261004/tree`, branch
   `codex/parallel-and-diagnostics`, base `791fb1dee0f1d8b2e1a0d34fd43b264044c18a73`.
+
+
+# Round 2 (approved 2026-10-04, after the first programme)
+
+## PR 5 — `codex/perf2-diagnostics-design`
+
+- [x] Worker pool: pre-start every worker; lazy matplotlib import in `estmodel`;
+      block-split residual evaluation (`SidebandModel.errFunc`) for the optimizer's
+      own evaluations; 882-point fit 10 s with eight workers, bit-identical.
+- [x] `sb_diagnostics.py`: reduced chi2 and spread, sigma scale, per-block runs test,
+      lag-1 autocorrelation, outliers, chi2/dof-rescaled errors; result JSON, text
+      report, regenerated report; `test_sb_diagnostics.py`.
+- [x] Optimal design: `optimize` section in design files, backward elimination of
+      spectrum rows with Woodbury downdates (kex/pB/parameter/D criteria),
+      optimized and uniform comparison scenarios; tests.
+- [x] CI: three shards on Python 3.12/3.13/3.14; `CHANGELOG.md`, `CITATION.cff`,
+      version 1.2.0.
+
+## PR 6 — `codex/coverage-fields-models`
+
+- [ ] `validate_uncertainty.py`: coverage of profile-likelihood intervals and
+      bootstrap percentile intervals in the same seeded study.
+- [ ] 600/800 MHz joint multi-field fit (automatic proton rates, per-field
+      nitrogen relaxation) added to `compare_field_models.py` and documented.
+- [ ] `sb_workflow.py compare --models`: two-state versus three-state with
+      AICc/BIC and a multistart-based three-state initialization.
+
+## PR 7 — `codex/import-qa-web-refactor`
+
+- [ ] Bruker import QA PDF, `fq1list` parsing, peak extraction from a reference 2D.
+- [ ] Web runner: token authentication, job expiry/archive, analysis options,
+      PDF preview.
+- [ ] Split `run_config`/validation out of `sbfit.py`; generated API reference;
+      release tag v1.2.0.
+- Deferred (needs data): experimental 1.2 GHz import → check → design comparison.

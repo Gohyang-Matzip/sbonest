@@ -707,9 +707,11 @@ JSON과 checkpoint 기록에서 이를 검증한다.
 
 `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`는 1로
 유지한다. 병렬성은 pool이 제공한다. 10코어 노트북에서 제공 예제의 882점
-fitting은 worker 1개로 약 33초, 8개로 16초가 걸렸다. optimizer 자체의 잔차
-계산은 직렬로 남기 때문이다. restart·profile 점·bootstrap replicate는 항목
-수까지 worker 수에 거의 비례해 빨라진다. worker는 spawn 방식으로 시작하므로
+fitting은 worker 1개로 약 31초, 8개로 10초가 걸렸다. pool을 열 때 모든 worker를
+미리 시작하고, Jacobian 열은 worker당 벡터 하나씩 계산하며, optimizer 자체의
+잔차 계산은 잔기/dataset 블록으로 나눠 worker에 분산한다. restart·profile 점·
+bootstrap replicate는 항목 수까지 worker 수에 거의 비례해 빨라진다. worker는
+spawn 방식으로 시작하므로
 `run_config(..., workers=N)`를 호출하는 Python 스크립트는 진입점을
 `if __name__ == "__main__":`로 감싸야 한다. restart·profile·bootstrap에는 경과
 시간과 남은 시간 추정이 담긴 진행 표시가 출력된다. Ctrl-C 후 worker는 진행
@@ -786,6 +788,26 @@ sigma에 정확히 비례하는 참값에서의 국소 선형값이며 모델 �
 offset 147개는 kex 기대 오차 6.7 s⁻¹, 세기당 60개는 saturation 시간 41%로
 10.8 s⁻¹, 100 Hz 한 세기만 쓰면 116 s⁻¹이다.
 
+**어디를 측정할지 최적화하기.** 선택 항목 `optimize`는 한 시나리오의 조밀한
+후보 격자에서 측정 예산만큼을 고른다.
+
+```json
+"optimize": {"scenario": "two_rf_147", "budget": 60, "criterion": "kex", "min_per_dataset": 4}
+```
+
+후보 시나리오는 절대 `offsets_ppm` 격자여야 한다. saturation offset 하나가
+모든 잔기를 한꺼번에 주는 스펙트럼 행 하나이므로 선택 단위는 행 전체다. 모든
+후보 행에서 시작해 제거해도 기준값이 가장 적게 나빠지는 행을 Fisher 정보의
+정확한 Woodbury 갱신으로 반복 제거하며, `budget`개 행이 남고 dataset마다 최소
+`min_per_dataset`개가 유지될 때 멈춘다. `criterion`은 `kex`(기본)·`pB`·자유
+파라미터 이름의 기대 분산 또는 행렬식 기준 `D`다. 결과에는 보통 시나리오와
+똑같이 평가한 `<이름>_optimized_<budget>`와 `<이름>_uniform_<budget>`(같은
+예산을 균일 배치) 두 시나리오, dataset별 선택 offset, 기준값 경로와 그림이
+추가된다. 제공 예제에서 sigma 0.01일 때 후보 294행(RF 두 세기) 중 60행은 kex
+기대 오차 7.6 s⁻¹로, 균일 60행의 17.5 s⁻¹, 전체 294행의 6.7 s⁻¹과 비교된다.
+선택은 참값과 모델에 국소적인 계획 보조 도구이며, 한 양에 최적인 설계가 다른
+양에는 더 나쁠 수 있다.
+
 ## 8.7. 공유 교환 대 잔기별 교환 비교
 
 `python sb_workflow.py compare CONFIG --out NEW_DIRECTORY [--workers N] [--pdf]`는
@@ -802,6 +824,29 @@ kab/kba(와 RF scale)를 공유하는 전역 모델이고, 다른 하나는 다�
 sigma와 고정 입력 아래에서 설명을 비교할 뿐이다. 공유 속도가 선호되면 하나의
 교환 과정과 부합하지만 증명은 아니며, 개별 속도가 선호되는 것은 모델 불일치나
 잘못 보정된 오차 때문일 수도 있다.
+
+## 8.8. 잔차·sigma 진단
+
+이 매뉴얼의 모든 불확실성 진술은 입력 absolute sigma와 데이터를 설명하는 모델을
+가정한다. fitting이 끝나면 결과 JSON의 `residual_diagnostics`가 표준화 잔차만으로
+다음을 계산한다.
+
+- 기대 산포 `sqrt(2/dof)`가 붙은 `reduced_chi2`와 그로부터 유도한
+  `sigma_scale_estimate = sqrt(chi2/dof)`. 1에서 산포의 세 배 넘게 벗어나면 sigma가
+  너무 작거나(또는 모델이 구조를 놓치거나) 너무 크다고 경고한다.
+- 잔기별·dataset별·잔기/dataset 블록별 점 수와 reduced chi-square. 블록마다
+  offset 순으로 정렬한 잔차 부호의 Wald–Wolfowitz runs test, `2/sqrt(n)` 기준이
+  붙은 lag-1 자기상관, 최대 표준화 잔차. 체계적인 부호 run이나 자기상관은
+  sigma가 아니라 모델 부적합을 경고한다.
+- Gaussian 기대치와 비교한 3 sigma 초과 이상점 수.
+- `rescaled_stderr`와 자유 파라미터별 `stderr_rescaled`: 국소 표준오차에
+  `sqrt(chi2/dof)`를 곱한 값. sigma가 균일하게 잘못 추정되었다고 믿을 때 쓰는
+  관례적 대안이며 모델이 맞다고 가정한다. 기본값이 아니다.
+
+텍스트 보고서와 `sb_workflow.py report`도 같은 진단을 출력하고(보고서는 predictions
+CSV에서 다시 계산한다) 그 경고는 결과 경고에 합쳐진다. 이 검정들은 지표일
+뿐이다. 1에서 먼 reduced chi-square는 sigma와 모델 중 무엇이 틀렸는지 말해 주지
+않으며, runs test는 짧은 블록에서 검정력이 떨어진다.
 
 ## 9. 실험 fitting 순서와 모델 한계
 

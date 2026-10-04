@@ -259,6 +259,13 @@ NumPy만으로 읽어 SBONEST 입력으로 변환하고(14절), `sb_server.py`�
 작업의 업로드·사전 검사·백그라운드 fitting·재개·보고서를 제공하는 Flask 실행기다
 (15절). 기존 ONEST 웹 UI(`server_run.py`)는 그대로 ONEST 모델용이다.
 
+결과 JSON의 `residual_diagnostics`(`sb_diagnostics.py`)는 reduced chi²와 기대
+산포, 잔차 기반 sigma 스케일, 블록별 runs test·lag-1 자기상관, 이상점 수,
+chi²/dof로 재스케일한 표준오차를 제공한다(매뉴얼 8.8절). 설계 파일의
+`optimize`는 Fisher 정보의 Woodbury 갱신으로 스펙트럼 행을 역방향 제거해 예산
+안에서 kex·pB·D 기준을 최적화한다(8.6절). worker pool은 모든 worker를 미리
+시작하고 optimizer의 잔차 계산을 블록으로 분산한다(882점 fit 8 worker 10초).
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

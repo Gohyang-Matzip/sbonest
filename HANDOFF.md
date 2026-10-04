@@ -1,85 +1,78 @@
-# HANDOFF: SBONEST improvement programme — PR 4 (packaging, Bruker import, web runner)
+# HANDOFF: SBONEST round 2 — PR 5 (parallel 2, residual diagnostics, optimal design)
 
 **Written:** 2026-10-04 (Asia/Seoul)
 **Repository:** https://github.com/Gohyang-Matzip/sbonest
 **Main checkout:** `/Users/donghanlee/work/projects/sbonest`
-**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve5_20261004/tree`
-**Branch:** `codex/packaging-import-web` (stacked on `codex/multifield-and-three-state`, PR 3)
-**Programme plan:** `docs/superpowers/plans/2026-10-04-full-improvements.md`
+**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve6_20261004/tree`
+**Branch:** `codex/perf2-diagnostics-design` (base: main `4f88171`)
+**Programme plan:** `docs/superpowers/plans/2026-10-04-full-improvements.md` (Round 2 section)
 
 ## Goal and current status
 
-The user approved the complete 2026-10-04 improvement list. PR 1 merged as #9;
-PR 2 is #10; PR 3 is committed on its branch. This handoff covers PR 4, the last
-of the programme: an installable `sbonest` command, a Bruker pseudo-2D
-importer and a Sideband web runner. Implementation and local validation are
-complete; after PR 3 merges this branch is rebased onto main, pushed, CI-checked
-and merged. The previous handoff is archived at
-`.archive/HANDOFF.before-packaging-20261004.md`.
+The user approved the second improvement list ("제안 한대로 하고 debugging,
+refactoring 하고 commit push PR merge 해"). Round 2 is delivered as three PRs;
+this handoff covers PR 5. Implementation and local validation are complete; the
+branch is to be pushed, CI-checked and merged. The previous handoff is archived
+at `.archive/HANDOFF.before-round2-20261004.md`.
 
-## Applied changes (PR 4)
+## Applied changes (PR 5)
 
 Every item below is **still applied**.
 
-- **[still applied] `pyproject.toml`, `sb_cli.py`:** setuptools build with the
-  root modules listed as `py-modules` (flat layout preserved so provenance source
-  hashes keep their meaning), dependencies matching the requirement files and
-  the console script `sbonest = sb_cli:main`. Subcommands `check`, `fit`,
-  `resume`, `report`, `init-demo`, `design`, `compare`, `import-bruker`
-  (passthrough to `sb_import.main`), `serve`, `benchmark` (passthrough to the
-  new `benchmark.main`) and `version` (package version plus executed-source
-  hashes) call the same functions as the scripts. Verified with an editable
-  install into a Python 3.13 environment and `sbonest version`/`init-demo` from
-  another directory.
-- **[still applied] `sb_import.py`:** NumPy-only reader for Bruker processed
-  pseudo-2D data (`procs`/`proc2s` JCAMP parameters incl. list values, `2rr`
-  submatrix layout, both byte orders, int32/float64, `NC_proc` scaling, proton
-  ppm axis from `OFFSET`/`SW_p`/`SF`). `convert` takes explicit offsets (ppm or
-  Hz with carrier), peaks with optional starting dw, reference row, noise region,
-  saturation time and RF, window statistic (max/sum), header R2a/R2b and excluded
-  rows; writes the SBONEST text format and a JSON summary; refuses existing
-  outputs and invalid inputs before writing.
-- **[still applied] `sb_server.py`:** Flask runner. `POST /jobs` stores the
-  configuration (datasets rewritten to uploaded names, prefix `fit`), data and
-  optional waveform under `SB_JOBS/<id>/` (`SBONEST_JOBS_DIR`), runs
-  `run.py --check --identifiability` and returns the JSON; `POST /jobs/<id>/fit`
-  starts a background `run.py` with the chosen workers; `/resume` continues a
-  checkpointed job; `/report` regenerates reports with a fresh prefix;
-  `GET /jobs/<id>` reports process state, checkpoint records, result summary and
-  log tail; downloads are restricted to files inside the job directory. The HTML
-  page polls the status. No authentication; local trusted use.
-- **[still applied] `benchmark.main(argv)`** extracted from the script guard;
-  `sb_design` restricts scenario configurations to active residues (a base
-  configuration with switched-off residues previously failed with "Residue not
-  found").
-- **[still applied] Tests:** `test_sb_import.py` (synthetic Bruker directories in
-  three storage variants, parameter parsing, Hz offsets, conversion reloaded
-  through `est_data` with recovered profiles and errors, rejections, CLI),
-  `test_sb_server.py` (test client: rejections, upload and preflight, background
-  fit to completion, double-start conflict, resume, report, PDF download, path
-  traversal rejected, job listing), `test_sb_cli.py` (pyproject metadata and
-  module list, every subcommand on a small synthetic case, passthroughs, errors).
-- **[still applied] Docs/CI:** manual sections 13–15 (both languages), README,
-  SIDEBAND.md, AGENTS.md, `.gitignore` (`SB_JOBS/`, egg-info, build), CI checks
-  job runs the three new scripts and the workflow job installs the package and
-  runs `sbonest version`/`check`.
+- **[still applied] `sb_parallel.py`:** `WorkerPool.__enter__` submits one
+  `warm_task` per worker and waits, so all processes exist before the first
+  Jacobian (previously the executor spawned them lazily: first batch of ten
+  evaluations 0.73 s against 0.18 s in steady state). `predict_task` and
+  `predict_blocks` evaluate residue/dataset blocks with balanced point counts.
+- **[still applied] `estmodel.py`:** matplotlib is imported inside
+  `_plot_residues`; `import sbfit` no longer imports matplotlib (0.45 → 0.37 s,
+  and the same saving per worker).
+- **[still applied] `SidebandModel.errFunc` override:** with a pool and at least
+  two data blocks, block predictions come from the workers and the residual
+  arithmetic stays in the main process; the `evaluate_many` closure routes a
+  single vector through the memoized/block-parallel residual. The 882-point
+  example: 31 s with one worker, 10 s with eight (was 16 s), chi2
+  802.8203212916861 and parameters identical to the archived result.
+- **[still applied] `sb_diagnostics.py` (new):** `runs_test`,
+  `lag1_autocorrelation`, `residual_diagnostics(rows, n_parameters, covariance)`,
+  `diagnostics_lines`. `run_config` stores `residual_diagnostics` and per-parameter
+  `stderr_rescaled` and merges warnings; the text report appends the diagnostics
+  (`getLogBuffer` keeps the covariance for rescaled errors); `sb_report`
+  recomputes them from the CSV for regenerated reports.
+- **[still applied] `sb_design.py`:** `optimize` section (scenario, budget,
+  criterion kex/pB/parameter/D, min_per_dataset), `_criterion_gradient`,
+  `_measurement_groups`, `select_measurements` (backward elimination with exact
+  Woodbury downdates over whole spectrum rows), `optimize_design` producing
+  `<name>_optimized_<budget>` and `<name>_uniform_<budget>` scenarios, text and
+  plot. Bundled example at sigma 0.01: 60 of 294 rows → kex SE 7.6 s⁻¹ versus
+  17.5 s⁻¹ uniform and 6.7 s⁻¹ for all rows; the incremental criterion equals the
+  re-evaluated variance.
+- **[still applied] CI/metadata:** three check shards (core, analysis, tools) on
+  Python 3.12, 3.13 and 3.14 plus the 3.12 workflow job; `CHANGELOG.md`,
+  `CITATION.cff`, `pyproject.toml` version 1.2.0. The pinned constraints install
+  on Python 3.14.7 locally and the pool/server/model/checkpoint/MC scripts pass
+  there.
+- **[still applied] Docs:** manual 8.4 (numbers and mechanism), 8.6 (optimize),
+  new 8.8 (diagnostics) in both languages; README, SIDEBAND.md, AGENTS.md.
+- **[still applied] Tests:** `test_sb_diagnostics.py` (new),
+  `test_sb_design.py::check_optimization`.
 
 ## Evidence
 
-Verification: `session_artifacts/improve5_20261004/verification_01/summary.json`
-(ruff, compile, 22 regression scripts, demo, `git diff --check`). Editable
-install log: `session_artifacts/improve2_20261004/venv313` contains the
-`sbonest` console script.
+`session_artifacts/improve6_20261004/verification_01/summary.json` (ruff,
+compile, 23 scripts, demo, `git diff --check`); `tree/session_artifacts/perf2`
+(1 and 8 worker fits, identical to the archive); `tree/session_artifacts/design_opt`
+(optimized design example); `py314_*.log`.
 
 ## Delivery steps — perform only those still missing
 
-1. After PR 3 merges, rebase onto main, rerun the verification.
-2. Push, open the PR with `session_artifacts/improve5_20261004/pr4_body.md`,
+1. Push, open the PR with `session_artifacts/improve6_20261004/pr5_body.md`,
    require CI for the exact head, merge, verify merge CI, fast-forward main.
-3. The programme is then complete; update the plan's execution record.
+2. Continue with PR 6 (`codex/coverage-fields-models`).
 
 ## Scientific boundaries
 
-The importer does not judge phasing, baseline, overlap or the reference choice;
-converted profiles must be inspected. The web runner executes the same code as
-the command line and adds no scientific claims.
+Diagnostics are indicators: a reduced chi-square away from 1 does not identify
+whether sigma or the model is wrong, and rescaled errors assume a correct model.
+Optimized designs are local to the assumed truth and criterion. All evidence is
+synthetic.

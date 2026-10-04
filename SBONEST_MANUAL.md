@@ -729,8 +729,10 @@ parallel run reproduces every number of the serial run, which the regression
 
 Keep `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` at
 one; the pool supplies the parallelism. On a 10-core laptop the bundled
-882-point fit took about 33 s with one worker and 16 s with eight, because the
-optimizer's own residual evaluations stay serial; restarts, profile points and
+882-point fit took about 31 s with one worker and 10 s with eight. Every worker
+is started when the pool opens, the Jacobian columns are evaluated one vector
+per worker, and the optimizer's own residual evaluations are split into
+residue/dataset blocks across the workers; restarts, profile points and
 bootstrap replicates scale almost linearly with the worker count up to the
 number of items. Workers are started with the spawn method, so Python scripts
 that call `run_config(..., workers=N)` must guard their entry point with
@@ -817,6 +819,29 @@ sample. For the bundled example at sigma 0.01, two RF levels with 147 offsets
 give an expected kex error of 6.7 s⁻¹, 60 offsets per level 10.8 s⁻¹ at 41% of
 the saturation time, and a single 100 Hz level 116 s⁻¹.
 
+**Optimizing where to measure.** An optional `optimize` section selects a
+measurement budget from one scenario's dense candidate grids:
+
+```json
+"optimize": {"scenario": "two_rf_147", "budget": 60, "criterion": "kex", "min_per_dataset": 4}
+```
+
+The candidate scenario must use absolute `offsets_ppm` grids, because one
+saturation offset is one spectrum row that yields every residue at once; the
+selection unit is therefore the whole row. Starting from all candidate rows, the
+row whose removal increases the criterion least is dropped repeatedly, using
+exact Woodbury downdates of the Fisher information, until `budget` rows remain
+and each dataset keeps at least `min_per_dataset`. `criterion` is the expected
+variance of `kex` (default), `pB`, a free parameter name, or `D` for the
+determinant criterion. The result adds two scenarios, `<name>_optimized_<budget>`
+and `<name>_uniform_<budget>` (the same budget spread evenly), both evaluated
+exactly like ordinary scenarios so the gain can be read off directly, plus the
+selected offsets per dataset, the criterion path and a plot. For the bundled
+example at sigma 0.01, 60 of 294 candidate rows (two RF levels) give an expected
+kex error of 7.6 s⁻¹ against 17.5 s⁻¹ for 60 uniformly spaced rows and 6.7 s⁻¹ for
+all 294. The selection is local to the truth and the model; it is a planning
+aid, and a design optimized for one quantity can be worse for another.
+
 ## 8.7. Shared versus per-residue exchange
 
 `python sb_workflow.py compare CONFIG --out NEW_DIRECTORY [--workers N] [--pdf]`
@@ -836,6 +861,32 @@ descriptions under the supplied sigma and fixed inputs; a preference for shared
 rates is consistent with one exchange process but does not prove it, and a
 preference for individual rates can also reflect model mismatch or
 miscalibrated errors.
+
+## 8.8. Residual and sigma diagnostics
+
+Every uncertainty statement in this manual assumes the supplied absolute sigma
+and a model that describes the data. After each fit the result JSON contains
+`residual_diagnostics`, computed from the standardized residuals alone:
+
+- `reduced_chi2` with its expected spread `sqrt(2/dof)` and the implied
+  `sigma_scale_estimate = sqrt(chi2/dof)`; a value more than three spreads from 1
+  warns that sigma may be too small (or the model misses structure) or too large.
+- Per residue, per dataset and per residue/dataset block: point counts and reduced
+  chi-square; per block, a Wald–Wolfowitz runs test on the residual signs ordered by
+  offset, the lag-1 autocorrelation with its `2/sqrt(n)` flag level and the largest
+  standardized residual. Systematic sign runs or autocorrelation warn about model
+  inadequacy, not about sigma.
+- Outlier counts beyond 3 sigma against the Gaussian expectation.
+- `rescaled_stderr` and, per varied parameter, `stderr_rescaled`: the local
+  standard errors multiplied by `sqrt(chi2/dof)`. This is the conventional
+  alternative when sigma is believed to be uniformly mis-estimated; it assumes a
+  correct model and is not the default.
+
+The text report and `sb_workflow.py report` print the same diagnostics (the
+report recomputes them from the predictions CSV), and their warnings join the
+result warnings. The tests are indicators: a reduced chi-square far from 1 does
+not say whether sigma or the model is wrong, and the runs test loses power for
+short blocks.
 
 ## 9. Experimental fitting workflow and limits
 

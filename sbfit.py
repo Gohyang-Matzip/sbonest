@@ -126,6 +126,7 @@ class SidebandModel(est_model):
         self._initializing = False
         self.result = None
         self.pool = None
+        self._last_covariance = None
         sb = config["sideband"]
         _known(
             sb,
@@ -435,6 +436,36 @@ class SidebandModel(est_model):
         # Keep fractional RF inhomogeneity fixed, independently of fit uncertainty.
         return es.v1 * scale, es.v1err * scale
 
+    def errFunc(self, p_flat):
+        """Residuals as in ONEST; with a worker pool the data blocks are predicted in parallel.
+
+        Each block's prediction is the same ``calc`` call a worker would make
+        serially, and the residual arithmetic stays in this process, so the
+        values are identical to the serial path.
+        """
+        pool = getattr(self, "pool", None)
+        if pool is None or self._initializing:
+            return super().errFunc(p_flat)
+        try:
+            P = self.seParam(p_flat)
+        except ValueError:
+            return super().errFunc(p_flat)
+        data = self._fit_data if self._fit_data is not None else self._prepare_data()
+        if len(data) < 2:
+            return super().errFunc(p_flat)
+        del P
+        predictions = pool.predict_blocks(p_flat, [len(row[2]) for row in data])
+        residuals_list = []
+        for (_, _, _, observed, std), est_calc in zip(data, predictions):
+            est_calc = np.nan_to_num(est_calc, nan=1e6, posinf=1e6, neginf=-1e6)
+            residuals_list.append((observed - est_calc) / std)
+        residuals = np.concatenate(residuals_list)
+        self.chi2 = np.sum(residuals**2)
+        self.npar = len(p_flat)
+        self.nvar = len(residuals)
+        self.dof = max(1, self.nvar - self.npar)
+        return residuals
+
     def calc(self, P, i, dRF, es):
         d = self.decoupling[es.dataset_index]
         label = self.dataset.res[i].label
@@ -610,6 +641,10 @@ class SidebandModel(est_model):
             if pool is not None:
                 def evaluate_many(vectors):
                     # Workers hold identical models; results are byte-identical to residual().
+                    # A single vector (the Jacobian base point) uses the memo or the
+                    # block-parallel residual instead of occupying one worker.
+                    if len(vectors) == 1:
+                        return [residual(vectors[0])]
                     return pool.evaluate_many([expand(q) for q in vectors])
             jac = _block_jacobian(
                 residual,
@@ -680,6 +715,26 @@ class SidebandModel(est_model):
         ]
 
     def _log_params(self, values, stds):
+        lines = self._parameter_lines(values, stds)
+        try:
+            from sb_diagnostics import diagnostics_lines, residual_diagnostics
+
+            report = residual_diagnostics(prediction_rows(self, values), len(self.free),
+                                          self._last_covariance)
+            lines.extend(["*" * 43, *diagnostics_lines(report, self.parameter_names)])
+        except (ValueError, AttributeError):
+            pass
+        return lines
+
+    def getLogBuffer(self, fit_output_tuple):
+        # Remember the covariance so the text report can list rescaled errors.
+        self._last_covariance = np.asarray(fit_output_tuple[1], dtype=float)
+        try:
+            return super().getLogBuffer(fit_output_tuple)
+        finally:
+            self._last_covariance = None
+
+    def _parameter_lines(self, values, stds):
         n_rates = len(self.rate_names)
         lines = [
             f"{n}: {values[n_rates + i]:.8g} +/- {stds[n_rates + i]:.6g}"
@@ -1059,6 +1114,13 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False, workers=1)
             return fitted
         info = model.diagnostics(*fitted)
         info["success"] = True
+        rows = prediction_rows(model, fitted[0])
+        from sb_diagnostics import residual_diagnostics
+
+        info["residual_diagnostics"] = residual_diagnostics(rows, info["n_parameters"], fitted[1])
+        for name, value in zip(model.parameter_names, info["residual_diagnostics"]["rescaled_stderr"]):
+            info["parameters"][name]["stderr_rescaled"] = value if info["parameters"][name]["vary"] else None
+        info["warnings"].extend(info["residual_diagnostics"]["warnings"])
         if baseline["multistart"] is not None:
             info["multistart"] = [
                 {key: value for key, value in row.items() if key not in ("initialization", "fit_snapshot")}
@@ -1100,7 +1162,6 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False, workers=1)
                     "resumed": bool(resume), "workers": workers}
         info["provenance"] = metadata
         info["checkpoint"] = str(checkpoint.absolute())
-        rows = prediction_rows(model, fitted[0])
         stage = Path(tempfile.mkdtemp(prefix="export-", dir=checkpoint))
         staged = [stage / path.name for path in outputs]
         staged[0].write_text(model.getLogBuffer(fitted), encoding="utf-8")

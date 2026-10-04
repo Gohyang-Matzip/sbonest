@@ -9,8 +9,6 @@ import concurrent.futures
 import multiprocessing
 from functools import lru_cache
 
-from matplotlib.pyplot import figure, close
-from matplotlib.backends.backend_pdf import PdfPages
 from os import getlogin
 from platform import uname
 from time import ctime
@@ -615,6 +613,10 @@ class est_model:
 
     def _plot_residues(self, pdfFileName, P=None):
         """One page per active residue: experimental points, plus calc curves if P given."""
+        # Imported here so fitting workers never pay the matplotlib start-up cost.
+        from matplotlib.pyplot import figure, close
+        from matplotlib.backends.backend_pdf import PdfPages
+
         pdf = PdfPages(pdfFileName)
         colorsSet = ["b", "g", "r", "c", "m", "y", "k"]
         for i, res in enumerate(self.dataset.res):

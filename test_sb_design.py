@@ -14,7 +14,7 @@ import tempfile
 
 import numpy as np
 
-from sb_design import _offsets, load_design, run_design
+from sb_design import _offsets, load_design, run_design, select_measurements
 from sbfit import SidebandModel
 from test_sb_compare import write_synthetic
 
@@ -121,8 +121,65 @@ def check_truth_result_and_cli():
     assert summary['scenarios'][0]['n_points'] == 21 and summary['truth']['kab'] == 15.
 
 
+def check_optimization():
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-design-opt-'))
+    config_path = write_synthetic(folder / 'base', {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    truth = truth_for(config_path)
+    grid = {'min': 105., 'max': 135., 'n': 31}
+    candidate = {'name': 'cand', 'datasets': [{'v1n_hz': 25., 'T': .03, 'sigma': .004, 'offsets_ppm': grid},
+                                              {'v1n_hz': 80., 'T': .03, 'sigma': .004, 'offsets_ppm': grid}]}
+    design = {'config': os.path.relpath(config_path, folder), 'truth': truth, 'scenarios': [candidate],
+              'optimize': {'scenario': 'cand', 'budget': 16, 'criterion': 'kex', 'min_per_dataset': 3}}
+    (folder / 'design.json').write_text(json.dumps(design))
+    paths = run_design(folder / 'design.json', folder / 'out')
+    summary = json.loads(Path(paths['design_json']).read_text())
+    rows = {row['name']: row for row in summary['scenarios']}
+    opt = summary['optimization']
+    assert set(rows) == {'cand', 'cand_optimized_16', 'cand_uniform_16'}
+    selected = opt['selected_offsets_ppm']
+    assert sum(len(v) for v in selected.values()) == 16 and all(len(v) >= 3 for v in selected.values())
+    assert rows['cand_optimized_16']['n_points'] == 16 * 3
+    # The incremental criterion equals the re-evaluated variance of kex for the optimized design.
+    se = rows['cand_optimized_16']['identifiability']['derived_se']['kex']
+    assert abs(opt['optimized_criterion'] - se**2) < 1e-6 * se**2, (opt['optimized_criterion'], se**2)
+    assert abs(opt['candidate_criterion'] - rows['cand']['identifiability']['derived_se']['kex']**2) < 1e-6 * opt['candidate_criterion']
+    assert se <= rows['cand_uniform_16']['identifiability']['derived_se']['kex'], 'Optimized design worse than uniform'
+    assert opt['criterion_path'][0]['n_measurements'] == 62 and opt['criterion_path'][-1]['n_measurements'] == 16
+    assert all(b['criterion'] >= a['criterion'] - 1e-9 for a, b in zip(opt['criterion_path'], opt['criterion_path'][1:]))
+    assert 'Optimized design' in Path(paths['design_txt']).read_text()
+    # Direct selection with the D criterion and a parameter criterion on a tiny Jacobian.
+    rng = np.random.default_rng(0)
+    J = rng.normal(size=(12, 3))
+    groups = {(0, k): [k, k + 6] for k in range(6)}
+    kept, path = select_measurements(J, groups, 4, None, min_per_dataset=0)
+    assert len(kept) == 4 and path[-1]['n_measurements'] == 4 and path[-1]['criterion'] >= path[0]['criterion']
+    kept, _ = select_measurements(J, groups, 5, np.array([0., 0., 1.]), min_per_dataset=0)
+    assert len(kept) == 5
+    for bad in ({'scenario': 'cand', 'budget': 1}, {'scenario': 'missing', 'budget': 10},
+                {'scenario': 'cand', 'budget': 4, 'min_per_dataset': 3}, {'scenario': 'cand', 'budget': 10, 'criterion': ''}):
+        design['optimize'] = bad
+        (folder / 'bad.json').write_text(json.dumps(design))
+        try:
+            run_design(folder / 'bad.json', folder / 'bad_out')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f'Invalid optimize settings accepted: {bad}')
+    relative = dict(design, scenarios=[{'name': 'cand', 'datasets': [{'v1n_hz': 25., 'T': .03, 'sigma': .004,
+                                                                     'offsets_rel_ppm': {'min': -.4, 'max': .4, 'n': 9}}]}],
+                    optimize={'scenario': 'cand', 'budget': 4})
+    (folder / 'rel.json').write_text(json.dumps(relative))
+    try:
+        run_design(folder / 'rel.json', folder / 'rel_out')
+    except ValueError as exc:
+        assert 'offsets_ppm' in str(exc)
+    else:
+        raise AssertionError('Relative candidate grid accepted for optimization')
+
+
 if __name__ == '__main__':
     check_validation()
     check_expected_errors_and_inputs()
     check_truth_result_and_cli()
-    print('PASS: design validation, expected errors, synthetic inputs and CLI')
+    check_optimization()
+    print('PASS: design validation, expected errors, synthetic inputs, CLI and optimization')

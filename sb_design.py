@@ -12,6 +12,7 @@ import contextlib
 import copy
 import hashlib
 import json
+import math
 import numbers
 from pathlib import Path
 
@@ -52,8 +53,8 @@ def _offsets(spec, label):
 def load_design(path):
     path = Path(path).expanduser().resolve()
     design = json.loads(path.read_text(encoding='utf-8'), parse_constant=lambda v: (_ for _ in ()).throw(ValueError(f'Non-finite JSON value {v}')))
-    if not isinstance(design, dict) or set(design) - {'config', 'truth', 'truth_result', 'scenarios'}:
-        raise ValueError('Design allows config, truth or truth_result, and scenarios')
+    if not isinstance(design, dict) or set(design) - {'config', 'truth', 'truth_result', 'scenarios', 'optimize'}:
+        raise ValueError('Design allows config, truth or truth_result, scenarios and optimize')
     if not isinstance(design.get('config'), str) or not design['config']:
         raise ValueError('Design needs a base config path')
     if ('truth' in design) == ('truth_result' in design):
@@ -87,6 +88,27 @@ def load_design(path):
                 raise ValueError(f'{label}.decoupling must be an object')
     if len(set(names)) != len(names):
         raise ValueError('Scenario names must be unique')
+    optimize = design.get('optimize')
+    if optimize is not None:
+        allowed = {'scenario', 'budget', 'criterion', 'min_per_dataset'}
+        if not isinstance(optimize, dict) or set(optimize) - allowed or 'scenario' not in optimize or 'budget' not in optimize:
+            raise ValueError('optimize needs scenario and budget and allows criterion and min_per_dataset')
+        if optimize['scenario'] not in names:
+            raise ValueError('optimize.scenario must name one of the scenarios')
+        budget = optimize['budget']
+        if isinstance(budget, bool) or not isinstance(budget, int) or budget < 2:
+            raise ValueError('optimize.budget must be an integer of at least 2')
+        minimum = optimize.get('min_per_dataset', 2)
+        if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 0:
+            raise ValueError('optimize.min_per_dataset must be a nonnegative integer')
+        criterion = optimize.get('criterion', 'kex')
+        if not isinstance(criterion, str) or not criterion:
+            raise ValueError('optimize.criterion must be kex, pB, D or a free parameter name')
+        candidate = next(s for s in scenarios if s['name'] == optimize['scenario'])
+        if any('offsets_ppm' not in ds for ds in candidate['datasets']):
+            raise ValueError('optimize requires absolute offsets_ppm grids in the candidate scenario (one offset list per spectrum)')
+        if budget < minimum * len(candidate['datasets']):
+            raise ValueError('optimize.budget is smaller than min_per_dataset times the number of datasets')
     config_path = (path.parent / design['config']).resolve()
     config = load_config(str(config_path))
     if not str(config['init'].get('Method', '')).startswith('Sideband'):
@@ -101,7 +123,7 @@ def load_design(path):
     if not isinstance(truth, dict) or not truth or not all(_finite(v, f'truth.{k}') is not None for k, v in truth.items()):
         raise ValueError('truth must map parameter names to finite numbers')
     return {'path': path, 'config': config, 'config_path': config_path, 'truth': dict(truth),
-            'scenarios': copy.deepcopy(scenarios)}
+            'scenarios': copy.deepcopy(scenarios), 'optimize': copy.deepcopy(optimize)}
 
 
 def _write_dataset(path, model, truth_vector, index, offsets_spec, sigma, field, T, v1, v1err):
@@ -226,12 +248,17 @@ def run_design(design_path, out, *, workers=1):
     out.mkdir(parents=True)
     results = [evaluate_scenario(design, scenario, out / 'scenarios' / scenario['name'], workers=workers)
                for scenario in design['scenarios']]
+    optimization = None
+    if design.get('optimize'):
+        optimization, extra = optimize_design(design, out, results, workers=workers)
+        results.extend(extra)
     summary = {
         'schema_version': 1, 'design_path': str(design['path']),
         'design_sha256': hashlib.sha256(design['path'].read_bytes()).hexdigest(),
         'config_path': str(design['config_path']), 'truth': design['truth'],
         'confidence_note': 'Expected standard errors are local linear values at the truth with the supplied absolute sigma; no optimizer ran.',
         'scenarios': results,
+        'optimization': optimization,
         'provenance': provenance(design['config'], design['config_path'].parent),
     }
     text = '\n'.join(design_lines(summary)) + '\n'
@@ -270,6 +297,14 @@ def design_lines(summary):
             spec = ds.get('offsets_ppm', ds.get('offsets_rel_ppm'))
             grid = f'{spec["min"]}..{spec["max"]} ({spec["n"]})' if isinstance(spec, dict) else f'{len(spec)} explicit values'
             lines.append(f'  dataset: v1n {ds["v1n_hz"]} Hz, T {ds["T"]} s, sigma {ds["sigma"]}, offsets {grid}')
+    opt = summary.get('optimization')
+    if opt:
+        lines.extend(['', f'Optimized design: criterion {opt["criterion"]}, budget {opt["budget"]} of '
+                      f'{opt["n_candidate_measurements"]} candidate spectrum rows (min {opt["min_per_dataset"]} per dataset)',
+                      f'criterion value: candidate {number(opt["candidate_criterion"])} -> optimized {number(opt["optimized_criterion"])}',
+                      opt['interpretation']])
+        for dataset, offsets in opt['selected_offsets_ppm'].items():
+            lines.append(f'  dataset {dataset}: ' + ', '.join(f'{o:.4g}' for o in offsets))
     return lines
 
 
@@ -299,6 +334,23 @@ def design_pdf(path, summary):
         fig.tight_layout(rect=(0, .04, 1, 1))
         pdf.savefig(fig)
         plt.close(fig)
+        opt = summary.get('optimization')
+        if opt:
+            fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+            path = opt['criterion_path']
+            axes[0].plot([row['n_measurements'] for row in path], [row['criterion'] for row in path], '-')
+            axes[0].set(xlabel='spectrum rows kept', ylabel=f'criterion ({opt["criterion"]})',
+                        title='Backward elimination path')
+            axes[0].invert_xaxis()
+            axes[0].grid(alpha=.25)
+            for dataset, offsets in opt['selected_offsets_ppm'].items():
+                axes[1].plot(offsets, [int(dataset)] * len(offsets), '|', markersize=14, label=f'dataset {dataset}')
+            axes[1].set(xlabel='saturation offset (ppm)', ylabel='dataset index', title='Selected offsets')
+            axes[1].grid(alpha=.25)
+            axes[1].legend(fontsize=8)
+            fig.tight_layout()
+            pdf.savefig(fig)
+            plt.close(fig)
         lines = [part for line in design_lines(summary)
                  for part in (textwrap.wrap(line, width=110, replace_whitespace=False) or [''])]
         for page in _paginate(lines, 56):
@@ -306,3 +358,159 @@ def design_pdf(path, summary):
             fig.text(.05, .95, '\n'.join(page), va='top', family='monospace', fontsize=7.5, linespacing=1.5)
             pdf.savefig(fig)
             plt.close(fig)
+
+
+def _criterion_gradient(model, vector, criterion):
+    """Gradient of the criterion quantity with respect to the free parameters, or None for D."""
+    names = list(model.parameter_names)
+    free = [int(i) for i in model.free]
+    if criterion == 'D':
+        return None
+    g = np.zeros(len(names))
+    if criterion in ('kex', 'pB'):
+        if 'kbc' in names:
+            raise ValueError('kex/pB criteria are defined for the two-state model only')
+        a, b = names.index('kab'), names.index('kba')
+        if a not in free or b not in free:
+            raise ValueError('kex/pB criteria need kab and kba to vary')
+        total = vector[a] + vector[b]
+        if criterion == 'kex':
+            g[a] = g[b] = 1.0
+        else:
+            g[a], g[b] = vector[b] / total**2, -vector[a] / total**2
+    else:
+        if criterion not in names:
+            raise ValueError(f'Unknown criterion parameter {criterion}')
+        if names.index(criterion) not in free:
+            raise ValueError(f'Criterion parameter {criterion} is fixed')
+        g[names.index(criterion)] = 1.0
+    return g[free]
+
+
+def _measurement_groups(model):
+    """Rows of the residual vector grouped by (dataset, offset index): one spectrum row each."""
+    groups = {}
+    position = 0
+    for i, es, offsets, _, _ in model._prepare_data():
+        for k in range(len(offsets)):
+            groups.setdefault((es.dataset_index, k), []).append(position + k)
+        position += len(offsets)
+    return groups
+
+
+def select_measurements(jacobian, groups, budget, gradient, *, min_per_dataset=2):
+    """Backward elimination of spectrum rows that least worsen the criterion.
+
+    ``groups`` maps (dataset, offset index) to the Jacobian rows of that spectrum
+    row (one per residue). The criterion is the variance of ``gradient``-weighted
+    parameters, or the D-criterion (log det of the information) when gradient is
+    None. Removal uses exact Woodbury downdates and refuses to make the
+    information singular. Returns the kept keys and the criterion path.
+    """
+    J = np.asarray(jacobian, dtype=float)
+    keys = list(groups)
+    rows = [np.asarray(groups[key], dtype=int) for key in keys]
+    active = {key: True for key in keys}
+    per_dataset = {}
+    for key in keys:
+        per_dataset[key[0]] = per_dataset.get(key[0], 0) + 1
+    M = J.T @ J
+    try:
+        Minv = np.linalg.inv(M)
+    except np.linalg.LinAlgError as exc:
+        raise ValueError('Candidate design has singular information; add points or fix parameters') from exc
+    sign, logdet = np.linalg.slogdet(M)
+    if sign <= 0:
+        raise ValueError('Candidate design information is not positive definite')
+
+    def value():
+        return float(gradient @ Minv @ gradient) if gradient is not None else float(-logdet)
+
+    path = [{'n_measurements': len(keys), 'criterion': value()}]
+    count = len(keys)
+    while count > budget:
+        best = None
+        for index, key in enumerate(keys):
+            if not active[key] or per_dataset[key[0]] <= min_per_dataset:
+                continue
+            Jg = J[rows[index]]
+            U = Jg @ Minv
+            H = U @ Jg.T
+            I_H = np.eye(len(Jg)) - H
+            det = np.linalg.det(I_H)
+            if det <= 1e-12:
+                continue
+            if gradient is None:
+                delta = -math.log(det)
+            else:
+                a = U @ gradient
+                delta = float(a @ np.linalg.solve(I_H, a))
+            if best is None or delta < best[0]:
+                best = (delta, index, Jg, U, I_H, det)
+        if best is None:
+            raise ValueError('No removable measurement keeps the information nonsingular and the per-dataset minimum')
+        delta, index, Jg, U, I_H, det = best
+        Minv = Minv + U.T @ np.linalg.solve(I_H, U)
+        logdet += math.log(det)
+        active[keys[index]] = False
+        per_dataset[keys[index][0]] -= 1
+        count -= 1
+        path.append({'n_measurements': count, 'criterion': value()})
+    kept = [key for key in keys if active[key]]
+    return kept, path
+
+
+def optimize_design(design, out, results, *, workers=1):
+    """Select the measurement budget from the candidate scenario and evaluate it."""
+    from sb_analysis import local_jacobian
+    from sb_parallel import WorkerPool
+    from sbfit import SidebandModel
+
+    settings = design['optimize']
+    name = settings['scenario']
+    candidate_row = next(row for row in results if row['name'] == name)
+    folder = out / 'scenarios' / name
+    config = json.loads((folder / 'design_config.json').read_text(encoding='utf-8'))
+    model = SidebandModel(config, design['config_path'].parent)
+    vector = np.array([design['truth'][n] for n in model.parameter_names], dtype=float)
+    model.prepare_fit(p0=vector, fitting_config=config['init'])
+    model._fit_data = model._prepare_data()
+    criterion = settings.get('criterion', 'kex')
+    gradient = _criterion_gradient(model, vector, criterion)
+    pool_context = (WorkerPool(workers, config, design['config_path'].parent) if workers > 1
+                    else contextlib.nullcontext())
+    with pool_context as pool:
+        jacobian = local_jacobian(model, vector, pool=pool)
+    groups = _measurement_groups(model)
+    kept, path = select_measurements(jacobian, groups, settings['budget'], gradient,
+                                     min_per_dataset=settings.get('min_per_dataset', 2))
+    candidate = next(s for s in design['scenarios'] if s['name'] == name)
+    grids = [_offsets(ds['offsets_ppm'], 'offsets') for ds in candidate['datasets']]
+    selected = {}
+    for dataset, k in kept:
+        selected.setdefault(dataset, []).append(float(grids[dataset][k]))
+    optimized = {'name': f'{name}_optimized_{settings["budget"]}',
+                 'datasets': [dict(ds, offsets_ppm=sorted(selected.get(i, []))) for i, ds in enumerate(candidate['datasets'])]}
+    for ds in optimized['datasets']:
+        if len(ds['offsets_ppm']) < 2:
+            ds['offsets_ppm'] = sorted(set(ds['offsets_ppm']) | set(grids[optimized['datasets'].index(ds)][:2].tolist()))
+    # Uniform comparison: the same budget spread evenly over the candidate grids.
+    total = sum(len(g) for g in grids)
+    shares = [max(2, round(settings['budget'] * len(g) / total)) for g in grids]
+    uniform = {'name': f'{name}_uniform_{settings["budget"]}',
+               'datasets': [dict(ds, offsets_ppm=np.linspace(g[0], g[-1], share).tolist())
+                            for ds, g, share in zip(candidate['datasets'], grids, shares)]}
+    evaluated = [evaluate_scenario(design, scenario, out / 'scenarios' / scenario['name'], workers=workers)
+                 for scenario in (optimized, uniform)]
+    return {
+        'criterion': criterion, 'budget': settings['budget'], 'candidate_scenario': name,
+        'min_per_dataset': settings.get('min_per_dataset', 2),
+        'n_candidate_measurements': len(groups), 'selected_offsets_ppm': {str(k): v for k, v in sorted(selected.items())},
+        'criterion_path': path,
+        'optimized_scenario': optimized['name'], 'uniform_scenario': uniform['name'],
+        'candidate_criterion': path[0]['criterion'], 'optimized_criterion': path[-1]['criterion'],
+        'interpretation': ('Backward elimination of whole spectrum rows (all residues at one offset) that least '
+                           'increase the criterion, using exact information downdates at the truth. The selection '
+                           'is local to the truth and the model; compare the optimized and uniform scenarios.'),
+        'candidate_expected_se': candidate_row['identifiability']['derived_se'],
+    }, evaluated
