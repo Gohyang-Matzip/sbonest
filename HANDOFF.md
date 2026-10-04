@@ -1,7 +1,7 @@
 # HANDOFF: SBONEST debugging and refactoring round (after the folder reorganization)
 
 **Written:** 2026-10-05 (Asia/Seoul) · **Working dir:** `/Users/donghanlee/work/projects/sbonest` · **Branch:** `codex/debug-refactor` (from `main` at `59ab89a`, the merge of PR #17)
-**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Last release:** v1.2.0 · **This round's PR:** PR_NUMBER_PLACEHOLDER
+**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Last release:** v1.2.0 · **This round's PR:** #18 (https://github.com/Gohyang-Matzip/sbonest/pull/18)
 **Previous handoffs:** `.archive/HANDOFF.before-debug-refactor-20261005.md` (folder reorganization, PR #17), `.archive/HANDOFF.before-restructure-20261005.md` (round 3 proposals). `.archive/` is gitignored.
 
 ## Goal
