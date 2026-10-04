@@ -16,7 +16,8 @@ import argparse
 
 def run_single_mc_iteration(args_tuple):
     """One MC iteration: reload data with noise, refit from the optimized params."""
-    conf, pp_optimized_params_for_mc, _worker_id, seed = args_tuple
+    conf, pp_optimized_params_for_mc, _worker_id, *rest = args_tuple
+    seed = rest[0] if rest else None
     if seed is not None:
         # Reproducible noise per run: the same seed and run index give the same draws.
         np.random.seed(seed + _worker_id)
