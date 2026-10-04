@@ -191,7 +191,7 @@ def analysis_settings(form):
     return init
 
 
-PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SBONEST Sideband runner</title>
+PAGE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SBONEST Sideband runner</title>
 <style>body{font-family:sans-serif;margin:20px;max-width:1040px}fieldset{margin-bottom:14px}
 pre{background:#f4f4f4;padding:8px;overflow:auto;max-height:320px}label{display:block;margin:4px 0}
 .ok{color:#1a7f37}.bad{color:#b42318}img{max-width:100%;border:1px solid #ddd}</style></head><body>
@@ -220,6 +220,7 @@ This server requires an access token.{% endif %}</p>
 </fieldset>
 <button type="submit">Create job and run preflight check</button>
 </form>
+<pre id="action-error" class="bad" role="alert" hidden></pre>
 <div id="job" hidden><h2>Job <span id="jobid"></span></h2>
 <pre id="check"></pre>
 <button id="fit">Start fit</button> <button id="resume">Resume</button> <button id="report">Make report</button>
@@ -230,26 +231,44 @@ This server requires an access token.{% endif %}</p>
 let job=null;
 const q=s=>document.querySelector(s);
 function headers(){const t=q('#token');return t&&t.value?{'X-SBONEST-Token':t.value}:{};}
-async function post(url,body){const r=await fetch(url,{method:'POST',body,headers:headers()});return r.json();}
-async function get(url){const r=await fetch(url,{headers:headers()});return r;}
+function actionError(message){q('#action-error').textContent=message;q('#action-error').hidden=!message;}
+async function requestJSON(url,options={}){
+ let r;
+ try{
+  r=await fetch(url,{...options,headers:headers()});
+  const text=await r.text();let data;
+  try{data=JSON.parse(text);}catch{ return {ok:false,status:r.status,error:'HTTP '+r.status+': invalid JSON response'+(text?' - '+text:'')}; }
+  if(!r.ok)return {ok:false,status:r.status,data,error:'HTTP '+r.status+': '+(data&&data.error||r.statusText)};
+  if(!data||typeof data!=='object')return {ok:false,status:r.status,error:'HTTP '+r.status+': invalid JSON response'};
+  return {ok:true,status:r.status,data};
+ }catch(e){return {ok:false,status:r?r.status:null,error:(r?'HTTP '+r.status+': ':'Network error: ')+e.message};}
+}
+async function post(url,body){return requestJSON(url,{method:'POST',body});}
 q('#upload').addEventListener('submit',async e=>{e.preventDefault();
- const d=new FormData(e.target);const j=await post('/jobs',d);
- if(!j.job_id){q('#check').textContent=JSON.stringify(j,null,2);q('#job').hidden=false;return;}
+ const d=new FormData(e.target);const r=await post('/jobs',d);
+ if(!r.ok){actionError(r.error);return;}const j=r.data;actionError('');
  job=j.job_id;q('#jobid').textContent=job;q('#job').hidden=false;
+ q('#previewbox').hidden=true;q('#preview').removeAttribute('src');
  q('#check').textContent=JSON.stringify(j.check,null,2);poll();listJobs();});
-q('#fit').addEventListener('click',async()=>{await post('/jobs/'+job+'/fit');poll();});
-q('#resume').addEventListener('click',async()=>{await post('/jobs/'+job+'/resume');poll();});
-q('#report').addEventListener('click',async()=>{const j=await post('/jobs/'+job+'/report');q('#log').textContent=JSON.stringify(j,null,2);poll();});
-q('#archive').addEventListener('click',async()=>{const j=await post('/jobs/'+job+'/archive');q('#log').textContent=JSON.stringify(j,null,2);job=null;q('#job').hidden=true;listJobs();});
-async function listJobs(){const r=await get('/jobs');const j=await r.json();q('#jobs').textContent=JSON.stringify(j,null,2);}
-async function poll(){if(!job)return;const s=await (await get('/jobs/'+job)).json();
+for(const action of ['fit','resume','report','archive'])q('#'+action).addEventListener('click',async()=>{
+ const selected=job;if(!selected)return;const r=await post('/jobs/'+selected+'/'+action);
+ if(job!==selected)return;
+ if(!r.ok){actionError(r.error);return;}actionError('');
+ if(action==='archive'){job=null;q('#job').hidden=true;listJobs();}else{poll();}
+});
+async function listJobs(){const r=await requestJSON('/jobs');if(!r.ok){actionError(r.error);return;}q('#jobs').textContent=JSON.stringify(r.data,null,2);}
+async function poll(){const selected=job;if(!selected)return;const r=await requestJSON('/jobs/'+selected);
+ if(job!==selected)return;
+ if(!r.ok){actionError(r.error);return;}const s=r.data;
  q('#state').textContent=s.running?'running':(s.result?('finished: '+(s.result.success?'success':'failed')):'idle');
  q('#state').className=s.result&&s.result.success?'ok':(s.result?'bad':'');
  q('#log').textContent=(s.result?JSON.stringify(s.result,null,2)+'\n':'')+s.log_tail;
  const t=q('#token');const suffix=t&&t.value?('?token='+encodeURIComponent(t.value)):'';
- q('#files').innerHTML=s.outputs.map(n=>'<a href="/jobs/'+job+'/files/'+n+suffix+'">'+n+'</a>').join(' | ');
- if(s.preview&&s.result){q('#previewbox').hidden=false;q('#preview').src='/jobs/'+job+'/preview.png'+suffix+'&t='+Date.now();}
- if(s.running)setTimeout(poll,3000);}
+ q('#files').innerHTML=s.outputs.map(n=>'<a href="/jobs/'+selected+'/files/'+n+suffix+'">'+n+'</a>').join(' | ');
+ q('#previewbox').hidden=!(s.preview&&s.result);
+ if(s.preview&&s.result){const url=new URL('/jobs/'+selected+'/preview.png',location.href);
+  if(t&&t.value)url.searchParams.set('token',t.value);url.searchParams.set('t',Date.now());q('#preview').src=url.href;}
+ if(s.running)setTimeout(()=>{if(job===selected)poll();},3000);}
 listJobs();
 </script></body></html>"""
 
