@@ -1,6 +1,7 @@
 """Saved-result reports reconcile CSV evidence and never refit or overwrite."""
 import copy
 import csv
+from importlib import resources
 import json
 from pathlib import Path
 import subprocess
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parent
 
 def cli(*args):
     return subprocess.run([sys.executable, str(ROOT / 'sb_workflow.py'), *map(str, args)],
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, timeout=120)
 
 
 def check_demo():
@@ -27,6 +28,10 @@ def check_demo():
     assert result.returncode == 0, result.stderr
     cfg = json.loads((out / 'fit.json').read_text())
     assert cfg['Project Name'] == str(out / 'fit')
+    original = json.loads((ROOT / 'example/sideband_auto_H/two_RF.json').read_text())
+    original['Project Name'] = str(out / 'fit')
+    original['datasets'] = ['data/noisy_25.txt', 'data/noisy_100.txt']
+    assert cfg == original
     assert len(cfg['datasets']) == 2
     for name, source in zip(cfg['datasets'], ('noisy_25.txt', 'noisy_100.txt')):
         assert not Path(name).is_absolute()
@@ -41,6 +46,37 @@ def check_demo():
     assert cli('init-demo', '--out', dangling).returncode != 0
     assert dangling.is_symlink() and not missing.exists()
     print('Demo artifacts:', out)
+
+
+def check_demo_resources():
+    from sb_workflow import init_demo
+    bundled = resources.files('sbonest_data').joinpath('sideband_auto_H')
+    names = {'two_RF.json', 'noisy_25.txt', 'noisy_100.txt'}
+    assert {entry.name for entry in bundled.iterdir()} == names
+    canonical = json.loads((ROOT / 'example/sideband_auto_H/two_RF.json').read_text())
+    canonical['datasets'] = ['noisy_25.txt', 'noisy_100.txt']
+    assert json.loads(bundled.joinpath('two_RF.json').read_bytes()) == canonical
+    for name in canonical['datasets']:
+        assert bundled.joinpath(name).read_bytes() == (ROOT / 'results/peakwise_H_fit' / name).read_bytes()
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-demo-resources-'))
+    with patch('sb_workflow.__file__', str(folder / 'no-checkout/sb_workflow.py')):
+        assert init_demo(folder / 'portable').is_file()
+    read_bytes = type(bundled).read_bytes
+    for name in ('two_RF.json', 'noisy_25.txt', 'noisy_100.txt'):
+        def fail_read(path):
+            if path.name == name:
+                raise OSError('Bundled input unavailable')
+            return read_bytes(path)
+        out = folder / name / 'must-not-exist'
+        with patch.object(type(bundled), 'read_bytes', fail_read):
+            try:
+                init_demo(out)
+            except OSError:
+                pass
+            else:
+                raise AssertionError(f'Accepted unreadable resource {name}')
+        assert not out.parent.exists()
+    print('Resource boundary artifacts:', folder)
 
 
 def fixture(folder):
@@ -186,6 +222,6 @@ def check_saved_fit_report():
 
 
 if __name__ == '__main__':
-    for check in (check_demo, check_report, check_invalid_report_no_writes, check_saved_fit_report):
+    for check in (check_demo, check_demo_resources, check_report, check_invalid_report_no_writes, check_saved_fit_report):
         check()
         print('PASS', check.__name__)
