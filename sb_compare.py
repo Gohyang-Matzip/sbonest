@@ -104,6 +104,7 @@ def _fit(cfg, config_dir, no_pdf, workers):
 
 
 def summarize(global_fit, individual, labels):
+    """Combine the global and individual fit records into the comparison summary."""
     summary = {'schema_version': 1, 'residues': labels, 'global': None, 'individual': {},
                'comparison': None, 'warnings': [],
                'interpretation': ('Shared kab/kba (global) versus per-residue exchange (individual, the nesting '
@@ -156,6 +157,7 @@ def _entry(result):
 
 
 def comparison_lines(summary):
+    """Plain-text lines of a shared-versus-individual comparison."""
     def number(value, digits=8):
         return 'unavailable' if value is None else f'{value:.{digits}g}'
 
@@ -185,6 +187,7 @@ def comparison_lines(summary):
 
 
 def comparison_pdf(path, summary):
+    """Per-residue kex/pB with errors against the shared fit, plus the text summary, as a PDF."""
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
 

@@ -1082,6 +1082,16 @@ ppm, 또는 `--offset-unit hz --carrier-ppm X`와 함께 Hz)을 나열한다.
 JSON 요약이 출력된다. 위상·baseline 품질, peak 겹침, 기준 행 선택은 사용자의
 책임이므로 fitting 전에 변환된 profile을 확인한다.
 
+이 확인을 돕는 도구가 세 가지 있다. Bruker 주파수 목록(`fq1list` 등)은 그대로
+읽는다. 첫 줄의 `bf ppm`, `sfo hz`, `P`가 단위를 정하고 `O1`/`O2` 줄은
+건너뛰므로 `--offset-unit`은 순수 숫자 목록에만 필요하다.
+`--peaks-from-reference [--peak-snr 10]`는 `--peak` 대신 기준 행에서 잡음의
+임계 배수를 넘는 국소 최대값을 peak로 삼는다(높이 순 `P1`, `P2`, …, 최소 0.03 ppm
+간격). 귀속이 정해지면 작성된 파일의 라벨과 시작 `dw`를 고치거나 명시적
+`--peak`로 다시 실행한다. `--qa-pdf NEW_FILE`은 기준 행, peak 창, 잡음 구간, 오차
+막대가 붙은 추출 profile을 그린 그림을 쓰며, 잘못된 기준 행·겹치는 창·baseline
+문제를 가장 빨리 보여 준다.
+
 ## 15. Sideband fitting 웹 실행기
 
 `python sb_server.py [--host 127.0.0.1 --port 5050]`(또는 `sbonest serve`)은
@@ -1095,6 +1105,25 @@ JSON 요약이 출력된다. 위상·baseline 품질, peak 겹침, 기준 행 �
 요약, 로그 끝부분)를 주기적으로 조회하고 모든 출력의 다운로드 링크를 보여 준다.
 작업 폴더 안의 파일만 제공한다. 실행기는 신뢰할 수 있는 로컬 네트워크용이며
 인증이 없다.
+
+업로드 폼은 `init`에 기록되는 선택 분석도 받는다. seed가 있는 무작위 restart,
+kex profile 격자, kex/pB profile 구간, seed가 있는 bootstrap이다. fitting 후
+페이지는 모든 잔기의 PNG 미리보기(`/jobs/<id>/preview.png`, predictions CSV에서
+그려 캐시)를 보여 주고, archive 버튼으로 작업을 `SB_JOBS/archive/`로 옮길 수
+있다. `--max-age-days D`는 서버 시작 시나 `POST /jobs/archive-expired` 호출 시
+D일보다 오래 쉬고 있는 작업을 보관한다. 아무것도 삭제하지 않는다.
+`SBONEST_TOKEN`(또는 `--token`)을 설정하면 페이지 자체를 제외한 모든 요청에
+접근 토큰이 필요하다. 페이지가 토큰을 물어 `X-SBONEST-Token` 헤더(다운로드는
+`?token=`)로 보낸다. 토큰이 없으면 실행기는 신뢰할 수 있는 로컬 네트워크용이다.
+
+## 16. 모듈 구성과 API 레퍼런스
+
+`sbfit.py`는 모델(`SidebandModel`, 설정 검증)을, `sb_run.py`는 실행 workflow
+(`check_config`, `run_config`, `run.py`와 `sbfit.py`가 공유하는 명령줄)를 담으며
+두 이름 모두 `sbfit`에서 그대로 import할 수 있다. `docs/API_REFERENCE.md`는
+Sideband 모듈의 모든 공개 함수·클래스를 서명과 docstring 첫 줄과 함께 나열한다.
+공개 서명을 바꾸면 `python generate_api_reference.py`로 다시 생성한다(CI는
+`--check`를 실행한다).
 
 구현 근거: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
 [run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),

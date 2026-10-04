@@ -9,6 +9,7 @@ from sb_report import derived_errors
 
 
 def validate_bootstrap(settings):
+    """Validate init.bootstrap settings; returns normalized replicates, seed and confidence."""
     if not isinstance(settings, dict) or set(settings) - {'replicates', 'seed', 'confidence'}:
         raise ValueError('bootstrap allows replicates, seed and confidence')
     count, seed = settings.get('replicates'), settings.get('seed')

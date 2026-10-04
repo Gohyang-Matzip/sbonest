@@ -25,6 +25,7 @@ def _fit_arguments(parser):
 
 
 def build_parser():
+    """Argument parser of the sbonest command."""
     parser = argparse.ArgumentParser(prog="sbonest", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -69,6 +70,7 @@ def build_parser():
 
 
 def main(argv=None):
+    """Entry point of the sbonest command; returns the exit status."""
     argv = list(sys.argv[1:] if argv is None else argv)
     passthrough = {"import-bruker": "sb_import", "benchmark": "benchmark"}
     if argv and argv[0] in passthrough:

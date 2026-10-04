@@ -40,6 +40,15 @@ def check_packaging_metadata():
     for dependency in meta['project']['dependencies']:
         base = dependency.split('>=')[0]
         assert any(req.startswith(base) for req in requirements), dependency
+    # The committed API reference matches the generated text, and the run workflow
+    # names stay importable from sbfit after the split into sb_run.
+    check = subprocess.run([sys.executable, str(ROOT / 'generate_api_reference.py'), '--check'],
+                           capture_output=True, text=True, cwd=ROOT)
+    assert check.returncode == 0, check.stderr
+    import sbfit
+    import sb_run
+    assert sbfit.run_config is sb_run.run_config and sbfit.check_config is sb_run.check_config
+    assert 'sb_run' in modules
 
 
 def check_commands():

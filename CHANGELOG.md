@@ -23,6 +23,13 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
   not determined at those fields and need bounds, kex/pB unchanged.
 - `sb_workflow.py compare --models`: two-state versus three-state Sideband models
   with multistart-based three-state initialization, AICc/BIC and degeneracy warnings.
+- `sb_run.py` holds `check_config`/`run_config` (still importable from `sbfit`);
+  every public function has a docstring and `docs/API_REFERENCE.md` is generated
+  by `generate_api_reference.py` (checked in CI).
+- Bruker import: Bruker frequency lists (`fq1list`) read directly, `--peaks-from-reference`,
+  `--qa-pdf` figure with reference row, windows, noise region and extracted profiles.
+- Web runner: optional analyses in the upload form, PNG previews, job archiving with
+  `--max-age-days`, token access with `SBONEST_TOKEN`/`--token`.
 
 ## 1.1.0 — 2026-10-04
 

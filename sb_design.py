@@ -51,6 +51,7 @@ def _offsets(spec, label):
 
 
 def load_design(path):
+    """Read and validate a design file; returns the base configuration, truth and scenarios."""
     path = Path(path).expanduser().resolve()
     design = json.loads(path.read_text(encoding='utf-8'), parse_constant=lambda v: (_ for _ in ()).throw(ValueError(f'Non-finite JSON value {v}')))
     if not isinstance(design, dict) or set(design) - {'config', 'truth', 'truth_result', 'scenarios', 'optimize'}:
@@ -238,6 +239,7 @@ def evaluate_scenario(design, scenario, folder, *, workers=1):
 
 
 def run_design(design_path, out, *, workers=1):
+    """Evaluate every scenario (and the optional optimization) into a new output directory."""
     from sb_parallel import validate_workers
 
     workers = validate_workers(workers)
@@ -270,6 +272,7 @@ def run_design(design_path, out, *, workers=1):
 
 
 def design_lines(summary):
+    """Plain-text summary of a design study, including the optimization block when present."""
     def number(value):
         return 'unavailable' if value is None else f'{value:.6g}'
 
@@ -309,6 +312,7 @@ def design_lines(summary):
 
 
 def design_pdf(path, summary):
+    """Bar charts of expected kex/pB errors, the optimization path and the text summary as a PDF."""
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
 

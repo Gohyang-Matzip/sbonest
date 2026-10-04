@@ -124,9 +124,9 @@ otherwise, executable `test_*.py` regressions.
 
 ## PR 7 — `codex/import-qa-web-refactor`
 
-- [ ] Bruker import QA PDF, `fq1list` parsing, peak extraction from a reference 2D.
-- [ ] Web runner: token authentication, job expiry/archive, analysis options,
+- [x] Bruker import QA PDF, `fq1list` parsing, peak extraction from a reference 2D.
+- [x] Web runner: token authentication, job expiry/archive, analysis options,
       PDF preview.
-- [ ] Split `run_config`/validation out of `sbfit.py`; generated API reference;
+- [x] Split `run_config`/validation out of `sbfit.py`; generated API reference;
       release tag v1.2.0.
 - Deferred (needs data): experimental 1.2 GHz import → check → design comparison.

@@ -1,78 +1,64 @@
-# HANDOFF: SBONEST round 2 — PR 6 (interval coverage, joint fields, model selection)
+# HANDOFF: SBONEST round 2 — PR 7 (import QA, web runner, module split, API reference)
 
 **Written:** 2026-10-04 (Asia/Seoul)
 **Repository:** https://github.com/Gohyang-Matzip/sbonest
 **Main checkout:** `/Users/donghanlee/work/projects/sbonest`
-**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree`
-**Branch:** `codex/coverage-fields-models` (stacked on `codex/perf2-diagnostics-design`, PR #13)
+**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve8_20261004/tree`
+**Branch:** `codex/import-qa-web-refactor` (stacked on `codex/coverage-fields-models`, PR #14)
 **Programme plan:** `docs/superpowers/plans/2026-10-04-full-improvements.md` (Round 2)
 
 ## Goal and current status
 
-Round 2 of the approved improvements. PR 5 is PR #13. This handoff covers PR 6:
-coverage of profile and bootstrap intervals, the joint 600/800 MHz study and
-two-versus-three-state model selection. Implementation and local validation are
-complete; after PR #13 merges this branch is rebased, pushed, CI-checked and
-merged. Previous handoff: `.archive/HANDOFF.before-round2-pr6-20261004.md`.
+Round 2 of the approved improvements. PR 5 merged as #13; PR 6 is #14. This
+handoff covers PR 7, the last of round 2: Bruker import QA, web runner
+hardening, the `sbfit`/`sb_run` split, docstrings and the generated API
+reference, and the v1.2.0 release tag after the merge. Implementation and local
+validation are complete. Previous handoff: `.archive/HANDOFF.before-round2-pr7-20261004.md`.
 
-## Applied changes (PR 6)
+## Applied changes (PR 7)
 
 Every item below is **still applied**.
 
-- **[still applied] `sb_bootstrap.sample_row`** factored out; `bootstrap_replicate(analyses=)`
-  runs extra analyses on a replicate's data while it is in place.
-- **[still applied] `validate_uncertainty.py`:** `--profile-interval NAME...`,
-  `--inner-bootstrap B`, `--workers N`; `study_replicate`, `_replicate_analyses`,
-  `_interval_coverage`; `coverage.json` schema 2 with an `intervals` block (profile
-  and bootstrap coverage, Wilson intervals, mean widths, open/failed counts);
-  replicates run in the pool through `sb_parallel.study_task`; parallel and serial
-  results identical.
-- **[still applied] `compare_joint_fields.py` (new) and
-  `results/field_comparison_joint_20261004/`:** joint fits of the archived 600/800
-  benchmark with four variants (fixed H; automatic H unbounded; automatic H bounded
-  50/500 s⁻¹; plus field-group N). Joint fixed-H fit kex 298.9 ± 0.9 (separate
-  297.9 ± 1.6 / 299.9 ± 1.2); automatic H leaves kex/pB unchanged but the proton
-  rates are undetermined at these fields (unbounded per-field-N run drifted to R2H
-  ≈ 2.5e4 s⁻¹ with biased N rates, kept in
-  `session_artifacts/improve7_20261004/joint_try_unbounded`); AICc prefers fixed H
-  (Δ +7.8 / +12.5). `.gitignore` excludes checkpoints and input copies of the
-  archived run.
-- **[still applied] `sb_compare.three_state_config`, `compare_models`, `models_lines`;
-  `sb_workflow.py compare --models ... [--h-ppm-c LABEL=ppm]`:** derived three-state
-  configurations with five explicit multistart starts, AICc/BIC comparison, no
-  F-test (boundary nesting), degeneracy warning when a return rate hits its bound.
-  Synthetic three-state data: Δ AICc −26,307 and recovered rates; two-state data:
-  degenerate three-state fit flagged, AICc +6.9 for two states.
-- **[still applied] Tests:** `test_uncertainty_validation.py::check_profile_and_bootstrap_coverage`,
-  `test_sb_compare.py::check_model_comparison`.
-- **[still applied] Docs:** manual 7.1 (joint study), 8.2 (coverage extension), 8.7
-  (model selection), 12.1 (both languages); README, SIDEBAND.md, AGENTS.md, CHANGELOG.
-
-## Findings
-
-- A first look at the unbounded per-field-N variant suggested nondeterminism; a
-  direct check (`session_artifacts/improve7_20261004/determinism.py`) showed serial
-  and 8-worker runs identical — the runaway values belonged to a different variant.
-- Three-state fits on two-state data drive `kcb` to its lower bound, which makes
-  state C absorbing and the stationary populations meaningless; the comparison
-  warns about this explicitly.
+- **[still applied] `sb_run.py` (new):** `_output_paths`, `check_config`, `run_config`
+  and the command line moved out of `sbfit.py` (now ~830 lines); `sbfit` re-exports
+  them through a module `__getattr__`, so `from sbfit import run_config` and
+  `patch('sbfit.least_squares')` keep working and `python sbfit.py CONFIG` still runs.
+  `sb_run.py` and `sb_diagnostics.py` join the provenance source list (new runs
+  get a new checkpoint identity, as any source change does). `pyproject.toml`
+  lists `sb_run`.
+- **[still applied] Docstrings and `docs/API_REFERENCE.md`:** all 50 public names
+  that lacked docstrings now have one; `generate_api_reference.py` renders the
+  public functions/classes (raw docstrings only, no inherited text) and
+  `--check` runs in CI and in `test_sb_cli.py`.
+- **[still applied] `sb_import.py`:** Bruker frequency lists (`bf ppm`, `sfo hz`,
+  `P`, skipping `O1`/`O2`), `find_peaks`/`peaks_from_reference`
+  (`--peaks-from-reference`, `--peak-snr`), `qa_pdf` (`--qa-pdf`), `--peak` no
+  longer mandatory when peaks come from the reference row.
+- **[still applied] `sb_server.py`:** token check (`SBONEST_TOKEN`/`--token`, header
+  or query/form field, page exempt), analysis form fields → `init` keys
+  (`analysis_settings`), `/jobs/<id>/preview.png` rendered by
+  `sb_report.preview_png` and cached, `/jobs/<id>/archive`, `archive_expired` and
+  `/jobs/archive-expired` with `--max-age-days`, richer job listing; nothing is
+  deleted.
+- **[still applied] Tests:** `test_sb_server.py` (preview, archive, analyses,
+  token, expiry), `test_sb_import.py` (fq lists, peak extraction, QA PDF, CLI),
+  `test_sb_cli.py` (API reference check, re-export identity).
+- **[still applied] Docs:** manual 14, 15 and new 16 (both languages), README,
+  SIDEBAND.md, AGENTS.md, CHANGELOG, CI.
 
 ## Evidence
 
-`session_artifacts/improve7_20261004/verification_01/summary.json`;
-`results/field_comparison_joint_20261004/summary.json`;
-`session_artifacts/improve7_20261004/compare_test.log`.
+`session_artifacts/improve8_20261004/verification_01/summary.json`.
 
 ## Delivery steps — perform only those still missing
 
-1. After PR #13 merges, rebase onto main, rerun the verification, push, open the
-   PR with `session_artifacts/improve7_20261004/pr6_body.md`, require CI, merge,
+1. After PR #14 merges, rebase onto main, rerun the verification, push, open the
+   PR with `session_artifacts/improve8_20261004/pr7_body.md`, require CI, merge,
    verify merge CI, fast-forward main.
-2. Continue with PR 7 (`codex/import-qa-web-refactor`).
+2. Tag `v1.2.0` on the merge commit and create the GitHub release with the
+   CHANGELOG 1.2.0 section.
 
 ## Scientific boundaries
 
-Coverage studies, the joint benchmark and model selection are synthetic and
-conditional on the supplied sigma and the generating/fitted models. The joint
-study is one noise draw per field. Model selection by AICc does not prove a
-mechanism.
+Peak extraction and the QA figure support inspection; they do not assign peaks
+or judge phasing. The web runner executes the same code as the command line.

@@ -29,6 +29,7 @@ def init_demo(out):
 
 
 def main():
+    """Command line: init-demo, report, design and compare."""
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     demo = commands.add_parser('init-demo', help='Copy bundled synthetic two-RF data')

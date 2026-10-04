@@ -18,6 +18,7 @@ _WORKER = {}
 
 
 def validate_workers(value):
+    """Return the worker count after checking that it is a positive integer."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError('workers must be a positive integer')
     return value
@@ -83,6 +84,7 @@ def balanced_assignment(sizes, tasks):
 
 
 def multistart_task(payload):
+    """Fit one explicit or random restart in a worker."""
     from sb_analysis import fit_attempt
 
     model = _model()
@@ -91,6 +93,7 @@ def multistart_task(payload):
 
 
 def profile_task(payload):
+    """Constrained profile refit for one target in a worker."""
     from sb_analysis import profile_point
 
     model = _model()
@@ -107,6 +110,7 @@ def profile_task(payload):
 
 
 def bootstrap_task(payload):
+    """Fit one bootstrap replicate in a worker from observations drawn in the main process."""
     from sb_bootstrap import bootstrap_replicate
 
     model = _model()
@@ -129,6 +133,7 @@ class WorkerPool:
     """Process pool bound to one configuration; use as a context manager."""
 
     def __init__(self, workers, config, config_dir='.'):
+        """Describe a pool of workers that each build SidebandModel(config, config_dir)."""
         self.workers = validate_workers(workers)
         self.config, self.config_dir = config, str(config_dir)
         self.executor = None
@@ -160,6 +165,7 @@ class WorkerPool:
         return self.executor.map(task, list(items))
 
     def evaluate_many(self, vectors):
+        """Full residual vectors for several full parameter vectors, one worker per vector."""
         return list(self.map(residual_task, [np.asarray(v, dtype=float) for v in vectors]))
 
     def predict_blocks(self, p, sizes):
@@ -185,11 +191,13 @@ class Progress:
     """Print elapsed time and a remaining-time estimate for a counted loop."""
 
     def __init__(self, label, total, *, enabled=True, done=0):
+        """Track completed items of a labelled loop starting from done."""
         self.label, self.total, self.enabled = label, int(total), enabled
         self.done, self.started = int(done), time.monotonic()
         self.new = 0
 
     def step(self):
+        """Count one finished item and print elapsed time and ETA when enabled."""
         self.done += 1
         self.new += 1
         if not self.enabled:

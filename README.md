@@ -173,7 +173,11 @@ The supported Sideband workflow is `run.py` (or the installed `sbonest`
 command) with a Sideband `init.Method`. Bruker processed pseudo-2D data can be
 converted with `sb_import.py` (explicit offsets, peaks, reference row and noise
 region; manual section 14), and `sb_server.py` provides a browser runner for
-Sideband jobs with background fits, resume and reports (manual section 15).
+Sideband jobs with background fits, resume, reports, PNG previews, optional
+analyses, job archiving and token access (manual section 15). The importer
+reads Bruker frequency lists, can take peaks from the reference row and writes
+a QA figure (manual section 14). `docs/API_REFERENCE.md` lists the public API
+(manual section 16).
 The inherited ONEST web interface (`server_run.py`), `prepare.py` and `mcrun.py`
 are for ONEST models.
 

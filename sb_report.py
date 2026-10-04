@@ -40,7 +40,7 @@ def provenance(config, config_dir):
 
     sources = ('run.py', 'sbfit.py', 'sideband.py', 'fit.py', 'estmodel.py',
                'est_data.py', 'sb_report.py', 'sb_analysis.py', 'sb_workflow.py',
-               'sb_checkpoint.py', 'sb_bootstrap.py')
+               'sb_checkpoint.py', 'sb_bootstrap.py', 'sb_run.py', 'sb_diagnostics.py')
     sb = config['sideband']
     waveforms = set()
     for override in sb.get('datasets', [{}] * len(config['datasets'])):
@@ -99,6 +99,7 @@ def prediction_rows(model, p):
 
 
 def write_predictions(path, rows):
+    """Write prediction rows as a full-precision CSV created exclusively."""
     with Path(path).open('x', newline='', encoding='utf-8') as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
         writer.writeheader()
@@ -140,6 +141,35 @@ def fit_pdf(path, rows, summary=None):
             plt.close(fig)
         if summary is not None:
             _summary_pdf_pages(pdf, summary)
+
+
+def preview_png(path, rows, *, dpi=110):
+    """One PNG with every residue's profile and residual panels side by side (web preview)."""
+    import matplotlib.pyplot as plt
+
+    residues = list(dict.fromkeys(row['residue'] for row in rows))
+    fig, axes = plt.subplots(2, len(residues), figsize=(5.2 * len(residues), 6.2), sharex='col', squeeze=False,
+                             gridspec_kw={'height_ratios': [3, 1]}, layout='constrained')
+    for column, residue in enumerate(residues):
+        ax, residual_ax = axes[0, column], axes[1, column]
+        selected = [row for row in rows if row['residue'] == residue]
+        for dataset in dict.fromkeys(row['dataset_index'] for row in selected):
+            points = sorted((row for row in selected if row['dataset_index'] == dataset), key=lambda row: row['offset_ppm'])
+            x = [row['offset_ppm'] for row in points]
+            artist = ax.errorbar(x, [row['observed'] for row in points], yerr=[row['sigma'] for row in points],
+                                 fmt='o', markersize=2.5, label=f"dataset {dataset}: {points[0]['v1n_hz']:.3g} Hz")
+            color = artist[0].get_color()
+            ax.plot(x, [row['predicted'] for row in points], color=color)
+            residual_ax.plot(x, [row['residual_sigma'] for row in points], 'o-', color=color, markersize=2.5, linewidth=.6)
+        ax.set(title=residue, ylabel='I/I0' if column == 0 else None)
+        ax.legend(fontsize='x-small')
+        ax.grid(alpha=.25)
+        residual_ax.axhline(0, color='black', linewidth=.7)
+        residual_ax.set(xlabel='offset (ppm)', ylabel='residual/σ' if column == 0 else None)
+        residual_ax.grid(alpha=.25)
+    fig.savefig(path, dpi=dpi)
+    plt.close(fig)
+    return path
 
 
 PREDICTION_COLUMNS = ('residue', 'dataset_index', 'field_mhz', 'saturation_s',

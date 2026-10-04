@@ -40,6 +40,7 @@ def runs_test(values):
 
 
 def lag1_autocorrelation(values):
+    """Lag-1 autocorrelation of a sequence, or None when it is undefined."""
     values = np.asarray(values, dtype=float)
     if values.size < 3:
         return None
@@ -139,6 +140,7 @@ def residual_diagnostics(rows, n_parameters, covariance=None, *, runs_alpha=0.01
 
 
 def diagnostics_lines(report, parameter_names=None):
+    """Plain-text lines summarizing a residual_diagnostics report."""
     def number(value, digits=4):
         return 'unavailable' if value is None else f'{value:.{digits}g}'
 

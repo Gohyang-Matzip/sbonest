@@ -272,6 +272,12 @@ bootstrap 구간 coverage까지 측정한다(8.2절). `compare_joint_fields.py`�
 결정되지 않아 bounds가 필요하고 kex·pB는 변하지 않는다). `compare --models`는
 같은 데이터에서 2상태와 3상태 모델을 AICc/BIC로 비교한다(8.7절).
 
+`sb_run.py`가 `check_config`/`run_config`를 담고(`sbfit`에서 그대로 import 가능),
+`docs/API_REFERENCE.md`는 `generate_api_reference.py`가 생성한다. Bruker 변환기는
+`fq1list`를 직접 읽고 기준 행에서 peak를 추출하며 QA 그림을 쓴다(14절). 웹
+실행기는 선택 분석 폼, PNG 미리보기, 작업 보관(`--max-age-days`), 토큰 접근
+(`SBONEST_TOKEN`)을 지원한다(15절).
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

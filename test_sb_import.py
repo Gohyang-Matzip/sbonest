@@ -15,7 +15,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from est_data import EstDataSet
-from sb_import import convert, read_offsets, read_parameters, read_pseudo2d
+from sb_import import convert, find_peaks, peaks_from_reference, read_offsets, read_parameters, read_pseudo2d
 
 ROOT = Path(__file__).resolve().parent
 SF = 600.13
@@ -139,8 +139,59 @@ def check_cli():
     assert bad.returncode == 2 and 'residue number' in bad.stderr
 
 
+def check_fqlist_peaks_and_qa():
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-bruker-qa-'))
+    pdata, ppm, offsets_n, profile_a, profile_g, rows = write_bruker(folder / 'pdata')
+    # Bruker fq list headers select the unit; O1 lines are ignored; Hz lists need the carrier.
+    fq = folder / 'fq1list'
+    fq.write_text('bf ppm\n1000\n' + '\n'.join(f'{o:.10g}' for o in offsets_n) + '\n')
+    assert_allclose(read_offsets(fq, unit='hz')[1:], offsets_n)
+    fq_hz = folder / 'fq2list'
+    fq_hz.write_text('sfo hz\nO1 7300.0\n0\n-600\n600\n')
+    assert_allclose(read_offsets(fq_hz, unit='ppm', carrier_ppm=120., field_mhz=60.), [120., 110., 130.])
+    (folder / 'p.txt').write_text('P\n1.5 2.5\n')
+    assert_allclose(read_offsets(folder / 'p.txt', unit='hz'), [1.5, 2.5])
+    (folder / 'bad.txt').write_text('1.0\nabc\n')
+    try:
+        read_offsets(folder / 'bad.txt', unit='ppm')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('Non-numeric offset accepted')
+    # Peak extraction from the reference row finds the two synthetic peaks.
+    found = peaks_from_reference(pdata, 0, (2.0, 4.0), snr=10.)
+    positions = sorted(position for _, position, _ in found)
+    assert len(found) == 2 and abs(positions[0] - 7.60) < 0.02 and abs(positions[1] - 8.30) < 0.02, found
+    assert [label for label, _, _ in found] == ['P1', 'P2'] and found[0][2] >= found[1][2]
+    assert find_peaks(np.zeros(50), np.linspace(0, 1, 50), threshold=1.) == []
+    # The QA figure is written next to the conversion and refuses to overwrite.
+    out = folder / 'cest.txt'
+    summary = convert(pdata, fq, out, peaks={'A1': 8.30, 'G2': 7.60}, half_width=0.03, reference_row=0,
+                      noise_region=(2.0, 4.0), saturation_s=0.4, v1_hz=25., qa_path=folder / 'qa.pdf')
+    assert Path(summary['qa_pdf']).read_bytes().startswith(b'%PDF-')
+    try:
+        convert(pdata, fq, folder / 'again.txt', peaks={'A1': 8.30}, half_width=0.03, reference_row=0,
+                noise_region=(2.0, 4.0), saturation_s=0.4, v1_hz=25., qa_path=folder / 'qa.pdf')
+    except FileExistsError:
+        pass
+    else:
+        raise AssertionError('QA PDF was overwritten')
+    env = dict(os.environ, PYTHONPATH=str(ROOT))
+    run = subprocess.run([sys.executable, str(ROOT / 'sb_import.py'), str(pdata), str(fq), '--out', str(folder / 'auto.txt'),
+                          '--peaks-from-reference', '--reference-row', '0', '--noise-region', '2', '4',
+                          '--saturation-s', '0.4', '--v1-hz', '25', '--qa-pdf', str(folder / 'auto_qa.pdf')],
+                         capture_output=True, text=True, env=env, cwd=ROOT)
+    assert run.returncode == 0, run.stderr[-1500:]
+    assert set(json.loads(run.stdout)['peaks']) == {'P1', 'P2'} and (folder / 'auto_qa.pdf').exists()
+    neither = subprocess.run([sys.executable, str(ROOT / 'sb_import.py'), str(pdata), str(fq), '--out', str(folder / 'x.txt'),
+                              '--reference-row', '0', '--noise-region', '2', '4', '--saturation-s', '0.4', '--v1-hz', '25'],
+                             capture_output=True, text=True, env=env, cwd=ROOT)
+    assert neither.returncode == 2
+
+
 if __name__ == '__main__':
     check_reader_and_parameters()
     check_convert_and_reload()
     check_cli()
-    print('PASS: Bruker pseudo-2D reader, conversion, reload and CLI')
+    check_fqlist_peaks_and_qa()
+    print('PASS: Bruker pseudo-2D reader, conversion, reload, CLI, fq lists, peak extraction and QA figure')
