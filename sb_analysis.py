@@ -18,6 +18,7 @@ class MultiStartError(RuntimeError):
     """All fits failed; ``attempts`` retains their starting vectors and errors."""
 
     def __init__(self, attempts):
+        """Record every attempt so callers can save failure evidence."""
         super().__init__("No multistart attempt converged")
         self.attempts = attempts
 
@@ -898,6 +899,7 @@ def _interval_range(model, p, name):
 
 
 class ProfileIntervalError(RuntimeError):
+    """A profile-interval search could not be completed on one side."""
     pass
 
 

@@ -1141,6 +1141,18 @@ and the saturated-nucleus field defaults to `SF × γ(15N)/γ(1H)` (`--nucleus`,
 printed. Phase and baseline quality, peak overlap and the choice of reference
 row are the user's responsibility; inspect the converted profiles before fitting.
 
+Three helpers make that inspection easier. Bruker frequency lists (`fq1list`,
+…) are read directly: a first line such as `bf ppm`, `sfo hz` or `P` sets the
+unit and `O1`/`O2` lines are skipped, so `--offset-unit` is needed only for a
+plain numeric list. `--peaks-from-reference [--peak-snr 10]` replaces `--peak`
+entries by the local maxima of the reference row above the threshold times the
+noise (labels `P1`, `P2`, … in order of height, at least 0.03 ppm apart); edit
+the labels and starting `dw` values in the written file or rerun with explicit
+`--peak` entries once the assignments are known. `--qa-pdf NEW_FILE` writes a
+figure with the reference row, the peak windows, the noise region and every
+extracted profile with its error bars, which is the quickest way to see a wrong
+reference row, an overlapping window or a baseline problem.
+
 ## 15. Web runner for Sideband fits
 
 `python sb_server.py [--host 127.0.0.1 --port 5050]` (or `sbonest serve`) starts
@@ -1153,8 +1165,29 @@ its JSON. Buttons start the fit as a background `run.py` process with the
 chosen worker count, resume an interrupted job through its checkpoint, and
 regenerate reports; the page polls the job status (process state, checkpoint
 records, result summary, log tail) and links to every output for download. Only
-files inside a job directory are served. The runner is meant for a trusted
-local network; it has no authentication.
+files inside a job directory are served.
+
+The upload form also accepts optional analyses that are written into `init`:
+random restarts with a seed, a kex profile grid, profile intervals for kex/pB
+and a seeded bootstrap. After a fit the page shows a PNG preview of every
+residue (`/jobs/<id>/preview.png`, rendered from the predictions CSV and
+cached), and a job can be moved to `SB_JOBS/archive/` with the archive button;
+`--max-age-days D` archives idle jobs older than D days when the server starts
+or when `POST /jobs/archive-expired` is called. Nothing is ever deleted. Set
+`SBONEST_TOKEN` (or `--token`) to require an access token on every request
+except the page itself; the page asks for it and sends it as the
+`X-SBONEST-Token` header (or `?token=` for downloads). Without a token the
+runner is meant for a trusted local network only.
+
+## 16. Module layout and API reference
+
+`sbfit.py` holds the model (`SidebandModel`, configuration validation);
+`sb_run.py` holds the run workflow (`check_config`, `run_config`, the command
+line shared by `run.py` and `sbfit.py`), and both names remain importable from
+`sbfit`. `docs/API_REFERENCE.md` lists every public function and class of the
+Sideband modules with its signature and first docstring line; regenerate it with
+`python generate_api_reference.py` after changing a public signature (CI runs
+`--check`).
 
 Implementation references: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
 [run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),

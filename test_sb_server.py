@@ -83,9 +83,71 @@ def check_workflow():
     assert client.get(f'/jobs/{job_id}/files/../config.json').status_code == 404
     assert client.get('/jobs/../etc').status_code in (400, 404)
     assert client.get('/jobs/missing-job').status_code == 404
-    assert job_id in client.get('/jobs').get_json()['jobs']
+    assert job_id in [row['job_id'] for row in client.get('/jobs').get_json()['jobs']]
     text = client.get(f'/jobs/{job_id}/files/fit_result.txt').data.decode()
     assert 'Results using Sideband' in text
+    # PNG preview is rendered from the predictions CSV and cached.
+    png = client.get(f'/jobs/{job_id}/preview.png')
+    assert png.status_code == 200 and png.data.startswith(b'\x89PNG')
+    assert (JOBS / job_id / 'preview.png').exists()
+    listing = client.get('/jobs').get_json()
+    entry = next(row for row in listing['jobs'] if row['job_id'] == job_id)
+    assert entry['finished'] and not entry['running'] and entry['age_days'] >= 0
+    # Archiving moves the job directory without deleting anything.
+    archived = client.post(f'/jobs/{job_id}/archive')
+    assert archived.status_code == 200
+    assert not (JOBS / job_id).exists() and (JOBS / 'archive' / job_id / 'fit_result.json').exists()
+    assert client.get(f'/jobs/{job_id}').status_code == 404
+    assert job_id in client.get('/jobs').get_json()['archived']
+
+
+def check_analyses_token_and_expiry():
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-web-opts-'))
+    path = write_synthetic(folder, {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    config = _residue_config(json.loads(path.read_text()), ['A1', 'G2', 'S3'], {'A1'})
+    config['init']['vary'] = ['kab', 'kba', 'v1n_scale', 'A1.R2b']
+    client = sb_server.app.test_client()
+    # Analysis options become init keys; invalid combinations are rejected before any job exists.
+    bad = upload(client, folder, config, multistart_random='2')
+    assert bad.status_code == 400 and 'multistart_seed' in bad.get_json()['error']
+    bad = upload(client, folder, config, profile_kex='300 -5')
+    assert bad.status_code == 400
+    created = upload(client, folder, config, multistart_random='1', multistart_seed='3', profile_kex='290 300',
+                     profile_interval='kex', bootstrap_replicates='2', bootstrap_seed='9', no_pdf='on')
+    assert created.status_code == 200, created.get_json()
+    job_id = created.get_json()['job_id']
+    assert created.get_json()['analyses'] == ['bootstrap', 'multistart', 'profile', 'profile_interval']
+    saved = json.loads((JOBS / job_id / 'config.json').read_text())['init']
+    assert saved['multistart'] == {'random_starts': 1, 'seed': 3} and saved['profile'] == {'kex': [290., 300.]}
+    assert saved['profile_interval'] == {'parameters': ['kex']} and saved['bootstrap'] == {'replicates': 2, 'seed': 9}
+    assert client.post(f'/jobs/{job_id}/fit').status_code == 200
+    status = wait_idle(client, job_id)
+    assert status['returncode'] == 0, status['log_tail'][-2000:]
+    assert set(status['result']['analyses']) == {'multistart', 'profiles', 'profile_intervals', 'bootstrap'}
+    assert status['result']['reduced_chi2'] is not None
+    # Token protection applies to every endpoint except the page.
+    sb_server.app.config['SBONEST_TOKEN'] = 'secret-token'
+    try:
+        assert client.get('/').status_code == 200
+        assert client.get('/jobs').status_code == 401 and client.get(f'/jobs/{job_id}').status_code == 401
+        assert client.get('/jobs', headers={'X-SBONEST-Token': 'wrong'}).status_code == 401
+        assert client.get('/jobs', headers={'X-SBONEST-Token': 'secret-token'}).status_code == 200
+        assert client.get(f'/jobs/{job_id}?token=secret-token').status_code == 200
+        assert b'access token' in client.get('/').data
+    finally:
+        sb_server.app.config['SBONEST_TOKEN'] = None
+    # Expiry archives only idle jobs older than the limit.
+    assert sb_server.archive_expired(None) == []
+    old = time.time() - 3 * 86400
+    os.utime(JOBS / job_id, (old, old))
+    sb_server.app.config['SBONEST_MAX_AGE_DAYS'] = 2
+    try:
+        moved = client.post('/jobs/archive-expired').get_json()
+        assert job_id in moved['archived'] and (JOBS / 'archive' / job_id).exists()
+    finally:
+        sb_server.app.config['SBONEST_MAX_AGE_DAYS'] = None
+    assert sb_server.analysis_settings({'profile_interval': ['pB', 'nonsense']}) == {'profile_interval': {'parameters': ['pB']}}
+    assert sb_server.analysis_settings({}) == {}
 
 
 def check_rejections():
@@ -112,4 +174,5 @@ def check_rejections():
 if __name__ == '__main__':
     check_rejections()
     check_workflow()
-    print('PASS: web runner upload, preflight, background fit, resume, report and safe downloads')
+    check_analyses_token_and_expiry()
+    print('PASS: web runner upload, preflight, background fit, resume, report, preview, archive, analyses, token and expiry')

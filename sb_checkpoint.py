@@ -17,6 +17,7 @@ class Checkpoint:
     """
 
     def __init__(self, path, identity, *, resume=False):
+        """Bind a checkpoint directory to an execution identity; resume requires an identical manifest."""
         # Staged files come from tempfile.mkdtemp, which returns absolute paths;
         # a cwd-relative prefix must still map onto the same directory.
         self.path = Path(path).absolute()
@@ -61,6 +62,7 @@ class Checkpoint:
         return path
 
     def read(self, key):
+        """Return a completed record (checksum verified) or None when it does not exist."""
         path = self._file(key)
         if not path.exists():
             return None
@@ -80,6 +82,7 @@ class Checkpoint:
         raise ValueError(f'Nonfinite checkpoint value: {value}')
 
     def save(self, key, value):
+        """Persist a completed record exactly once with fsync and an exclusive hard link."""
         if self.lock is None:
             raise RuntimeError('Checkpoint writes require an active context')
         path = self._file(key)
@@ -106,6 +109,7 @@ class Checkpoint:
 
 
 def execution_identity(metadata, *, no_pdf):
+    """Identity fields of a run: config, inputs, waveforms, source hashes, packages, platform, threads, PDF mode."""
     keys = ('config_sha256', 'datasets', 'waveforms', 'source_sha256',
             'packages', 'python', 'platform', 'threads')
     return {**{key: metadata[key] for key in keys}, 'no_pdf': bool(no_pdf)}
@@ -145,6 +149,7 @@ def publish_outputs(journal, plan, expected):
 
 
 def output_plan(journal, staged, destinations):
+    """Hash staged files and pair them with their destinations for exclusive publication."""
     rows = []
     for source, destination in zip(staged, destinations):
         with source.open('rb') as stream:

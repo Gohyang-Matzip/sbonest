@@ -298,6 +298,7 @@ def run_study(config_path, truth_path, replicates, seed, out, confidence=.95, *,
 
 
 def main():
+    """Command line of the synthetic coverage study."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True, type=Path)
     parser.add_argument('--truth', required=True, type=Path)

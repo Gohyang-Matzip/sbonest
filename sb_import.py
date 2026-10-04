@@ -89,17 +89,41 @@ def read_pseudo2d(pdata):
 
 
 def read_offsets(path, *, unit, carrier_ppm=None, field_mhz=None):
-    """One saturation offset per row from a text list; Hz values need a carrier."""
+    """One saturation offset per row from a text list; Hz values need a carrier.
+
+    Bruker frequency lists (``fq1list``, ``fq2list``, ...) are accepted: a first
+    line such as ``bf ppm``, ``sfo hz`` or ``P`` selects the unit of the values that
+    follow, and ``O1``/``O2`` lines are ignored. An explicit ``unit`` wins only
+    when the file carries no unit line.
+    """
     values = []
+    file_unit = None
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         text = line.split("#", 1)[0].strip()
         if not text:
             continue
-        for item in text.replace(",", " ").split():
-            values.append(float(item))
+        tokens = text.replace(",", " ").split()
+        head = tokens[0].lower()
+        if head in ("bf", "sfo", "p", "o1", "o2", "o3"):
+            # Bruker list header: unit keyword, optionally followed by values on the same line.
+            if head in ("bf", "sfo", "p"):
+                if len(tokens) > 1 and tokens[1].lower() in ("ppm", "hz"):
+                    file_unit = tokens[1].lower()
+                    tokens = tokens[2:]
+                else:
+                    file_unit = "ppm" if head == "p" else "hz"
+                    tokens = tokens[1:]
+            else:
+                continue
+        for item in tokens:
+            try:
+                values.append(float(item))
+            except ValueError as exc:
+                raise ValueError(f"Offset list contains a non-numeric value: {item}") from exc
     if not values:
         raise ValueError("Offset list is empty")
     offsets = np.asarray(values, dtype=float)
+    unit = file_unit or unit
     if unit == "ppm":
         return offsets
     if unit != "hz":
@@ -122,6 +146,7 @@ def peak_intensities(data, ppm, peaks, half_width, *, mode="max"):
 
 
 def noise_sigma(row, ppm, region):
+    """Standard deviation of one spectrum row inside a signal-free ppm region."""
     lo, hi = sorted(region)
     mask = (ppm >= lo) & (ppm <= hi)
     if mask.sum() < 8:
@@ -129,10 +154,65 @@ def noise_sigma(row, ppm, region):
     return float(np.std(row[mask], ddof=1))
 
 
+def find_peaks(row, ppm, *, threshold, min_separation_ppm=0.03, limit=50):
+    """Local maxima of one spectrum row above ``threshold``, as (ppm, height) sorted by height."""
+    row = np.asarray(row, dtype=float)
+    candidates = np.flatnonzero((row[1:-1] > row[:-2]) & (row[1:-1] >= row[2:]) & (row[1:-1] > threshold)) + 1
+    peaks = []
+    for index in sorted(candidates, key=lambda i: -row[i]):
+        if all(abs(ppm[index] - position) >= min_separation_ppm for position, _ in peaks):
+            peaks.append((float(ppm[index]), float(row[index])))
+        if len(peaks) >= limit:
+            break
+    return peaks
+
+
+def peaks_from_reference(pdata, reference_row, noise_region, *, snr=10.0, min_separation_ppm=0.03, limit=50):
+    """Candidate proton peaks (label, ppm, height) from the reference row of a pseudo-2D."""
+    data, axis = read_pseudo2d(pdata)
+    if not 0 <= reference_row < axis["rows"]:
+        raise ValueError("Reference row outside the data")
+    sigma = noise_sigma(data[reference_row], axis["ppm"], noise_region)
+    found = find_peaks(data[reference_row], axis["ppm"], threshold=snr * sigma,
+                       min_separation_ppm=min_separation_ppm, limit=limit)
+    return [(f"P{index + 1}", position, height) for index, (position, height) in enumerate(found)]
+
+
+def qa_pdf(path, data, axis, peaks, half_width, reference_row, noise_region, offsets, keep, heights, sigma):
+    """QA figure: reference row with windows and noise region, then each extracted profile."""
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+
+    ppm = axis["ppm"]
+    with PdfPages(path) as pdf:
+        fig, ax = plt.subplots(figsize=(11, 4.5))
+        ax.plot(ppm, data[reference_row], linewidth=.7, color="black", label=f"reference row {reference_row}")
+        lo, hi = sorted(noise_region)
+        ax.axvspan(lo, hi, color="gray", alpha=.25, label="noise region")
+        for label, position in peaks.items():
+            ax.axvspan(position - half_width, position + half_width, color="tab:orange", alpha=.3)
+            ax.annotate(label, (position, float(data[reference_row][np.argmin(np.abs(ppm - position))])),
+                        textcoords="offset points", xytext=(0, 6), ha="center", fontsize=8)
+        ax.invert_xaxis()
+        ax.set(xlabel="1H chemical shift (ppm)", ylabel="intensity", title="Reference spectrum, peak windows and noise region")
+        ax.legend(fontsize=8)
+        pdf.savefig(fig)
+        plt.close(fig)
+        fig, axes = plt.subplots(1, len(peaks), figsize=(5 * len(peaks), 4), squeeze=False)
+        for ax, (label, position) in zip(axes[0], peaks.items()):
+            reference = heights[label][reference_row]
+            ax.errorbar(offsets[keep], heights[label][keep] / reference, yerr=sigma / reference, fmt="o", markersize=3)
+            ax.set(xlabel="saturation offset (ppm)", ylabel="I/I0", title=f"{label} at {position:.3f} ppm")
+            ax.grid(alpha=.25)
+        fig.tight_layout()
+        pdf.savefig(fig)
+        plt.close(fig)
+
+
 def convert(pdata, offsets_path, out, *, peaks, half_width, reference_row, noise_region,
             saturation_s, v1_hz, v1err_hz=0.0, offset_unit="ppm", carrier_ppm=None,
             nucleus="15N", field_mhz=None, mode="max", dw_ppm=None, r2a=10.0, r2b=20.0,
-            exclude_rows=()):
+            exclude_rows=(), qa_path=None):
     """Write one SBONEST dataset; return a summary dict."""
     data, axis = read_pseudo2d(pdata)
     if field_mhz is None:
@@ -175,6 +255,12 @@ def convert(pdata, offsets_path, out, *, peaks, half_width, reference_row, noise
         raise FileExistsError(f"Output already exists: {out}")
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     summary["output"] = str(out.resolve())
+    if qa_path is not None:
+        qa_path = Path(qa_path)
+        if qa_path.exists() or qa_path.is_symlink():
+            raise FileExistsError(f"QA output already exists: {qa_path}")
+        qa_pdf(qa_path, data, axis, peaks, half_width, reference_row, noise_region, offsets, keep, heights, sigma)
+        summary["qa_pdf"] = str(qa_path.resolve())
     return summary
 
 
@@ -194,12 +280,17 @@ def _peak_argument(text):
 
 
 def main(argv=None):
+    """Command line of the Bruker pseudo-2D converter."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("pdata", help="Bruker processed directory containing procs, proc2s and 2rr")
     parser.add_argument("offsets", help="Text list with one saturation offset per row")
     parser.add_argument("--out", required=True, help="New SBONEST dataset file")
-    parser.add_argument("--peak", action="append", required=True, type=_peak_argument,
+    parser.add_argument("--peak", action="append", type=_peak_argument,
                         metavar="LABEL=ppm[:dw_ppm]", help="Proton peak position (repeatable)")
+    parser.add_argument("--peaks-from-reference", action="store_true",
+                        help="Without --peak: take peaks above --peak-snr times the noise from the reference row (labels P1, P2, ...)")
+    parser.add_argument("--peak-snr", type=float, default=10.0, help="Signal-to-noise threshold for --peaks-from-reference")
+    parser.add_argument("--qa-pdf", help="Write a QA figure (reference row, windows, noise region, profiles) to this new file")
     parser.add_argument("--half-width", type=float, default=0.02, help="Window half width in ppm")
     parser.add_argument("--mode", choices=("max", "sum"), default="max", help="Window statistic")
     parser.add_argument("--reference-row", type=int, required=True, help="Row index of the reference spectrum")
@@ -215,15 +306,27 @@ def main(argv=None):
     parser.add_argument("--r2b", type=float, default=20.0)
     parser.add_argument("--exclude-row", type=int, action="append", default=[])
     args = parser.parse_args(argv)
-    peaks = {label: position for label, position, _ in args.peak}
-    dw = {label: value for label, _, value in args.peak}
+    if args.peak:
+        peaks = {label: position for label, position, _ in args.peak}
+        dw = {label: value for label, _, value in args.peak}
+    elif args.peaks_from_reference:
+        try:
+            found = peaks_from_reference(args.pdata, args.reference_row, args.noise_region, snr=args.peak_snr)
+        except (ValueError, OSError) as exc:
+            parser.exit(1, f"Error: {exc}\n")
+        if not found:
+            parser.exit(1, "Error: no peaks above the threshold in the reference row\n")
+        peaks = {label: position for label, position, _ in found}
+        dw = {}
+    else:
+        parser.error("supply --peak LABEL=ppm or --peaks-from-reference")
     try:
         summary = convert(args.pdata, args.offsets, args.out, peaks=peaks, half_width=args.half_width,
                           reference_row=args.reference_row, noise_region=args.noise_region,
                           saturation_s=args.saturation_s, v1_hz=args.v1_hz, v1err_hz=args.v1err_hz,
                           offset_unit=args.offset_unit, carrier_ppm=args.carrier_ppm, nucleus=args.nucleus,
                           field_mhz=args.field_mhz, mode=args.mode, dw_ppm=dw, r2a=args.r2a, r2b=args.r2b,
-                          exclude_rows=args.exclude_row)
+                          exclude_rows=args.exclude_row, qa_path=args.qa_pdf)
     except (ValueError, OSError) as exc:
         parser.exit(1, f"Error: {exc}\n")
     print(json.dumps(summary, indent=2))

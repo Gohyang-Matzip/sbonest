@@ -33,6 +33,7 @@ jobs:
       - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff
       - run: ruff check *.py --select F
       - run: python -m py_compile *.py
+      - run: python generate_api_reference.py --check
       - name: Core numerics and inherited ONEST checks
         if: matrix.shard == 'core'
         run: |

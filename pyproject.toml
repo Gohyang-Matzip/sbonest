@@ -29,7 +29,7 @@ Repository = "https://github.com/Gohyang-Matzip/sbonest"
 py-modules = [
   "benchmark", "est_data", "estmodel", "fit", "mcrun", "prepare", "run", "server_run",
   "sb_analysis", "sb_bootstrap", "sb_checkpoint", "sb_cli", "sb_compare", "sb_design",
-  "sb_import", "sb_parallel", "sb_report", "sb_server", "sb_workflow", "sbfit", "sideband",
+  "sb_import", "sb_parallel", "sb_report", "sb_run", "sb_server", "sb_workflow", "sbfit", "sideband",
   "validate_uncertainty",
 ]
 include-package-data = false
