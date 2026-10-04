@@ -9,6 +9,15 @@ import shutil
 import tempfile
 
 
+def _fsync_directory(path):
+    """Flush a directory entry so a linked file survives a crash."""
+    directory = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
 class Checkpoint:
     """Retain completed stages; an explicit resume must match execution identity.
 
@@ -67,7 +76,7 @@ class Checkpoint:
         if not path.exists():
             return None
         try:
-            envelope = json.loads(path.read_text(), parse_constant=lambda value: self._invalid(value))
+            envelope = json.loads(path.read_text(), parse_constant=self._invalid)
             if not isinstance(envelope, dict) or set(envelope) != {'sha256', 'value'}:
                 raise ValueError(f'Malformed checkpoint envelope: {path}')
             encoded = json.dumps(envelope['value'], sort_keys=True, allow_nan=False).encode()
@@ -101,11 +110,7 @@ class Checkpoint:
         # Exclusive link prevents replacement, including a file appearing mid-write.
         os.link(temporary, path)
         # Keep the completed temporary inode as an artifact; no destructive cleanup.
-        directory = os.open(self.path, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        _fsync_directory(self.path)
 
 
 def execution_identity(metadata, *, no_pdf):
@@ -141,11 +146,7 @@ def publish_outputs(journal, plan, expected):
                 stream.flush()
                 os.fsync(stream.fileno())
             os.link(pending, destination)
-            directory = os.open(destination.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
+            _fsync_directory(destination.parent)
 
 
 def output_plan(journal, staged, destinations):
@@ -155,11 +156,7 @@ def output_plan(journal, staged, destinations):
         with source.open('rb') as stream:
             digest = hashlib.sha256(stream.read()).hexdigest()
             os.fsync(stream.fileno())
-        directory = os.open(source.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        _fsync_directory(source.parent)
         rows.append({'source': str(source.relative_to(journal.path)),
                      'destination': str(destination.absolute()), 'sha256': digest})
     return rows

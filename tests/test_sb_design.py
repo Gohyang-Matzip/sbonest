@@ -1,16 +1,11 @@
 """Experimental design: expected local errors for planned acquisitions."""
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import os
 
-for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import json
 import subprocess
@@ -21,7 +16,6 @@ import numpy as np
 from sb_design import _offsets, load_design, run_design, select_measurements
 from sbfit import SidebandModel
 from test_sb_compare import write_synthetic
-
 
 
 def truth_for(config_path):
@@ -124,6 +118,32 @@ def check_truth_result_and_cli():
     assert summary['scenarios'][0]['n_points'] == 21 and summary['truth']['kab'] == 15.
 
 
+def check_per_field_design():
+    """nitrogen_relaxation per_field with two field groups: grouped truth names evaluate."""
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-design-field-'))
+    config_path = write_synthetic(folder / 'base', {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    cfg = json.loads(config_path.read_text())
+    cfg['sideband']['datasets'] = [{'h_larmor_mhz': 600.}, {'h_larmor_mhz': 800.}]
+    cfg['sideband']['nitrogen_relaxation'] = {'mode': 'per_field'}
+    cfg['init'].pop('vary')
+    config_path.write_text(json.dumps(cfg))
+    truth = {'kab': 15., 'kba': 285., 'v1n_scale': 1.}
+    for label in ('A1', 'G2', 'S3'):
+        truth[f'{label}.peak_ppm'] = cfg['init']['initial'][f'{label}.peak_ppm']
+        truth[f'{label}.dw_ppm'] = cfg['init']['initial'][f'{label}.dw_ppm']
+        for group in (0, 1):
+            truth.update({f'{label}.R1[{group}]': 1.5, f'{label}.R2a[{group}]': 12., f'{label}.R2b[{group}]': 18.})
+    assert set(truth) == set(SidebandModel(cfg, folder / 'base').parameter_names)
+    spectrum = {'v1n_hz': 25., 'T': .03, 'sigma': .004, 'offsets_rel_ppm': {'min': -.4, 'max': .4, 'n': 9}}
+    scenarios = [{'name': 'a', 'datasets': [{**spectrum, 'decoupling': {'h_larmor_mhz': 600.}},
+                                            {**spectrum, 'decoupling': {'h_larmor_mhz': 800.}}]}]
+    paths = run_design(write_design(folder, config_path, truth, scenarios), folder / 'out')
+    report = json.loads(Path(paths['design_json']).read_text())
+    assert 'A1.R2a[1]' in json.dumps(report), 'grouped nitrogen parameters missing from the design report'
+    header = (folder / 'out' / 'scenarios' / 'a' / 'data_1.txt').read_text().splitlines()
+    assert any(line.startswith('# A1 R2a: 12') for line in header), header[:6]
+
+
 def check_optimization():
     folder = Path(tempfile.mkdtemp(prefix='sbonest-design-opt-'))
     config_path = write_synthetic(folder / 'base', {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
@@ -184,5 +204,6 @@ if __name__ == '__main__':
     check_validation()
     check_expected_errors_and_inputs()
     check_truth_result_and_cli()
+    check_per_field_design()
     check_optimization()
     print('PASS: design validation, expected errors, synthetic inputs, CLI and optimization')

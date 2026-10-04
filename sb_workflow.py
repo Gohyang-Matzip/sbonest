@@ -2,6 +2,7 @@
 import argparse
 from importlib import resources
 import json
+import sys
 from pathlib import Path
 
 
@@ -28,8 +29,8 @@ def init_demo(out):
     return path
 
 
-def main():
-    """Command line: init-demo, report, design and compare."""
+def main(argv=None):
+    """Command line: init-demo, report, design and compare; returns the exit status."""
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     demo = commands.add_parser('init-demo', help='Copy bundled synthetic two-RF data')
@@ -51,7 +52,7 @@ def main():
                          help='Compare Sideband models on the same data instead of residues, e.g. Sideband Sideband_3st_Linear')
     compare.add_argument('--h-ppm-c', nargs='+', metavar='LABEL=ppm',
                          help='State-C proton shifts for three-state models (default: the state-B shift)')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if getattr(args, 'workers', 1) < 1:
         parser.error('--workers must be a positive integer')
     try:
@@ -97,7 +98,8 @@ def main():
                 print(f'{label}: {path}')
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
         parser.exit(1, f'Error: {exc}\n')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

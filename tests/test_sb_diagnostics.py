@@ -1,16 +1,8 @@
 """Residual and sigma diagnostics on synthetic residual rows and a real small fit."""
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
+import _env  # noqa: F401
 
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
-
-import os
-
-for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import contextlib
 import copy

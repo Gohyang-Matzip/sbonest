@@ -292,6 +292,8 @@ def create_job():
         return jsonify({"error": "Configuration is not valid JSON"}), 400
     if not isinstance(config, dict) or not isinstance(config.get("datasets"), list):
         return jsonify({"error": "Configuration needs a datasets list"}), 400
+    if not isinstance(config.get("init"), dict) or not isinstance(config.get("sideband", {}), dict):
+        return jsonify({"error": "Configuration init and sideband sections must be objects"}), 400
     if not str(config.get("init", {}).get("Method", "")).startswith("Sideband"):
         return jsonify({"error": "This runner accepts Sideband configurations only"}), 400
     try:

@@ -1,10 +1,8 @@
 """Regression checks for rejected fits, configuration paths and web inputs."""
 
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+import _env  # noqa: F401
 
 import json
 import io

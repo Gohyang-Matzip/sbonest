@@ -1,9 +1,7 @@
 """Saved-result reports reconcile CSV evidence and never refit or overwrite."""
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import copy
 import csv
@@ -15,7 +13,6 @@ from unittest.mock import patch
 
 import numpy as np
 from numpy.testing import assert_allclose
-
 
 
 def cli(*args):

@@ -7,9 +7,23 @@ Python 3 / scipy.optimize.least_squares port: 2025
 
 import sys
 import json
-import argparse
 from pathlib import Path
 from estmodel import est_model
+
+
+def validate_config_shape(config):
+    """Raise ValueError unless the configuration has the required sections and value types."""
+    if (
+        not isinstance(config, dict)
+        or not isinstance(config.get("Project Name"), str)
+        or not config["Project Name"].strip()
+        or not isinstance(config.get("datasets"), list)
+        or not config["datasets"]
+        or not all(isinstance(p, str) and p for p in config["datasets"])
+        or not isinstance(config.get("residues"), list)
+        or not isinstance(config.get("init"), dict)
+    ):
+        raise ValueError("Invalid config value types or empty dataset list.")
 
 
 def load_config(config_file_path):
@@ -17,21 +31,7 @@ def load_config(config_file_path):
     try:
         with open(config_file_path, "r") as config_file:
             config = json.load(config_file)
-            if not isinstance(config, dict) or not all(
-                key in config
-                for key in ["Project Name", "datasets", "residues", "init"]
-            ):
-                raise ValueError("Invalid config file structure.")
-            if (
-                not isinstance(config["Project Name"], str)
-                or not config["Project Name"].strip()
-                or not isinstance(config["datasets"], list)
-                or not config["datasets"]
-                or not all(isinstance(p, str) and p for p in config["datasets"])
-                or not isinstance(config["residues"], list)
-                or not isinstance(config["init"], dict)
-            ):
-                raise ValueError("Invalid config value types or empty dataset list.")
+            validate_config_shape(config)
             method = config["init"].get("Method")
             is_sideband = isinstance(method, str) and method.startswith("Sideband")
             if ("sideband" in config) != is_sideband:
@@ -84,43 +84,14 @@ def load_datasets(model, config, *, with_error=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fit CEST data.")
-    parser.add_argument("config_file")
-    parser.add_argument(
-        "--no-pdf",
-        action="store_true",
-        help="Skip PDF reports; save numeric results only.",
-    )
-    parser.add_argument("--check", action="store_true", help="Validate Sideband inputs without fitting or writing outputs")
-    parser.add_argument("--identifiability", action="store_true",
-                        help="With --check: add local Jacobian diagnostics at the initial point")
-    parser.add_argument("--resume", action="store_true", help="Resume a matching Sideband checkpoint")
-    parser.add_argument("--workers", type=int, default=1,
-                        help="Sideband worker processes for Jacobian columns, restarts, profile points and bootstrap replicates (default 1)")
-    args = parser.parse_args()
-    if args.check and args.resume:
-        parser.error("--check and --resume cannot be combined")
-    if args.identifiability and not args.check:
-        parser.error("--identifiability requires --check")
-    if args.workers < 1:
-        parser.error("--workers must be a positive integer")
+    from sb_run import build_parser, dispatch, parse_arguments
+
+    parser = build_parser("Fit CEST data.")
+    args = parse_arguments(parser)
     config = load_config(args.config_file)
 
     if str(config["init"].get("Method", "")).startswith("Sideband"):
-        from sbfit import check_config, run_config
-
-        try:
-            if args.check:
-                summary = check_config(config, Path(args.config_file).resolve().parent,
-                                       no_pdf=args.no_pdf, identifiability=args.identifiability,
-                                       workers=args.workers)
-                print(json.dumps(summary, indent=2, allow_nan=False))
-                parser.exit(0 if summary["valid"] else 1)
-            run_config(config, Path(args.config_file).resolve().parent, args.no_pdf,
-                       resume=args.resume, workers=args.workers)
-        except (ValueError, KeyError, OSError, RuntimeError) as exc:
-            parser.exit(1, f"Error: {exc}\n")
-        return
+        return dispatch(parser, args, config, Path(args.config_file).resolve().parent)
 
     if args.check or args.resume or args.workers != 1:
         parser.exit(1, "Error: --check/--resume/--workers currently support init.Method = Sideband\n")
@@ -168,4 +139,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

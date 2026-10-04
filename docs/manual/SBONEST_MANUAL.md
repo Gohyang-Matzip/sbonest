@@ -1146,6 +1146,9 @@ from a plain checkout without installation. The modules stay flat at the
 repository root, which keeps the source hashes in `provenance` meaningful.
 
 Installed `compare` accepts the script's `--models` and `--h-ppm-c` options.
+`check`, `fit` and `resume` accept Sideband configurations only; the inherited
+ONEST models run through `run.py`. Delegated commands print their module's help
+(`sbonest fit --help` shows the `run.py` options).
 With `--models Sideband Sideband_3st_Linear`, supply a two-state `Sideband`
 configuration; three-state configurations are derived from it. `--h-ppm-c A1=7.1`
 supplies state C's proton shift for A1 (otherwise its state-B shift is used).

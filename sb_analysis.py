@@ -665,8 +665,7 @@ def _profile_jacobian(model, residual, full_indices, lower, upper, evaluate_many
     if type(model) is not SidebandModel:
         return "3-point"
     active = [(i, r) for i, r in enumerate(model.dataset.res) if r.active]
-    rate_names = list(getattr(model, "rate_names", ["kab", "kba"]))
-    names = [*rate_names, *model.rf_names]
+    names = [*model.rate_names, *model.rf_names]
     names.extend(f"{r.label}.{key}" for _, r in active for key in model.local_keys)
     if list(model.parameter_names) != names:
         return "3-point"
@@ -676,7 +675,7 @@ def _profile_jacobian(model, residual, full_indices, lower, upper, evaluate_many
     expected_order = [i for i, _ in active for row in data if row[0] == i]
     if row_order != expected_order or not all(sizes):
         return "3-point"
-    grouped = _block_jacobian(residual, sizes, len(rate_names) + len(model.rf_names), len(model.local_keys),
+    grouped = _block_jacobian(residual, sizes, model.n_global, len(model.local_keys),
                               relative_step=1e-5, free=full_indices,
                               bounds=(lower, upper), method="3-point",
                               evaluate_many=evaluate_many)

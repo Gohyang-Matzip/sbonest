@@ -32,14 +32,16 @@ SBONEST: fit all CEST points, including decoupling sidebands, with OC.
   - `rf_values(self, P, es)` — Actual nitrogen RF amplitude and its spread (Hz) for spectrum es under the RF mode.
   - `seParam(self, p)` — Unpack a full parameter vector into the ONEST-style dictionary plus RF and relaxation groups.
   - `selMethod(self, initConf)` — Reject init sections whose Method differs from the model this instance was built for.
-- `is_sideband_method(name)` — True for init.Method values handled by SidebandModel.
 
 ## `sb_run.py`
 
 Sideband run orchestration: preflight checks, checkpointed fits, analyses and exports.
 
+- `build_parser(description=None)` — Argument parser shared by run.py, sbfit.py and ``sbonest check|fit|resume``.
 - `check_config(config, config_dir='.', *, no_pdf=False, identifiability=False, workers=1)` — Return a JSON-safe preflight summary without optimization or file writes.
-- `main()` — Command line shared by run.py and sbfit.py for Sideband configurations.
+- `dispatch(parser, args, config, config_dir)` — Run ``--check`` or the fit for parsed arguments and return the exit status.
+- `main(argv=None)` — Command line shared by run.py and sbfit.py for Sideband configurations; returns the exit status.
+- `parse_arguments(parser, argv=None)` — Parse and cross-validate the shared command line; errors exit through the parser.
 - `run_config(config, config_dir='.', no_pdf=False, *, resume=False, workers=1)` — Fit a Sideband configuration with checkpoints, optional analyses and exclusive exports; returns (parameters, covariance).
 
 ## `sb_analysis.py`
@@ -88,6 +90,7 @@ Residual diagnostics: is the supplied sigma plausible and are the residuals stru
 
 - `diagnostics_lines(report, parameter_names=None)` — Plain-text lines summarizing a residual_diagnostics report.
 - `lag1_autocorrelation(values)` — Lag-1 autocorrelation of a sequence, or None when it is undefined.
+- `number_text(value, digits=4)` — Format a value for text reports; None becomes 'unavailable'.
 - `residual_diagnostics(rows, n_parameters, covariance=None, *, runs_alpha=0.01)` — Diagnostics from prediction rows (see ``sb_report.prediction_rows``).
 - `runs_test(values)` — Two-sided Wald-Wolfowitz runs test on the signs of ``values`` (zeros dropped).
 
@@ -123,6 +126,7 @@ Lossless Sideband reports and calculation-time provenance.
 - `preview_png(path, rows, *, dpi=110)` — One PNG with every residue's profile and residual panels side by side (web preview).
 - `provenance(config, config_dir)` — Snapshot files before fitting, including the actual waveform bytes.
 - `regenerate_report(result_path, out_prefix, predictions_path=None)` — Write a reconciled JSON/text/PDF report from saved results, without fitting.
+- `reject_constant(value)` — ``json.loads(parse_constant=...)`` hook that refuses NaN and Infinity.
 - `write_predictions(path, rows)` — Write prediction rows as a full-precision CSV created exclusively.
 
 ## `sb_design.py`
@@ -149,14 +153,14 @@ Compare a shared-exchange (global) Sideband fit with per-residue individual fits
 - `nested_f_test(chi2_small, k_small, chi2_large, k_large, n)` — F-test of the smaller (shared) model against the larger (individual) model.
 - `run_comparison(config, config_dir, out, *, no_pdf=True, workers=1)` — Fit the global and the individual models; write comparison JSON/TXT/PDF.
 - `summarize(global_fit, individual, labels)` — Combine the global and individual fit records into the comparison summary.
-- `three_state_config(config, method, *, h_ppm_c=None, starts=None)` — Derive a three-state configuration from a fitted two-state configuration.
+- `three_state_config(config, method, *, h_ppm_c=None, starts=None, labels=None)` — Derive a three-state configuration from a fitted two-state configuration.
 
 ## `sb_workflow.py`
 
 Sideband workflow helpers: demo setup, saved-result reports, design and model comparison.
 
 - `init_demo(out)` — Copy bundled synthetic two-RF inputs into a new, exclusively owned folder.
-- `main()` — Command line: init-demo, report, design and compare.
+- `main(argv=None)` — Command line: init-demo, report, design and compare; returns the exit status.
 
 ## `sb_import.py`
 
@@ -196,7 +200,7 @@ Sideband web interface: upload, preflight, background fitting, reports and previ
 
 Unified SBONEST command line: ``sbonest <command> ...``.
 
-- `build_parser()` — Argument parser of the sbonest command.
+- `build_parser()` — Argument parser of the sbonest command (delegated commands keep their module's help).
 - `main(argv=None)` — Entry point of the sbonest command; returns the exit status.
 
 ## `validate_uncertainty.py`

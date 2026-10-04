@@ -1,9 +1,6 @@
 """Executable checks for Sideband uncertainty, provenance and lossless outputs."""
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+from _env import ROOT
 
 import copy
 import csv
@@ -18,7 +15,6 @@ from numpy.testing import assert_allclose
 from run import load_config
 from sbfit import SidebandModel, run_config
 from sb_report import provenance
-
 
 
 def small_config(folder):

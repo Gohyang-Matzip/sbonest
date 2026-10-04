@@ -10,27 +10,21 @@ the supplied absolute sigma; they rank designs and do not validate a sample.
 """
 import contextlib
 import copy
+from functools import partial
 import hashlib
 import json
 import math
-import numbers
 from pathlib import Path
 
 import numpy as np
 
 from run import load_config
 from sb_analysis import identifiability
-from sb_report import provenance
+from sb_diagnostics import number_text
+from sb_report import _finite, provenance, reject_constant
 
 DATASET_KEYS = ('v1n_hz', 'v1err_hz', 'T', 'sigma', 'offsets_ppm', 'offsets_rel_ppm',
                 'field_mhz', 'decoupling')
-
-
-def _finite(value, label, *, positive=False, nonnegative=False):
-    if (isinstance(value, bool) or not isinstance(value, numbers.Real) or not np.isfinite(value)
-            or (positive and value <= 0) or (nonnegative and value < 0)):
-        raise ValueError(f'{label} must be a finite' + (' positive' if positive else ' nonnegative' if nonnegative else '') + ' number')
-    return float(value)
 
 
 def _offsets(spec, label):
@@ -53,7 +47,7 @@ def _offsets(spec, label):
 def load_design(path):
     """Read and validate a design file; returns the base configuration, truth and scenarios."""
     path = Path(path).expanduser().resolve()
-    design = json.loads(path.read_text(encoding='utf-8'), parse_constant=lambda v: (_ for _ in ()).throw(ValueError(f'Non-finite JSON value {v}')))
+    design = json.loads(path.read_text(encoding='utf-8'), parse_constant=reject_constant)
     if not isinstance(design, dict) or set(design) - {'config', 'truth', 'truth_result', 'scenarios', 'optimize'}:
         raise ValueError('Design allows config, truth or truth_result, scenarios and optimize')
     if not isinstance(design.get('config'), str) or not design['config']:
@@ -127,19 +121,26 @@ def load_design(path):
             'scenarios': copy.deepcopy(scenarios), 'optimize': copy.deepcopy(optimize)}
 
 
+def _truth_value(mapping, label, key, group=0):
+    """``label.key`` from the truth, or its field-group entry ``label.key[group]``."""
+    for name in (f'{label}.{key}', f'{label}.{key}[{group}]'):
+        if name in mapping:
+            return mapping[name]
+    raise ValueError(f'truth must include {label}.{key}')
+
+
 def _write_dataset(path, model, truth_vector, index, offsets_spec, sigma, field, T, v1, v1err):
     """Write one noise-free synthetic input for all active residues; return point count."""
-    names = list(model.parameter_names)
+    values_by_name = dict(zip(model.parameter_names, truth_vector))
+    group = model.dataset_group[index]
     parameters = model.seParam(truth_vector)
     lines = [f'{field:.12g}', f'{T:.12g}', f'{v1:.12g} {v1err:.12g}', '# offset(ppm) intensity error']
     count = 0
     for i, residue in enumerate(model.dataset.res):
         if not residue.active:
             continue
-        peak = truth_vector[names.index(f'{residue.label}.peak_ppm')]
-        dw = truth_vector[names.index(f'{residue.label}.dw_ppm')]
-        r2a = truth_vector[names.index(f'{residue.label}.R2a')]
-        r2b = truth_vector[names.index(f'{residue.label}.R2b')]
+        peak, dw, r2a, r2b = (_truth_value(values_by_name, residue.label, key, group)
+                              for key in ('peak_ppm', 'dw_ppm', 'R2a', 'R2b'))
         grid = _offsets(offsets_spec[1], 'offsets')
         offsets = grid if offsets_spec[0] == 'offsets_ppm' else peak + grid
         es = next(es for es in residue.estSpecs if es.dataset_index == index)
@@ -167,12 +168,9 @@ def _placeholder_dataset(path, config, index, scenario_ds, truth):
         if entry.get('flag') != 'on':
             continue
         label = entry['name']
-        for key in ('peak_ppm', 'dw_ppm', 'R2a', 'R2b'):
-            if f'{label}.{key}' not in truth:
-                raise ValueError(f'truth must include {label}.{key}')
-        peak = truth[f'{label}.peak_ppm']
+        peak, dw, r2a, r2b = (_truth_value(truth, label, key) for key in ('peak_ppm', 'dw_ppm', 'R2a', 'R2b'))
         offsets = grid if kind == 'offsets_ppm' else peak + grid
-        lines.append(f'# {label} R2a: {truth[f"{label}.R2a"]:.12g} R2b: {truth[f"{label}.R2b"]:.12g} dw: {truth[f"{label}.dw_ppm"]:.12g}')
+        lines.append(f'# {label} R2a: {r2a:.12g} R2b: {r2b:.12g} dw: {dw:.12g}')
         lines.extend(f'{o:.15g} 1 {scenario_ds["sigma"]:.12g}' for o in offsets)
     path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return field, (kind, scenario_ds[kind])
@@ -273,8 +271,7 @@ def run_design(design_path, out, *, workers=1):
 
 def design_lines(summary):
     """Plain-text summary of a design study, including the optimization block when present."""
-    def number(value):
-        return 'unavailable' if value is None else f'{value:.6g}'
+    number = partial(number_text, digits=6)
 
     lines = ['Sideband experimental design: expected local errors at the truth',
              summary['confidence_note'], f'Base configuration: {summary["config_path"]}', '']

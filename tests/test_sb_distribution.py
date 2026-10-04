@@ -1,9 +1,7 @@
 """Retained wheel/sdist acceptance; requires test-only build and twine tooling."""
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import argparse
 import hashlib

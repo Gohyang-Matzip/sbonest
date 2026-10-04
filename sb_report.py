@@ -1,10 +1,12 @@
 """Lossless Sideband reports and calculation-time provenance."""
 import csv
 from datetime import datetime, timezone
+from functools import partial
 import hashlib
 from io import BytesIO
 from importlib.metadata import version
 import json
+import numbers
 import os
 from pathlib import Path
 import platform
@@ -13,6 +15,8 @@ import sys
 import textwrap
 
 import numpy as np
+
+from sb_diagnostics import number_text
 
 
 def derived_errors(p, covariance):
@@ -27,6 +31,12 @@ def derived_errors(p, covariance):
     }
 
 
+# Executed sources recorded in every result and checkpoint identity.
+SOURCES = ('run.py', 'sbfit.py', 'sideband.py', 'fit.py', 'estmodel.py',
+           'est_data.py', 'sb_report.py', 'sb_analysis.py', 'sb_workflow.py',
+           'sb_checkpoint.py', 'sb_bootstrap.py', 'sb_run.py', 'sb_diagnostics.py')
+
+
 def provenance(config, config_dir):
     """Snapshot files before fitting, including the actual waveform bytes."""
     root = Path(__file__).resolve().parent
@@ -38,9 +48,6 @@ def provenance(config, config_dir):
         path = (Path(config_dir) / path).resolve()
         return {'path': str(path), 'sha256': digest(path)}
 
-    sources = ('run.py', 'sbfit.py', 'sideband.py', 'fit.py', 'estmodel.py',
-               'est_data.py', 'sb_report.py', 'sb_analysis.py', 'sb_workflow.py',
-               'sb_checkpoint.py', 'sb_bootstrap.py', 'sb_run.py', 'sb_diagnostics.py')
     sb = config['sideband']
     waveforms = set()
     for override in sb.get('datasets', [{}] * len(config['datasets'])):
@@ -70,7 +77,7 @@ def provenance(config, config_dir):
             config, sort_keys=True, allow_nan=False).encode()).hexdigest(),
         'datasets': [file_record(path) for path in config['datasets']],
         'waveforms': [file_record(path) for path in sorted(waveforms)],
-        'source_sha256': {name: digest(root / name) for name in sources},
+        'source_sha256': {name: digest(root / name) for name in SOURCES},
     }
 
 
@@ -177,18 +184,20 @@ PREDICTION_COLUMNS = ('residue', 'dataset_index', 'field_mhz', 'saturation_s',
                       'predicted', 'sigma', 'residual_sigma')
 
 
-def _finite(value, label, *, nonnegative=False):
-    if (isinstance(value, bool) or not isinstance(value, (int, float))
-            or not np.isfinite(value) or (nonnegative and value < 0)):
-        raise ValueError(f'{label} must be a finite' + (' nonnegative' if nonnegative else '') + ' number')
+def _finite(value, label, *, positive=False, nonnegative=False):
+    if (isinstance(value, bool) or not isinstance(value, numbers.Real) or not np.isfinite(value)
+            or (positive and value <= 0) or (nonnegative and value < 0)):
+        raise ValueError(f'{label} must be a finite' + (' positive' if positive else ' nonnegative' if nonnegative else '') + ' number')
     return float(value)
+
+
+def reject_constant(value):
+    """``json.loads(parse_constant=...)`` hook that refuses NaN and Infinity."""
+    raise ValueError(f'Non-finite JSON value: {value}')
 
 
 def _load_report_inputs(result_path, predictions_path):
     """Reconcile saved evidence before creating directories or report files."""
-    def reject_constant(value):
-        raise ValueError(f'Non-finite JSON value: {value}')
-
     info = json.loads(result_path.read_text(encoding='utf-8'), parse_constant=reject_constant)
     if not isinstance(info, dict) or info.get('method') != 'Sideband' or info.get('success', True) is not True:
         raise ValueError('Reporting requires a successful saved Sideband result')
@@ -423,8 +432,7 @@ def _report_summary(info, rows, result_path, predictions_path):
 
 
 def _summary_lines(summary):
-    def number(value):
-        return 'unavailable' if value is None else f'{value:.8g}'
+    number = partial(number_text, digits=8)
 
     lines = ['Sideband saved-fit report', summary['interpretation'], '']
     for key, entry in summary['inputs'].items():

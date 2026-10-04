@@ -4,6 +4,26 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- Fix `sb_workflow.py compare`: residues present in the data but absent from
+  `config.residues` are active (as documented) and are now switched off in the
+  per-residue fits and given state-C shifts in `--models` comparisons; previously
+  the "individual" fits silently kept them, invalidating AICc/BIC/F statistics, and
+  three-state derivation failed on the missing `h_ppm_c`.
+- Fix `sb_workflow.py design` with `nitrogen_relaxation.mode = "per_field"` and
+  several field groups: grouped truth names (`A1.R2a[1]`) are accepted; the
+  design previously always raised "truth must include A1.R2a".
+- The web runner rejects configurations whose `init` or `sideband` sections are
+  not objects with HTTP 400 instead of a 500 that left an orphan job folder.
+- `sbonest check|fit|resume` are documented as Sideband-only (ONEST models run
+  through `run.py`).
+- Refactor without behaviour change: `sbonest` delegates every command to the
+  module command lines (`sb_run.main`, `sb_workflow.main`), `run.py` shares
+  `sb_run.build_parser`/`dispatch`, `sideband.profile` and `profile_states` share
+  one propagation loop, duplicated helpers (`number_text`, `_finite`,
+  `reject_constant`, `validate_config_shape`, `_fsync_directory`, `SOURCES`) are
+  single definitions, the unused `sbfit.is_sideband_method` is removed, and the
+  tests share `tests/_env.py` for the root path and thread settings. Golden,
+  worker-identity and output tests are unchanged.
 - Reorganize the repository: tests move to `tests/`, research and maintenance
   scripts to `scripts/`, and documents to `docs/manual/`, `docs/guides/`,
   `docs/reports/` and `docs/images/` (`MANUAL.md` becomes

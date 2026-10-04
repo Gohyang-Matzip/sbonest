@@ -5,6 +5,7 @@ Usage: python sbfit.py config.json [--no-pdf]
 ONEST text inputs and reports are retained; see SIDEBAND.md for configuration.
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -28,11 +29,6 @@ SIDEBAND_METHODS = {
 }
 # Rates that must stay positive so every site keeps a return path to site A.
 _RETURN_RATES = ("kba", "kcb")
-
-
-def is_sideband_method(name):
-    """True for init.Method values handled by SidebandModel."""
-    return name in SIDEBAND_METHODS
 
 
 def _key_base(name):
@@ -917,7 +913,7 @@ class SidebandModel(est_model):
 # check_config, run_config and the command line live in sb_run.py; they stay
 # importable from this module for existing callers and scripts.
 def __getattr__(name):
-    if name in ("check_config", "run_config", "_output_paths", "main"):
+    if name in ("check_config", "run_config"):
         import sb_run
 
         return getattr(sb_run, name)
@@ -927,4 +923,4 @@ def __getattr__(name):
 if __name__ == "__main__":
     from sb_run import main
 
-    main()
+    sys.exit(main())

@@ -4,17 +4,12 @@ Every parallel result must equal the serial result exactly: the pool only
 changes which process evaluates a residual, never the arithmetic.
 """
 # ruff: noqa: E402 -- Limit numerical libraries before importing them.
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import os
 
-for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(name, '1')
-os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import contextlib
 import io
@@ -30,7 +25,6 @@ from sb_analysis import identifiability, local_jacobian
 from sb_parallel import Progress, WorkerPool, validate_workers
 from sbfit import SidebandModel, run_config
 from test_sb_output import small_config
-
 
 
 def analysis_config(folder, name):

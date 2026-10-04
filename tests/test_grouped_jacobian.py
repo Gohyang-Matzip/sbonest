@@ -1,10 +1,6 @@
 """Regression checks for grouped finite differences with fixed parameters."""
 
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import _env  # noqa: F401
 
 import numpy as np
 from scipy.optimize._numdiff import approx_derivative

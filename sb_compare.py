@@ -12,6 +12,21 @@ import copy
 import json
 import math
 from pathlib import Path
+from sb_diagnostics import number_text
+
+
+def _dataset_labels(config, config_dir):
+    """Residue labels in data order and the active subset; residues absent from config.residues stay active."""
+    from est_data import EstDataSet
+    from run import set_residue_flags
+
+    dataset = EstDataSet()
+    for path in config['datasets']:
+        dataset.addData(str(Path(config_dir) / path))
+    error = set_residue_flags(dataset, config['residues'])
+    if error:
+        raise ValueError(error)
+    return [r.label for r in dataset.res], [r.label for r in dataset.res if r.active]
 
 
 def _residue_config(config, labels, keep):
@@ -64,17 +79,17 @@ def run_comparison(config, config_dir, out, *, no_pdf=True, workers=1):
     out = Path(out).expanduser().absolute()
     if out.exists() or out.is_symlink():
         raise FileExistsError(f'Comparison output already exists: {out}')
-    labels = [entry['name'] for entry in config['residues'] if entry.get('flag') == 'on']
+    all_labels, labels = _dataset_labels(config, config_dir)
     if len(labels) < 2:
         raise ValueError('Model comparison needs at least two active residues')
     out.mkdir(parents=True)
     fits = {}
-    global_cfg = _residue_config(config, [e['name'] for e in config['residues']], set(labels))
+    global_cfg = _residue_config(config, all_labels, set(labels))
     global_cfg['Project Name'] = str(out / 'global' / 'fit')
     fits['global'] = _fit(global_cfg, config_dir, no_pdf, workers)
     individual = {}
     for label in labels:
-        cfg = _residue_config(config, [e['name'] for e in config['residues']], {label})
+        cfg = _residue_config(config, all_labels, {label})
         cfg['Project Name'] = str(out / 'individual' / label / 'fit')
         individual[label] = _fit(cfg, config_dir, no_pdf, workers)
     summary = summarize(fits['global'], individual, labels)
@@ -159,7 +174,7 @@ def _entry(result):
 def comparison_lines(summary):
     """Plain-text lines of a shared-versus-individual comparison."""
     def number(value, digits=8):
-        return 'unavailable' if value is None else f'{value:.{digits}g}'
+        return number_text(value, digits)
 
     lines = ['Sideband model comparison: shared exchange (global) versus per-residue exchange (individual)',
              summary['interpretation'], '']
@@ -222,7 +237,7 @@ def comparison_pdf(path, summary):
 THREE_STATE_METHODS = ("Sideband_3st_Linear", "Sideband_3st_Triangle")
 
 
-def three_state_config(config, method, *, h_ppm_c=None, starts=None):
+def three_state_config(config, method, *, h_ppm_c=None, starts=None, labels=None):
     """Derive a three-state configuration from a fitted two-state configuration.
 
     State C gets ``h_ppm_c`` (per residue; default: the state-B proton shift) and
@@ -243,8 +258,11 @@ def three_state_config(config, method, *, h_ppm_c=None, starts=None):
     initial.update(kab=kab, kba=kba, kbc=kex / 3., kcb=kex)
     if method == 'Sideband_3st_Triangle':
         initial.update(kca=0.1 * kex, kac=0.01 * kex)
-    labels = [entry['name'] for entry in cfg['residues'] if entry.get('flag') == 'on']
     residues = cfg['sideband']['residues']
+    if labels is None:
+        # Residues absent from config.residues are active; only explicit 'off' entries are excluded.
+        off = {entry['name'] for entry in cfg['residues'] if entry.get('flag') == 'off'}
+        labels = [label for label in residues if label not in off]
     for label in labels:
         shift = residues[label]
         shift['h_ppm_c'] = float((h_ppm_c or {}).get(label, shift['h_ppm_b']))
@@ -281,10 +299,12 @@ def compare_models(config, config_dir, out, *, models=('Sideband', 'Sideband_3st
             raise ValueError(f'Unknown model {method}')
     if config['init'].get('Method', 'Sideband') != 'Sideband':
         raise ValueError('compare --models starts from a two-state (Sideband) configuration')
+    _, labels = _dataset_labels(config, config_dir)
     out.mkdir(parents=True)
     fits = {}
     for method in models:
-        cfg = copy.deepcopy(config) if method == 'Sideband' else three_state_config(config, method, h_ppm_c=h_ppm_c)
+        cfg = (copy.deepcopy(config) if method == 'Sideband'
+               else three_state_config(config, method, h_ppm_c=h_ppm_c, labels=labels))
         for key in ('profile', 'bootstrap', 'profile_interval'):
             cfg['init'].pop(key, None)
         cfg['Project Name'] = str(out / method / 'fit')
@@ -341,7 +361,7 @@ def compare_models(config, config_dir, out, *, models=('Sideband', 'Sideband_3st
 
 def models_lines(summary):
     def number(value, digits=8):
-        return 'unavailable' if value is None else f'{value:.{digits}g}'
+        return number_text(value, digits)
 
     lines = ['Sideband model comparison: two-state versus three-state exchange', summary['interpretation'],
              f'h_ppm_c: {summary["h_ppm_c"]}', '']

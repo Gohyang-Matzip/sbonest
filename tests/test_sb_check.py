@@ -1,10 +1,8 @@
 """Executable preflight checks: validate before fitting and leave no outputs."""
 
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repository root: flat modules live there
-sys.path.insert(0, str(ROOT))
+import sys
+from _env import ROOT
 
 import copy
 import json
@@ -16,8 +14,6 @@ from numpy.testing import assert_allclose
 
 import sbfit
 from test_sb_output import small_config
-
-
 
 
 def check_optional_validation_before_fit():

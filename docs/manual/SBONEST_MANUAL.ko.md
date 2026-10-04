@@ -1088,6 +1088,9 @@ sbonest report demo/fit_result.json --out demo/report
 루트에 평평하게 유지되어 `provenance`의 소스 해시가 의미를 잃지 않는다.
 
 설치된 `compare`도 스크립트의 `--models`, `--h-ppm-c` 옵션을 받는다.
+`check`, `fit`, `resume`는 Sideband 설정만 받으며 상속된 ONEST 모델은 `run.py`로
+실행한다. 위임되는 명령은 해당 모듈의 도움말을 그대로 보여준다(`sbonest fit --help`는
+`run.py` 옵션을 출력한다).
 `--models Sideband Sideband_3st_Linear`에는 two-state `Sideband` 설정을
 입력하며 three-state 설정은 여기서 파생된다. `--h-ppm-c A1=7.1`은 A1의
 상태 C proton shift를 지정한다(생략하면 상태 B shift 사용). `--models`가
