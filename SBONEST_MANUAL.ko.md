@@ -819,13 +819,12 @@ sigma와 고정 입력 아래에서 설명을 비교할 뿐이다. 공유 속도
 5. 동일 `kab`, `kba`를 공유한다는 과학적 근거가 있을 때 잔기를 함께
    fitting한다. 입력 데이터, config, 비교한 결과를 모두 보존한다.
 
-여러 데이터셋을 함께 fitting하면 각 잔기의 nitrogen shift뿐 아니라
-**`R1`, `R2a`, `R2b`도 모든 파일에서 공유**한다. 자기장별 독립 nitrogen
-relaxation parameter는 없다. 여러 field를 합치면 이 제약이 적용되므로,
-영향을 확인하기 위해 field별로 따로 fitting할 필요가 있다.
-`sideband.datasets` override로 이 공유 규칙을 바꿀 수는 없다.
+여러 데이터셋을 함께 fitting하면 각 잔기의 nitrogen shift를 모든 파일에서
+공유하고, 기본값에서는 `R1`, `R2a`, `R2b`도 공유한다. 자기장 그룹, 자기장별
+양성자·질소 이완, 3상태 모델은 12절에 설명한다. 자기장을 합치기 전에 공유
+fitting과 자기장별 fitting을 비교한다.
 
-모델은 교환하는 두 상태 각각에 N 하나와 H 하나를 포함하고, 현상론적
+모델은 교환하는 각 상태(기본 2개, 12.2절의 3상태 모델은 3개)에 N 하나와 H 하나를 포함하고, 현상론적
 product-operator relaxation을 사용한다. 상태 교환에 따라 N과 H의 shift가
 모두 달라질 수 있다. 추가 proton, 별도의 proton/water exchange 과정,
 CSA–DD cross-correlation, 시간에 따른 RF drift는 포함하지 않는다.
@@ -895,6 +894,68 @@ OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
 동시에 지정하지 않는다. 서로 다른 waveform segment가 많으면 계산 시간이
 늘어난다. `cestdec.Scheme` JSON은 별도 형식이므로 OC waveform으로 직접
 입력할 수 없다.
+
+## 12. 여러 양성자 자기장과 3상태 교환
+
+### 12.1. 자기장 그룹과 자기장별 이완
+
+decoupling 항목의 `h_larmor_mhz`가 같은 dataset들은 하나의 **자기장 그룹**이 된다.
+그룹은 자기장 오름차순으로 번호가 붙고 결과(`field_groups`)와 텍스트 보고서에
+표시된다. 그룹이 하나면 달라지는 것이 없다. 그룹이 여럿이면:
+
+- 자동 양성자 이완(`proton_relaxation.mode = "fit"`)은 잔기마다 **그룹별로**
+  `R1H`/`R2H` 한 쌍을 fitting하며 이름은 `A1.R1H[0]`, `A1.R2H[0]`, `A1.R1H[1]`,
+  …이다. 따라서 자동 양성자 이완으로 여러 자기장을 함께 fitting할 수 있고 이전의
+  단일 자기장 제한은 없어졌다.
+- `sideband` 절의 `"nitrogen_relaxation": {"mode": "per_field"}`는 잔기마다
+  그룹별 `R1`, `R2a`, `R2b`(와 `R2c`)를 두며 이름은 `A1.R1[0]`, `A1.R2a[1]`,
+  …이다. 기본값 `"shared"`는 이전처럼 모든 자기장에 한 벌을 쓴다. peak 위치,
+  화학적 이동 차이, 교환 속도, RF 파라미터는 항상 공유한다.
+- `init.initial`, `init.bounds`, `init.vary`, multistart 시작값에서 `A1.R1`처럼
+  그룹 표시가 없는 이름은 그 키의 모든 그룹을 가리킨다. 그룹 이름을 직접 쓰면
+  그 값이 우선한다.
+
+```json
+"sideband": {
+  "decoupling": {"h_carrier_ppm": 8.5, "p90_s": 7e-05},
+  "datasets": [{"h_larmor_mhz": 600}, {"h_larmor_mhz": 600},
+               {"h_larmor_mhz": 800}, {"h_larmor_mhz": 800}],
+  "proton_relaxation": {"mode": "fit"},
+  "nitrogen_relaxation": {"mode": "per_field"},
+  "residues": {"A1": {"h_ppm_a": 6.2, "h_ppm_b": 6.5}},
+  "v1n": {"mode": "scale"}
+}
+```
+
+자기장별 이완은 파라미터를 늘리므로 `--check --identifiability`로 식별성을
+확인하고, 공유·자기장별 fitting을 서로 다른 출력 접두사로 비교한 뒤 결론을
+내린다. 7.1절의 600/800 MHz 벤치마크는 이 옵션으로 다시 실행하지 않았다.
+
+### 12.2. 3상태 교환
+
+`init.Method = "Sideband_3st_Linear"`(A ⇄ B ⇄ C) 또는 `"Sideband_3st_Triangle"`
+(A ⇄ C 추가)은 2상태 모델과 같은 decoupling·이완·RF 처리로 48차원 NH
+Liouvillian을 전파한다. 속도는 `kab, kba, kbc, kcb`(삼각형은 `kca, kac` 추가)이고
+잔기마다 `dwC_ppm`(A 기준 C 상태의 이동)과 `R2c`가 더해지며 `sideband.residues`
+항목에 `h_ppm_c`가 필요하다. 분포는 속도 네트워크의 정상 분포에서 구해
+`exchange.populations`에 보고한다. `kex`와 `pB`는 2상태 모델만 요약하므로
+null이며 `exchange.kex_AB`/`kex_BC`가 쌍별 합을 준다. 3상태에는 교환 속도
+격자 탐색이 없으므로 `init.initial`에 시작 속도를 준다. 3상태 모델에서는
+`kex`/`pB`의 profile과 profile 구간을 거부하며, 대신 bootstrap percentile을
+모든 속도에 대해 보고한다. 3상태 minor-state fitting은 2상태보다 많은 RF 세기나
+자기장을 요구하고 시작값에 민감하므로 `multistart`를 쓰고 `--check
+--identifiability`를 확인하며, 0에 가까운 분포는 데이터가 지지하지 않는 것으로
+본다. C 상태가 비어 있도록 `kbc`, `kcb`를 두면 2상태 결과를 재현하며,
+`test_sb_models.py`가 이 사실과 합성 선형 3상태 참값의 복원을 검증한다.
+
+```json
+"init": {
+  "Method": "Sideband_3st_Linear",
+  "initial": {"kab": 12, "kba": 300, "kbc": 80, "kcb": 60,
+              "A1.dwC_ppm": -3.5, "A1.R2c": 18}
+},
+"sideband": {"residues": {"A1": {"h_ppm_a": 6.2, "h_ppm_b": 6.5, "h_ppm_c": 7.1}}, ...}
+```
 
 구현 근거: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
 [run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),

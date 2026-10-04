@@ -246,6 +246,13 @@ restart, profile 점, bootstrap replicate를 병렬 계산한다. 직렬 실행�
 없이 계산하고, `sb_workflow.py compare`는 공유 교환 모델과 잔기별 모델을
 fitting해 chi2·AICc·BIC·중첩 F-검정으로 비교한다(매뉴얼 8.5–8.7절).
 
+`h_larmor_mhz`가 다른 dataset은 자기장 그룹을 이루며, 자동 양성자 이완은
+그룹별 `R1H[g]`/`R2H[g]`를, `nitrogen_relaxation.mode = "per_field"`는
+그룹별 `R1[g]`/`R2a[g]`/`R2b[g]`를 fitting한다. `init.Method`의
+`Sideband_3st_Linear`/`Sideband_3st_Triangle`은 `sideband.profile_states`의
+48차원 Liouvillian으로 3상태 교환을 전파하며 분포는 정상 분포로 보고한다
+(매뉴얼 12절). 단일 자기장 2상태 결과는 비트 단위로 동일하다.
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

@@ -854,12 +854,12 @@ miscalibrated errors.
    justified. Preserve input data, configurations, and all compared results.
 
 For multiple datasets, this implementation shares each residue's nitrogen
-shifts **and `R1`, `R2a`, `R2b` across every file**. It has no independent
-per-field nitrogen relaxation parameters. Combining fields therefore imposes
-that constraint; separate field fits may be needed to assess its effect.
-The `sideband.datasets` override cannot change this parameter-sharing rule.
+shifts across every file and, by default, `R1`, `R2a`, `R2b` as well. Section 12
+describes field groups, field-specific proton and nitrogen relaxation and the
+three-state models; compare shared and per-field fits before combining fields.
 
-The model includes one N and one H spin in each of two exchanging states,
+The model includes one N and one H spin in each exchanging state (two by
+default; three with the models of section 12.2),
 with phenomenological product-operator relaxation. State exchange can change
 both N and H chemical shifts. Additional protons, a separate proton/water
 exchange process, CSA–DD cross-correlation, and time-dependent RF drift are
@@ -928,6 +928,75 @@ conversion; for `units="Hz"`, omit `rf_hz`. Do not combine `waveform_json` with
 `p90_s` or `cycle`, including inherited per-file settings. More distinct waveform
 segments increase computation time. `cestdec.Scheme` JSON is a different format
 and cannot be passed directly as an OC waveform.
+
+## 12. Several proton fields and three-state exchange
+
+### 12.1. Field groups and field-specific relaxation
+
+Datasets whose decoupling entries share one `h_larmor_mhz` form a **field
+group**; groups are numbered in ascending field order and listed in the result
+(`field_groups`) and the text report. With one group nothing changes. With
+several groups:
+
+- Automatic proton relaxation (`proton_relaxation.mode = "fit"`) fits one
+  `R1H`/`R2H` pair per residue **and per group**, named `A1.R1H[0]`,
+  `A1.R2H[0]`, `A1.R1H[1]`, … Fitting several fields jointly with automatic
+  proton rates is therefore allowed; the earlier single-field restriction is gone.
+- `"nitrogen_relaxation": {"mode": "per_field"}` in the `sideband` section gives
+  each group its own `R1`, `R2a`, `R2b` (and `R2c`) per residue, named
+  `A1.R1[0]`, `A1.R2a[1]`, … The default `"shared"` keeps one set for all fields,
+  as before. Peak positions, chemical-shift differences, exchange rates and the
+  RF parameters are always shared.
+- In `init.initial`, `init.bounds`, `init.vary` and multistart starts an
+  ungrouped name such as `A1.R1` addresses every group of that key; grouped
+  names may still be given explicitly and take precedence.
+
+```json
+"sideband": {
+  "decoupling": {"h_carrier_ppm": 8.5, "p90_s": 7e-05},
+  "datasets": [{"h_larmor_mhz": 600}, {"h_larmor_mhz": 600},
+               {"h_larmor_mhz": 800}, {"h_larmor_mhz": 800}],
+  "proton_relaxation": {"mode": "fit"},
+  "nitrogen_relaxation": {"mode": "per_field"},
+  "residues": {"A1": {"h_ppm_a": 6.2, "h_ppm_b": 6.5}},
+  "v1n": {"mode": "scale"}
+}
+```
+
+Field-specific relaxation adds parameters; check their identifiability with
+`--check --identifiability` and compare shared and per-field fits with distinct
+output prefixes before drawing conclusions. The 600/800 MHz benchmark of
+section 7.1 was not rerun with these options.
+
+### 12.2. Three exchanging states
+
+`init.Method = "Sideband_3st_Linear"` (A ⇄ B ⇄ C) or `"Sideband_3st_Triangle"`
+(additionally A ⇄ C) propagates a 48-dimensional NH Liouvillian with the same
+decoupling, relaxation and RF treatment as the two-state model. Rates are
+`kab, kba, kbc, kcb` (plus `kca, kac` for the triangle); each residue gains
+`dwC_ppm` (shift of state C relative to A) and `R2c`, and its
+`sideband.residues` entry needs `h_ppm_c`. Populations follow from the
+stationary distribution of the rate network and are reported under
+`exchange.populations`; `kex` and `pB` are null because they summarize the
+two-state model only, and `exchange.kex_AB`/`kex_BC` give the pairwise sums.
+There is no exchange-rate grid search for three states: supply starting rates in
+`init.initial`. Profiles and profile intervals of `kex`/`pB` are rejected for
+three-state models; bootstrap percentiles are reported for every rate instead.
+A three-site minor-state fit needs more RF levels or fields than the two-state
+case and remains sensitive to starting values; use `multistart`, inspect
+`--check --identifiability` and treat near-zero populations as unsupported by
+the data. Setting `kbc` and `kcb` so that state C is unpopulated reproduces the
+two-state result; `test_sb_models.py` verifies this and the recovery of a
+synthetic linear three-state truth.
+
+```json
+"init": {
+  "Method": "Sideband_3st_Linear",
+  "initial": {"kab": 12, "kba": 300, "kbc": 80, "kcb": 60,
+              "A1.dwC_ppm": -3.5, "A1.R2c": 18}
+},
+"sideband": {"residues": {"A1": {"h_ppm_a": 6.2, "h_ppm_b": 6.5, "h_ppm_c": 7.1}}, ...}
+```
 
 Implementation references: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
 [run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),

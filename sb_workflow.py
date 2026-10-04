@@ -71,8 +71,8 @@ def main():
             from run import load_config
             from sb_compare import run_comparison
             config = load_config(args.config_file)
-            if config['init'].get('Method') != 'Sideband':
-                raise ValueError('compare requires init.Method = Sideband')
+            if not str(config['init'].get('Method', '')).startswith('Sideband'):
+                raise ValueError('compare requires a Sideband init.Method')
             paths = run_comparison(config, Path(args.config_file).resolve().parent, args.out,
                                    no_pdf=not args.pdf, workers=args.workers)
             for label, path in paths.items():
