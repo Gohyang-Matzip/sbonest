@@ -11,6 +11,9 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
   `docs/reports/ONEST_CLUSTER_RESULT.ko.md`). Installed modules stay flat at the
   root; moved tests and scripts insert the root into `sys.path`, and CI, README,
   manuals and the dummy guides use the new paths. No numerical behaviour changes.
+- Golden regression (`tests/test_sb_golden.py`): standard-error tolerance relaxed
+  from 1e-5 to 1e-4 relative; Linux and macOS CI runners differ from the archived
+  macOS result by about 1.5e-5 in `kab.stderr`. Values and chi2 keep their tolerances.
 - Package runtime diagnostics and portable synthetic two-RF demo resources in
   wheel and source distributions; version reporting no longer loads demo data.
 - Align installed `compare --models/--h-ppm-c` and `serve --token/--max-age-days`
