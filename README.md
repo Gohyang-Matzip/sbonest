@@ -21,8 +21,8 @@ Python 3.12 is the CI target. From a new checkout:
 ```bash
 git clone https://github.com/Gohyang-Matzip/sbonest.git
 cd sbonest
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-sideband.txt
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
@@ -36,7 +36,8 @@ The first example fits three peaks at **1.2 GHz, 25/100 Hz nitrogen RF,
 are used; all 24 model parameters are fitted. No R1H/R2H inputs are present.
 
 Outputs are `results/auto_H_two_RF_result.json`,
-`results/auto_H_two_RF_result.txt`, `results/auto_H_two_RF.pdf`, and
+`results/auto_H_two_RF_result.txt`, `results/auto_H_two_RF_predictions.csv`,
+`results/auto_H_two_RF.pdf`, and
 `results/auto_H_two_RF_data.pdf`. Existing outputs are protected: change
 `Project Name` to a new output prefix before rerunning. Dataset paths are
 relative to the configuration file; output prefixes are relative to the
@@ -72,6 +73,14 @@ Read `warnings`, `at_bounds`, `jacobian_rank`, `scaled_condition`,
 `v1n_correlations`, and proton diagnostics in the result JSON. A converged fit
 does not establish that every parameter is identifiable. Local standard errors
 use the supplied absolute intensity errors and are not scaled by reduced χ².
+The JSON includes the full covariance in `parameter_order`, correlated-rate
+`derived_se` for kex/pB, and calculation-time input/source hashes and environment
+versions in `provenance`. The CSV preserves full precision; the fit PDF includes
+standardized residuals. Optional `init.multistart` and `init.profile` provide
+reproducible restarts and constrained nuisance refits; see section 8.1 of either manual.
+
+[Preview of the new residual report](docs/diagnostics-preview.png)
+(A1 from the same synthetic two-RF example).
 
 - [Full-profile refit report, parameters, and random-start checks](results/auto_H_refit/fits/REFIT_REPORT.md)
 - [Numerical validation](VALIDATION.md)
@@ -112,6 +121,10 @@ After setting the thread variables above:
 .venv/bin/python test_debugging.py
 .venv/bin/python verify_3state.py
 .venv/bin/python test_sideband.py
+.venv/bin/python test_grouped_jacobian.py
+.venv/bin/python test_benchmark.py
+.venv/bin/python test_sb_analysis.py
+.venv/bin/python test_sb_output.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 

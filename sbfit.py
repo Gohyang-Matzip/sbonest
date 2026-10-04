@@ -8,6 +8,7 @@ ONEST text inputs and reports are retained; see SIDEBAND.md for configuration.
 import argparse
 import json
 from pathlib import Path
+import time
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -16,6 +17,8 @@ from estmodel import b1_weights, est_model
 from fit import _block_jacobian, generate_initial_parameters
 from run import load_config, set_residue_flags
 from sideband import composite_segments, profile, waveform_segments
+from sb_report import derived_errors, fit_pdf, prediction_rows, provenance, write_predictions
+from sb_analysis import MultiStartError, fit_multistart, profile_likelihood
 
 
 def _known(config, keys, label):
@@ -281,7 +284,8 @@ class SidebandModel(est_model):
         cfg = fitting_config or self.config["init"]
         _known(
             cfg,
-            ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev"),
+            ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev",
+             "multistart", "profile"),
             "init",
         )
         self.selMethod(cfg)
@@ -334,21 +338,22 @@ class SidebandModel(est_model):
                     if 2 + i in self.free and i not in used:
                         raise ValueError(f"No active data for varying v1n[{i}]")
             if (
-                not np.isfinite(p0).all()
-                or np.isnan(lower).any()
+                np.isnan(lower).any()
                 or np.isnan(upper).any()
                 or np.any(lower >= upper)
-                or np.any(p0 < lower)
-                or np.any(p0 > upper)
             ):
-                raise ValueError(
-                    "Initial parameters must be finite and inside valid bounds"
-                )
+                raise ValueError("Parameter bounds must be valid and strictly ordered")
             ndata = sum(len(x[2]) for x in self._fit_data)
             if ndata <= len(self.free):
                 raise ValueError(
                     "More data points than varying parameters are required"
                 )
+
+            self.initial_parameters = p0.copy()
+            self.lower, self.upper = lower.copy(), upper.copy()
+            if (not np.isfinite(p0).all()
+                    or np.any(p0 < lower) or np.any(p0 > upper)):
+                raise ValueError("Initial parameters must be finite and inside valid bounds")
 
             def expand(q):
                 p = p0.copy()
@@ -366,16 +371,17 @@ class SidebandModel(est_model):
                 for r in self.dataset.res
                 if r.active
             ]
-            if np.array_equal(self.free, np.arange(len(p0))):
-                jac = _block_jacobian(
-                    residual,
-                    sizes,
-                    2 + nr,
-                    nlocal,
-                    relative_step=1e-5 if self.proton_mode == "fit" else 1e-6,
-                )
-            else:
-                jac = "3-point"
+            full_order = np.array_equal(self.free, np.arange(len(p0)))
+            jac = _block_jacobian(
+                residual,
+                sizes,
+                2 + nr,
+                nlocal,
+                relative_step=1e-5 if not full_order or self.proton_mode == "fit" else 1e-6,
+                free=self.free,
+                bounds=(lower[self.free], upper[self.free]),
+                method="2-point" if full_order else "3-point",
+            )
             self.result = least_squares(
                 residual,
                 p0[self.free],
@@ -529,6 +535,7 @@ class SidebandModel(est_model):
                 "Ill-conditioned scaled Jacobian; local covariance may be unstable"
             )
         return {
+            "schema_version": 2,
             "method": "Sideband",
             "rf_mode": self.rf_mode,
             "proton_relaxation_mode": self.proton_mode,
@@ -550,6 +557,10 @@ class SidebandModel(est_model):
             "n_parameters": len(self.free),
             "kex": float(p[0] + p[1]),
             "pB": float(p[0] / (p[0] + p[1])),
+            "parameter_order": self.parameter_names,
+            "covariance": [[float(v) if np.isfinite(v) else None for v in row]
+                           for row in covariance],
+            "derived_se": derived_errors(p, covariance),
             "parameters": {
                 n: {
                     "value": float(p[i]),
@@ -576,24 +587,55 @@ def run_config(config, config_dir=".", no_pdf=False):
     model = SidebandModel(config, config_dir)
     project = Path(config["Project Name"])
     outputs = [
-        Path(str(project) + suffix) for suffix in ("_result.txt", "_result.json")
+        Path(str(project) + suffix)
+        for suffix in ("_result.txt", "_result.json", "_predictions.csv")
     ]
     if not no_pdf:
         outputs += [Path(str(project) + ".pdf"), Path(str(project) + "_data.pdf")]
-    if any(path.exists() for path in outputs):
+    if any(path.exists() or path.is_symlink() for path in outputs):
         raise FileExistsError(
             "Output already exists; choose a new Project Name to preserve previous fits"
         )
     project.parent.mkdir(parents=True, exist_ok=True)
+    metadata = provenance(config, config_dir)
+    began = time.monotonic()
+
+    def save_info(info):
+        metadata["elapsed_s"] = time.monotonic() - began
+        info["provenance"] = metadata
+        with outputs[1].open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(info, indent=2, allow_nan=False) + "\n")
+
     model.verbose = True
-    fitted = model.fit(fitting_config=config["init"])
-    outputs[0].write_text(model.getLogBuffer(fitted))
-    outputs[1].write_text(
-        json.dumps(model.diagnostics(*fitted), indent=2, allow_nan=False) + "\n"
-    )
+    attempts = None
+    if "multistart" in config["init"]:
+        try:
+            p, covariance, attempts = fit_multistart(model, config["init"]["multistart"])
+            fitted = p, covariance
+        except MultiStartError as exc:
+            save_info({"schema_version": 2, "success": False, "method": "Sideband",
+                       "config": config, "parameter_order": model.parameter_names,
+                       "multistart": exc.attempts, "message": str(exc)})
+            raise
+    else:
+        fitted = model.fit(fitting_config=config["init"])
+    info = model.diagnostics(*fitted)
+    info["success"] = True
+    if attempts is not None:
+        info["multistart"] = attempts
+    if "profile" in config["init"]:
+        info["profiles"] = profile_likelihood(model, fitted[0], config["init"]["profile"])
+        info["warnings"].extend(info["profiles"]["warnings"])
+    rows = prediction_rows(model, fitted[0])
+    with outputs[0].open("x", encoding="utf-8") as stream:
+        stream.write(model.getLogBuffer(fitted))
+    save_info(info)
+    write_predictions(outputs[2], rows)
     if not no_pdf:
-        model.pdf(fitted[0], str(project) + ".pdf")
+        fit_pdf(str(project) + ".pdf", rows)
         model.datapdf(str(project) + "_data.pdf")
+    for warning in info["warnings"]:
+        print(f"Warning: {warning}")
     print(f"Saved {outputs[0]} and {outputs[1]}")
     return fitted
 

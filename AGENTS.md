@@ -11,9 +11,9 @@ Root `test_*.py` and `verify_3state.py` contain regression checks. `example/` ho
 Use Python 3.12, matching CI. No separate build step is required.
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements-sideband.txt ruff
+python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
 python run.py example/sideband_auto_H/two_RF.json --no-pdf
 ```
@@ -27,6 +27,10 @@ python test_performance.py
 python test_debugging.py
 python verify_3state.py
 python test_sideband.py
+python test_grouped_jacobian.py
+python test_benchmark.py
+python test_sb_analysis.py
+python test_sb_output.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
