@@ -45,6 +45,7 @@ python test_sb_models.py
 python test_sb_import.py
 python test_sb_server.py
 python test_sb_cli.py
+python test_sb_diagnostics.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
@@ -64,8 +65,15 @@ Explicit `--source` is necessary in fresh checkouts. This longer study is separa
 `--workers N` parallelizes Jacobian columns, restarts, profile points and bootstrap
 replicates through `sb_parallel.py` (spawn-based pool, one model per worker); the
 serial and parallel paths must stay numerically identical, and scripts that call
-`run_config(..., workers>1)` need a `__main__` guard. CI runs the fast checks on
-Python 3.12 and 3.13 and the full workflow on 3.12.
+`run_config(..., workers>1)` need a `__main__` guard. Workers are pre-started and
+the optimizer's residual evaluations are block-split across them
+(`SidebandModel.errFunc` override). CI runs three check shards (core, analysis,
+tools) on Python 3.12, 3.13 and 3.14 and the full workflow on 3.12; add a new
+`test_*.py` to exactly one shard in `.github/workflows/ci.yml`.
+`sb_diagnostics.py` computes residual/sigma diagnostics from prediction rows;
+its warnings are indicators and `stderr_rescaled` is an explicitly labelled
+alternative, never the default error. Keep `CHANGELOG.md`, `CITATION.cff` and
+`pyproject.toml` versions in step.
 Every run retains a `<Project Name>_checkpoint` directory. `--resume` requires the
 same configuration, inputs, source/dependency identity, thread settings and PDF
 mode; preserve checkpoints and do not manually edit their records. The synthetic

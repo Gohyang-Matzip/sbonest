@@ -366,6 +366,15 @@ def _report_summary(info, rows, result_path, predictions_path):
                 'derived_se', 'parameters', 'parameter_order', 'covariance_note',
                 'jacobian_rank', 'scaled_condition', 'at_bounds', 'warnings',
                 'multistart', 'profiles', 'profile_intervals', 'bootstrap', 'provenance') if key in info}
+    from sb_diagnostics import residual_diagnostics
+
+    covariance = info.get('covariance')
+    if isinstance(covariance, list):
+        covariance = np.array([[np.nan if v is None else v for v in row] for row in covariance], dtype=float)
+    else:
+        covariance = None
+    # Recomputed from the predictions CSV, independently of the saved JSON.
+    summary['residual_diagnostics'] = residual_diagnostics(rows, info['n_parameters'], covariance)
     summary.update(schema_version=1,
                    interpretation='Saved-fit report; no optimization performed. Residuals are (observed - predicted) / supplied sigma.',
                    inputs={label: {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
@@ -444,8 +453,14 @@ def _summary_lines(summary):
         lines.append('All bootstrap replicates:')
         for row in bootstrap.get('samples', []):
             lines.append(f'#{row.get("index")}: success={row["success"]}, chi2={number(row.get("chi2"))}; {row.get("message", "")}')
+    diagnostics = summary.get('residual_diagnostics')
+    if diagnostics:
+        from sb_diagnostics import diagnostics_lines
+
+        lines.extend(['', *diagnostics_lines(diagnostics, summary.get('parameter_order'))])
     warnings = (list(summary.get('warnings', [])) + bootstrap.get('warnings', [])
-                + summary.get('profiles', {}).get('warnings', []) + intervals.get('warnings', []))
+                + summary.get('profiles', {}).get('warnings', []) + intervals.get('warnings', [])
+                + (diagnostics or {}).get('warnings', []))
     if warnings:
         lines.extend(['', 'Warnings:', *dict.fromkeys(warnings)])
     return lines

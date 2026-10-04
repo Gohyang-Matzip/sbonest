@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use SBONEST, please cite it as below and acknowledge the inherited ONEST work."
+title: "SBONEST: exact NH sideband CEST fitting with checkpoints, uncertainty analysis and design tools"
+type: software
+version: 1.2.0
+date-released: 2026-10-04
+license: GPL-3.0-or-later
+repository-code: "https://github.com/Gohyang-Matzip/sbonest"
+authors:
+  - family-names: Lee
+    given-names: Donghan
+references:
+  - type: software
+    title: "ONEST: A Web-Based Platform for the Rapid and Robust Analysis of Protein Excited States through CEST Spectroscopy"
+    authors:
+      - family-names: Choi
+        given-names: J.
+      - family-names: Lee
+        given-names: SY.
+      - family-names: Han
+        given-names: K.
+      - family-names: Carneiro
+        given-names: M. G.
+      - family-names: Ryu
+        given-names: KS.
+      - family-names: Lee
+        given-names: D.
+    repository-code: "https://github.com/dleess/ONEST"

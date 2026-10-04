@@ -43,9 +43,12 @@ singular values, rank, condition, expected standard errors, weakly determined
 parameters and strong correlations, so weak proton rates are visible before a fit.
 `--workers N` runs Jacobian columns, restarts, profile points and bootstrap
 replicates in N worker processes with results identical to `--workers 1`
-(on this 10-core Mac the 882-point fit takes about 33 s serially and 16 s with 8
+(on this 10-core Mac the 882-point fit takes about 31 s serially and 10 s with 8
 workers; bootstrap replicates and profile points scale almost linearly). Keep
-the numerical-library thread variables at one in both cases.
+the numerical-library thread variables at one in both cases. Every result also
+carries `residual_diagnostics` (reduced chi-square, sigma scale, runs tests,
+autocorrelation, rescaled errors; manual section 8.8), and a design file can
+`optimize` which spectrum rows to measure for a given budget (manual section 8.6).
 
 The first example fits three peaks at **1.2 GHz, 25/100 Hz nitrogen RF,
 105–135 ppm**, with 147 equally spaced offsets per peak and RF
@@ -212,6 +215,7 @@ After setting the thread variables above:
 .venv/bin/python test_sb_import.py
 .venv/bin/python test_sb_server.py
 .venv/bin/python test_sb_cli.py
+.venv/bin/python test_sb_diagnostics.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 
