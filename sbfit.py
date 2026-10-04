@@ -16,7 +16,7 @@ import numpy as np
 from scipy.optimize import least_squares
 
 from estmodel import b1_weights, est_model
-from fit import _block_jacobian, generate_initial_parameters
+from fit import PARAM_LAYOUT, _block_jacobian, generate_initial_parameters
 from run import load_config, set_residue_flags
 from sideband import composite_segments, profile, waveform_segments
 from sb_report import derived_errors, fit_pdf, prediction_rows, provenance, write_predictions
@@ -24,6 +24,30 @@ from sb_analysis import (
     MultiStartError, _multistart_settings, _number, _profile_settings,
     fit_multistart, profile_likelihood, profile_intervals, snapshot_fit, restore_fit, _json_safe,
 )
+from sideband import profile_states, stationary_populations
+
+# Sideband model name -> (ONEST parameter layout, number of exchanging sites).
+SIDEBAND_METHODS = {
+    "Sideband": ("Matrix", 2),
+    "Sideband_3st_Linear": ("Matrix_3st_Linear", 3),
+    "Sideband_3st_Triangle": ("Matrix_3st_Triangle", 3),
+}
+# Rates that must stay positive so every site keeps a return path to site A.
+_RETURN_RATES = ("kba", "kcb")
+
+
+def is_sideband_method(name):
+    return name in SIDEBAND_METHODS
+
+
+def _key_base(name):
+    """'A1.R2a[1]' -> 'R2a'; 'kab' -> 'kab'."""
+    local = name.rsplit(".", 1)[-1]
+    return local.split("[", 1)[0]
+
+
+def _rate_lower(name):
+    return 1e-8 if name in _RETURN_RATES else 0.0
 
 
 def _known(config, keys, label):
@@ -33,6 +57,7 @@ def _known(config, keys, label):
 
 def _validate_fit_config(model, cfg):
     """Validate settings before the initial grid or an optimizer can run."""
+    cfg = model.normalize_init(cfg)
     _known(cfg, ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev",
                  "multistart", "profile", "bootstrap", "profile_interval"), "init")
     model.selMethod(cfg)
@@ -60,12 +85,7 @@ def _validate_fit_config(model, cfg):
                 or any(isinstance(value, (bool, np.bool_)) for value in limits)
                 or limits[0] >= limits[1]):
             raise ValueError(f"Bounds for {name} must be two strictly ordered numbers")
-        i = model.parameter_names.index(name)
-        physical = ((0., np.inf) if name == "kab" else
-                    (1e-8, np.inf) if name == "kba" else
-                    model.rf_bounds[i - 2] if name in model.rf_names else
-                    (-np.inf, np.inf) if name.endswith((".peak_ppm", ".dw_ppm")) else
-                    (0., np.inf))
+        physical = model.physical_bounds(name)
         if limits[0] < physical[0] or limits[1] > physical[1]:
             raise ValueError(f"bounds for {name} must stay inside physical/v1n bounds")
     vary = cfg.get("vary", model.parameter_names)
@@ -96,7 +116,11 @@ class SidebandModel(est_model):
 
     def __init__(self, config, config_dir="."):
         super().__init__()
-        self.method = "Matrix"  # ONEST's two-state parameter/report layout
+        self.sideband_method = config["init"].get("Method", "Sideband")
+        if self.sideband_method not in SIDEBAND_METHODS:
+            raise ValueError("init.Method must be Sideband, Sideband_3st_Linear or Sideband_3st_Triangle")
+        self.method, self.states = SIDEBAND_METHODS[self.sideband_method]
+        self.rate_names = list(PARAM_LAYOUT[self.method][0])
         self.programName = "SBONEST 1.0 — exact NH Sideband model (OC)"
         self.config = config
         self._initializing = False
@@ -105,7 +129,7 @@ class SidebandModel(est_model):
         sb = config["sideband"]
         _known(
             sb,
-            ("decoupling", "datasets", "residues", "v1n", "proton_relaxation"),
+            ("decoupling", "datasets", "residues", "v1n", "proton_relaxation", "nitrogen_relaxation"),
             "sideband",
         )
         self.rf_config = sb.get("v1n", {"mode": "fixed"})
@@ -145,12 +169,13 @@ class SidebandModel(est_model):
                         "v1err >= 0"
                     )
         self.h_shifts = sb["residues"]
+        shift_keys = ("h_ppm_a", "h_ppm_b") + (("h_ppm_c",) if self.states == 3 else ())
         for r in active:
             h = self.h_shifts[r.label]
-            _known(h, ("h_ppm_a", "h_ppm_b"), f"sideband.residues.{r.label}")
-            if not np.isfinite([h["h_ppm_a"], h["h_ppm_b"]]).all():
+            _known(h, shift_keys, f"sideband.residues.{r.label}")
+            if set(shift_keys) - set(h) or not np.isfinite([h[key] for key in shift_keys]).all():
                 raise ValueError(
-                    "Supply finite h_ppm_a and h_ppm_b for every active residue"
+                    f"Supply finite {', '.join(shift_keys)} for every active residue"
                 )
         n = len(config["datasets"])
         overrides = sb.get("datasets", [{} for _ in range(n)])
@@ -171,9 +196,11 @@ class SidebandModel(est_model):
                 "Remove decoupling R1H/R2H for automatic peakwise fitting; "
                 "optional starting values belong in init.initial as <peak>.R1H/R2H"
             )
-        self.local_keys = ("peak_ppm", "dw_ppm", "R1", "R2a", "R2b")
-        if self.proton_mode == "fit":
-            self.local_keys += ("R1H", "R2H")
+        n_config = sb.get("nitrogen_relaxation", {})
+        _known(n_config, ("mode",), "nitrogen_relaxation")
+        self.nitrogen_mode = n_config.get("mode", "shared")
+        if self.nitrogen_mode not in ("shared", "per_field"):
+            raise ValueError("nitrogen_relaxation.mode must be shared or per_field")
         self.decoupling, self.segments = [], []
         for entry in overrides:
             d = {**sb["decoupling"], **entry}
@@ -223,14 +250,13 @@ class SidebandModel(est_model):
                 )
             self.decoupling.append(d)
             self.segments.append(seg)
-        if (
-            self.proton_mode == "fit"
-            and len({d["h_larmor_mhz"] for d in self.decoupling}) > 1
-        ):
-            raise ValueError(
-                "Automatic peakwise proton relaxation requires one proton field; "
-                "fit fields separately or supply fixed rates for each dataset"
-            )
+        # Field groups: datasets sharing one proton Larmor frequency. Group-specific
+        # relaxation parameters carry a "[g]" suffix only when several groups exist.
+        self.field_groups = sorted({float(d["h_larmor_mhz"]) for d in self.decoupling})
+        self.dataset_group = [self.field_groups.index(float(d["h_larmor_mhz"])) for d in self.decoupling]
+        groups = len(self.field_groups)
+        self.proton_groups = groups if self.proton_mode == "fit" and groups > 1 else 1
+        self.nitrogen_groups = groups if self.nitrogen_mode == "per_field" and groups > 1 else 1
         nominal = np.asarray(self.dataset.v1s)
         self.rf_names = (
             ["v1n_scale"]
@@ -266,45 +292,138 @@ class SidebandModel(est_model):
             raise ValueError(
                 "v1n initial/bounds need one positive bounded value per RF parameter"
             )
+        self.shift_keys = ("peak_ppm", "dw_ppm") + (("dwC_ppm",) if self.states == 3 else ())
+        self.n_relax_keys = ("R1", "R2a", "R2b") + (("R2c",) if self.states == 3 else ())
+        self.h_keys = ("R1H", "R2H")
+
+        def suffix(group, count):
+            return f"[{group}]" if count > 1 else ""
+
+        self.local_keys = tuple(self.shift_keys) + tuple(
+            f"{key}{suffix(g, self.nitrogen_groups)}"
+            for g in range(self.nitrogen_groups) for key in self.n_relax_keys
+        )
+        if self.proton_mode == "fit":
+            self.local_keys += tuple(
+                f"{key}{suffix(g, self.proton_groups)}"
+                for g in range(self.proton_groups) for key in self.h_keys
+            )
+        self.n_global = len(self.rate_names) + len(self.rf_names)
         self.parameter_names = (
-            ["kab", "kba"]
+            self.rate_names
             + self.rf_names
             + [f"{r.label}.{key}" for r in active for key in self.local_keys]
         )
         self.free = np.arange(len(self.parameter_names))
 
+    def init_config(self):
+        """The live init section with ungrouped aliases expanded to grouped names."""
+        return self.normalize_init(self.config["init"])
+
+    def expand_name(self, name):
+        """Actual parameter names addressed by ``name``: itself, or all groups of an alias."""
+        if name in self.parameter_names:
+            return [name]
+        if not isinstance(name, str) or "." not in name or "[" in name:
+            return []
+        return [actual for actual in self.parameter_names
+                if "[" in actual and actual.split("[", 1)[0] == name]
+
+    def normalize_init(self, cfg):
+        """Copy of an init section with ungrouped aliases expanded to grouped names."""
+        if not isinstance(cfg, dict):
+            return cfg
+        out = dict(cfg)
+        for key in ("initial", "bounds"):
+            if isinstance(cfg.get(key), dict):
+                mapping = {}
+                for name, value in cfg[key].items():
+                    for target in self.expand_name(name) or [name]:
+                        mapping[target] = value
+                out[key] = mapping
+        if isinstance(cfg.get("vary"), list):
+            out["vary"] = [target for name in cfg["vary"] for target in (self.expand_name(name) or [name])]
+        multistart = cfg.get("multistart")
+        if isinstance(multistart, dict) and isinstance(multistart.get("starts"), list):
+            starts = []
+            for start in multistart["starts"]:
+                if isinstance(start, dict):
+                    expanded = {}
+                    for name, value in start.items():
+                        for target in self.expand_name(name) or [name]:
+                            expanded[target] = value
+                    starts.append(expanded)
+                else:
+                    starts.append(start)
+            out["multistart"] = {**multistart, "starts": starts}
+        return out
+
+    def physical_bounds(self, name):
+        """Hard limits of one parameter: rates, RF, shifts or relaxation."""
+        if name in self.rate_names:
+            return (_rate_lower(name), np.inf)
+        if name in self.rf_names:
+            return tuple(self.rf_bounds[self.rf_names.index(name)])
+        if _key_base(name) in self.shift_keys:
+            return (-np.inf, np.inf)
+        return (0.0, np.inf)
+
     def selMethod(self, initConf):
-        if initConf.get("Method", "Sideband") != "Sideband":
-            raise ValueError("SBONEST supports the two-state Sideband model")
+        if initConf.get("Method", "Sideband") != self.sideband_method:
+            raise ValueError(f"This model was built for init.Method = {self.sideband_method}")
 
     def _expand_initial(self, base):
-        local = np.asarray(base[2:]).reshape(-1, 5)
-        if self.proton_mode == "fit":
-            local = np.column_stack((local, np.tile([2.0, 25.0], (len(local), 1))))
-        return np.r_[base[:2], self.rf_initial, local.ravel()]
+        """ONEST-layout vector (rates, then shifts and one relaxation set per residue)
+        to the Sideband layout with RF parameters, per-group relaxation and H rates."""
+        base = np.asarray(base, dtype=float)
+        n_rates, n_shift, n_relax = len(self.rate_names), len(self.shift_keys), len(self.n_relax_keys)
+        local = base[n_rates:].reshape(-1, n_shift + n_relax)
+        rows = []
+        for row in local:
+            expanded = [row[:n_shift]] + [row[n_shift:]] * self.nitrogen_groups
+            if self.proton_mode == "fit":
+                expanded += [np.array([2.0, 25.0])] * self.proton_groups
+            rows.append(np.concatenate(expanded))
+        return np.r_[base[:n_rates], self.rf_initial, np.concatenate(rows) if rows else []]
 
     def _nitrogen_parameters(self, p):
-        local = np.asarray(p[2 + len(self.rf_names) :]).reshape(
-            -1, len(self.local_keys)
-        )
-        return np.r_[p[:2], local[:, :5].ravel()]
+        """Sideband layout to the ONEST layout using group-0 nitrogen relaxation."""
+        n_rates, n_shift, n_relax = len(self.rate_names), len(self.shift_keys), len(self.n_relax_keys)
+        local = np.asarray(p[self.n_global:]).reshape(-1, len(self.local_keys))
+        return np.r_[p[:n_rates], local[:, : n_shift + n_relax].ravel()]
 
     def seParam(self, p):
         p = np.asarray(p, dtype=float)
-        nr = len(self.rf_names)
         if self._initializing:
             p = self._expand_initial(p)
         if p.shape != (len(self.parameter_names),):
             raise ValueError("Wrong Sideband parameter vector length")
         P = super().seParam(self._nitrogen_parameters(p))
-        P["v1n"] = p[2 : 2 + nr]
+        P["v1n"] = p[len(self.rate_names) : self.n_global]
+        local = p[self.n_global :].reshape(-1, len(self.local_keys))
+        n_shift, n_relax = len(self.shift_keys), len(self.n_relax_keys)
+        active = [r for r in self.dataset.res if r.active]
+        P["nitrogen_rates"] = {
+            r.label: [row[n_shift + g * n_relax : n_shift + (g + 1) * n_relax]
+                      for g in range(self.nitrogen_groups)]
+            for r, row in zip(active, local)
+        }
         if self.proton_mode == "fit":
-            local = p[2 + nr :].reshape(-1, len(self.local_keys))
+            start = n_shift + self.nitrogen_groups * n_relax
             P["proton_rates"] = {
-                r.label: row[5:7]
-                for r, row in zip((r for r in self.dataset.res if r.active), local)
+                r.label: [row[start + 2 * g : start + 2 * g + 2] for g in range(self.proton_groups)]
+                for r, row in zip(active, local)
             }
         return P
+
+    def exchange_matrix(self, P):
+        """Site-to-site rate matrix K[i, j] (i -> j) for the configured model."""
+        if self.states == 2:
+            return np.array([[0.0, P["kab"]], [P["kba"], 0.0]])
+        K = np.array([[0.0, P["kab"], 0.0], [P["kba"], 0.0, P["kbc"]], [0.0, P["kcb"], 0.0]])
+        if self.sideband_method == "Sideband_3st_Triangle":
+            K[2, 0], K[0, 2] = P["kca"], P["kac"]
+        return K
 
     def rf_values(self, P, es):
         if self.rf_mode == "scale":
@@ -318,32 +437,53 @@ class SidebandModel(est_model):
 
     def calc(self, P, i, dRF, es):
         d = self.decoupling[es.dataset_index]
-        h = self.h_shifts[self.dataset.res[i].label]
+        label = self.dataset.res[i].label
+        h = self.h_shifts[label]
+        group = self.dataset_group[es.dataset_index]
         r1h, r2h = (
-            P["proton_rates"][self.dataset.res[i].label]
+            P["proton_rates"][label][group if self.proton_groups > 1 else 0]
             if self.proton_mode == "fit"
             else (d["R1H"], d["R2H"])
         )
+        rates = P["nitrogen_rates"][label][group if self.nitrogen_groups > 1 else 0]
         fields, weights = b1_weights(*self.rf_values(P, es))
         out = np.zeros_like(np.asarray(dRF, dtype=float))
+        offsets = (np.asarray(dRF) - P["dGs"][i]) * es.field
+        carrier, larmor = d["h_carrier_ppm"], d["h_larmor_mhz"]
         for nu, weight in zip(fields / (2 * np.pi), weights):
-            out += weight * profile(
-                self.segments[es.dataset_index],
-                (np.asarray(dRF) - P["dGs"][i]) * es.field,
-                T=es.T,
-                nu=abs(nu),
-                kab=P["kab"],
-                kba=P["kba"],
-                dw=P["dws"][i] * es.field,
-                r1=P["r1s"][i],
-                r2a=P["r2as"][i],
-                r2b=P["r2bs"][i],
-                ha=(h["h_ppm_a"] - d["h_carrier_ppm"]) * d["h_larmor_mhz"],
-                hb=(h["h_ppm_b"] - d["h_carrier_ppm"]) * d["h_larmor_mhz"],
-                J=d["J_hz"],
-                r1h=r1h,
-                r2h=r2h,
-            )
+            if self.states == 2:
+                out += weight * profile(
+                    self.segments[es.dataset_index],
+                    offsets,
+                    T=es.T,
+                    nu=abs(nu),
+                    kab=P["kab"],
+                    kba=P["kba"],
+                    dw=P["dws"][i] * es.field,
+                    r1=rates[0],
+                    r2a=rates[1],
+                    r2b=rates[2],
+                    ha=(h["h_ppm_a"] - carrier) * larmor,
+                    hb=(h["h_ppm_b"] - carrier) * larmor,
+                    J=d["J_hz"],
+                    r1h=r1h,
+                    r2h=r2h,
+                )
+            else:
+                out += weight * profile_states(
+                    self.segments[es.dataset_index],
+                    offsets,
+                    T=es.T,
+                    nu=abs(nu),
+                    exchange=self.exchange_matrix(P),
+                    shifts=[0.0, P["dws"][i] * es.field, P["dwCs"][i] * es.field],
+                    h_shifts=[(h[key] - carrier) * larmor for key in ("h_ppm_a", "h_ppm_b", "h_ppm_c")],
+                    r1=rates[0],
+                    r2=[rates[1], rates[2], rates[3]],
+                    J=d["J_hz"],
+                    r1h=r1h,
+                    r2h=r2h,
+                )
         return out if np.ndim(dRF) else float(out)
 
     def prepare_fit(self, p0=None, fitting_config=None):
@@ -360,7 +500,7 @@ class SidebandModel(est_model):
             self.__dict__.pop(name, None)
         self.free = np.arange(len(self.parameter_names))
         self.chi2, self.nvar, self.npar, self.dof = 0.0, 0, 0, 0
-        cfg = fitting_config or self.config["init"]
+        cfg = self.normalize_init(fitting_config or self.config["init"])
         _validate_fit_config(self, cfg)
         self._fit_data = self._prepare_data()
         try:
@@ -374,20 +514,20 @@ class SidebandModel(est_model):
             p0 = np.asarray(p0, dtype=float).copy()
             if p0.shape != (len(self.parameter_names),) or not np.isfinite(p0).all():
                 raise ValueError("Invalid initial parameter vector")
-            nr = len(self.rf_names)
             nlocal = len(self.local_keys)
+            n_rates = len(self.rate_names)
             lower = np.r_[
-                [0.0, 1e-8],
+                [_rate_lower(name) for name in self.rate_names],
                 self.rf_bounds[:, 0],
                 np.tile(
-                    [-np.inf, -np.inf] + [0.0] * (nlocal - 2),
-                    (len(p0) - 2 - nr) // nlocal,
+                    [-np.inf if key in self.shift_keys else 0.0 for key in self.local_keys],
+                    (len(p0) - self.n_global) // nlocal,
                 ),
             ]
             upper = np.r_[
-                [np.inf, np.inf],
+                np.full(n_rates, np.inf),
                 self.rf_bounds[:, 1],
-                np.full(len(p0) - 2 - nr, np.inf),
+                np.full(len(p0) - self.n_global, np.inf),
             ]
             for name, value in cfg.get("initial", {}).items():
                 p0[self.parameter_names.index(name)] = value
@@ -408,7 +548,7 @@ class SidebandModel(est_model):
             if self.rf_mode == "per_dataset":
                 used = {es.dataset_index for _, es, *_ in self._fit_data}
                 for i in range(len(self.rf_names)):
-                    if 2 + i in self.free and i not in used:
+                    if n_rates + i in self.free and i not in used:
                         raise ValueError(f"No active data for varying v1n[{i}]")
             if (
                 np.isnan(lower).any()
@@ -433,10 +573,10 @@ class SidebandModel(est_model):
             self._fit_data = None
 
     def fit(self, p0=None, fitting_config=None):
-        cfg = fitting_config or self.config["init"]
+        cfg = self.normalize_init(fitting_config or self.config["init"])
         p0 = self.prepare_fit(p0, fitting_config)
         lower, upper = self.lower, self.upper
-        nr, nlocal = len(self.rf_names), len(self.local_keys)
+        nlocal = len(self.local_keys)
         self._fit_data = self._prepare_data()
         try:
             def expand(q):
@@ -474,7 +614,7 @@ class SidebandModel(est_model):
             jac = _block_jacobian(
                 residual,
                 sizes,
-                2 + nr,
+                self.n_global,
                 nlocal,
                 relative_step=1e-5 if not full_order or self.proton_mode == "fit" else 1e-6,
                 free=self.free,
@@ -540,19 +680,33 @@ class SidebandModel(est_model):
         ]
 
     def _log_params(self, values, stds):
+        n_rates = len(self.rate_names)
         lines = [
-            f"{n}: {values[2 + i]:.8g} +/- {stds[2 + i]:.6g}"
+            f"{n}: {values[n_rates + i]:.8g} +/- {stds[n_rates + i]:.6g}"
             for i, n in enumerate(self.rf_names)
         ]
         lines += super()._log_params(
             self._nitrogen_parameters(values), self._nitrogen_parameters(stds)
         )
+        if self.nitrogen_groups > 1:
+            lines.append("Nitrogen relaxation mode: per_field (the block above lists field group 0)")
+            lines.extend(
+                f"{name} [s-1]: {values[i]:.8g} +/- {stds[i]:.6g}"
+                for i, name in enumerate(self.parameter_names)
+                if _key_base(name) in self.n_relax_keys and "[" in name
+            )
         lines.append(f"Proton relaxation mode: {self.proton_mode}")
         if self.proton_mode == "fit":
             lines.extend(
                 f"{name} [s-1]: {values[i]:.8g} +/- {stds[i]:.6g}"
                 for i, name in enumerate(self.parameter_names)
-                if name.endswith((".R1H", ".R2H"))
+                if _key_base(name) in self.h_keys
+            )
+        if len(self.field_groups) > 1:
+            lines.extend(
+                f"field group {g}: {larmor:g} MHz (datasets "
+                + ", ".join(str(i) for i, gi in enumerate(self.dataset_group) if gi == g) + ")"
+                for g, larmor in enumerate(self.field_groups)
             )
         P = self.seParam(values)
         for i, nominal in enumerate(self.dataset.v1s):
@@ -574,8 +728,9 @@ class SidebandModel(est_model):
 
     def diagnostics(self, p, covariance):
         std = np.sqrt(np.diag(covariance))
+        n_rates = len(self.rate_names)
         pairs = []
-        for i in range(2, 2 + len(self.rf_names)):
+        for i in range(n_rates, self.n_global):
             if std[i] > 0:
                 for k in self.free:
                     if i != k and std[k] > 0:
@@ -599,10 +754,10 @@ class SidebandModel(est_model):
         proton_pairs = []
         weak_proton = []
         for i, name in enumerate(self.parameter_names):
-            if name.endswith((".R1H", ".R2H")) and i in self.free:
+            if _key_base(name) in self.h_keys and i in self.free:
                 if not np.isfinite(std[i]) or std[i] >= p[i]:
                     weak_proton.append(name)
-            if name.endswith(".R1H") and std[i] > 0 and std[i + 1] > 0:
+            if _key_base(name) == "R1H" and std[i] > 0 and std[i + 1] > 0:
                 proton_pairs.append(
                     {
                         "parameters": [name, self.parameter_names[i + 1]],
@@ -634,18 +789,27 @@ class SidebandModel(est_model):
             warnings.append(
                 "Ill-conditioned scaled Jacobian; local covariance may be unstable"
             )
-        return {
+        two_state = self.states == 2
+        P = self.seParam(p)
+        populations = stationary_populations(self.exchange_matrix(P))
+        info = {
             "schema_version": 2,
             "method": "Sideband",
+            "model": self.sideband_method,
+            "states": self.states,
             "rf_mode": self.rf_mode,
             "proton_relaxation_mode": self.proton_mode,
+            "nitrogen_relaxation_mode": self.nitrogen_mode,
+            "field_groups": [{"index": g, "h_larmor_mhz": larmor,
+                              "datasets": [i for i, gi in enumerate(self.dataset_group) if gi == g]}
+                             for g, larmor in enumerate(self.field_groups)],
             "proton_correlations": proton_pairs,
             "config": self.config,
             "v1n_hz": [
                 float(
-                    nominal * p[2]
+                    nominal * p[n_rates]
                     if self.rf_mode == "scale"
-                    else p[2 + i]
+                    else p[n_rates + i]
                     if self.rf_mode == "per_dataset"
                     else nominal
                 )
@@ -655,12 +819,20 @@ class SidebandModel(est_model):
             "dof": self.nvar - len(self.free),
             "n_points": self.nvar,
             "n_parameters": len(self.free),
-            "kex": float(p[0] + p[1]),
-            "pB": float(p[0] / (p[0] + p[1])),
+            "kex": float(p[0] + p[1]) if two_state else None,
+            "pB": float(p[0] / (p[0] + p[1])) if two_state else None,
+            "exchange": {
+                "rates": {name: float(p[i]) for i, name in enumerate(self.rate_names)},
+                "populations": {site: float(value) for site, value in zip("ABC", populations)},
+                "kex_AB": float(p[0] + p[1]),
+                **({"kex_BC": float(P["kbc"] + P["kcb"])} if not two_state else {}),
+                "note": ("kex and pB summarize the two-state model; for three sites the "
+                         "populations follow from all rates and kex/pB are null."),
+            },
             "parameter_order": self.parameter_names,
             "covariance": [[float(v) if np.isfinite(v) else None for v in row]
                            for row in covariance],
-            "derived_se": derived_errors(p, covariance),
+            "derived_se": derived_errors(p, covariance) if two_state else {"kex": None, "pB": None},
             "parameters": {
                 n: {
                     "value": float(p[i]),
@@ -681,6 +853,7 @@ class SidebandModel(est_model):
             "nfev": self.result.nfev,
             "message": self.result.message,
         }
+        return info
 
 
 def _output_paths(config, no_pdf=False):
@@ -731,6 +904,11 @@ def check_config(config, config_dir=".", *, no_pdf=False, identifiability=False,
                 break
         model = SidebandModel(config, config_dir)
         _validate_fit_config(model, config["init"])
+        summary["model"] = model.sideband_method
+        summary["states"] = model.states
+        summary["field_groups"] = [{"index": g, "h_larmor_mhz": larmor,
+                                    "datasets": [i for i, gi in enumerate(model.dataset_group) if gi == g]}
+                                   for g, larmor in enumerate(model.field_groups)]
         data = model._prepare_data()
         for i, path in enumerate(config["datasets"]):
             spectra = [item for item in data if item[1].dataset_index == i]
@@ -745,7 +923,7 @@ def check_config(config, config_dir=".", *, no_pdf=False, identifiability=False,
             })
         summary["waveforms"] = sorted({str((Path(config_dir) / d["waveform_json"]).resolve())
                                        for d in model.decoupling if "waveform_json" in d})
-        vary = config["init"].get("vary", model.parameter_names)
+        vary = model.init_config().get("vary", model.parameter_names)
         summary.update(
             n_points=sum(len(item[2]) for item in data),
             n_residues=sum(r.active for r in model.dataset.res),

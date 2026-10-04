@@ -41,6 +41,7 @@ python test_sb_parallel.py
 python test_profile_interval.py
 python test_sb_design.py
 python test_sb_compare.py
+python test_sb_models.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
@@ -72,6 +73,11 @@ small executable coverage checks.
 and `sb_workflow.py compare` (`sb_compare.py`, global versus per-residue fits with
 AICc/BIC/F-test) are documented in manual sections 8.5–8.7; keep their statistics
 labeled as within-model statements under the supplied absolute sigma.
+Field groups (`h_larmor_mhz`) give grouped parameter names such as `A1.R1H[1]`
+only when several fields exist; ungrouped names are aliases for every group.
+`init.Method` may be `Sideband`, `Sideband_3st_Linear` or `Sideband_3st_Triangle`
+(`sideband.profile_states`, 16 n-dimensional Liouvillian); two-state single-field
+results must remain bit-identical (checked against `results/auto_H_refit`).
 
 ## Coding Style & Naming Conventions
 

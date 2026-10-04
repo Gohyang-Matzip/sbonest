@@ -70,14 +70,16 @@ def bootstrap_replicate(model, p, cfg, index, observed):
             total = fitted[names.index('kab')] + fitted[names.index('kba')]
             if total <= 0:
                 raise ValueError('Invalid bootstrap exchange rates')
+            two_state = 'kbc' not in names
             rate_indices = [names.index('kab'), names.index('kba')]
-            errors = derived_errors(fitted[rate_indices], covariance[np.ix_(rate_indices, rate_indices)])
+            errors = (derived_errors(fitted[rate_indices], covariance[np.ix_(rate_indices, rate_indices)])
+                      if two_state else {'kex': None, 'pB': None})
             free = set(int(i) for i in model.free)
             row.update(success=True, parameters=fitted.tolist(),
                        stderr=[float(np.sqrt(value)) if np.isfinite(value) and value >= 0 else None
                                for value in np.diag(covariance)],
-                       derived_se=errors, kex=float(total),
-                       pB=float(fitted[names.index('kab')]/total),
+                       derived_se=errors, kex=float(total) if two_state else None,
+                       pB=float(fitted[names.index('kab')]/total) if two_state else None,
                        chi2=float(residual @ residual), message=str(model.result.message),
                        at_bounds=[name for i, name in enumerate(names) if i in free and (
                            np.isclose(fitted[i], model.lower[i], rtol=1e-5, atol=1e-8)
@@ -121,7 +123,8 @@ def bootstrap_fit(model, p, settings, *, completed=None, on_complete=None, pool=
     old_cache = getattr(model, '_fit_data', None)
     free = set(int(i) for i in model.free)
     varied = [name for i, name in enumerate(names) if i in free]
-    cfg = {key: value for key, value in model.config['init'].items()
+    init = model.init_config() if hasattr(model, 'init_config') else model.config['init']
+    cfg = {key: value for key, value in init.items()
            if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval')}
     pending = list(range(len(samples), settings['replicates']))
     progress = None
@@ -157,7 +160,8 @@ def bootstrap_fit(model, p, settings, *, completed=None, on_complete=None, pool=
     good = [row for row in samples if row['success']]
     alpha = (1-settings['confidence'])/2
     intervals = {}
-    for name in [*names, 'kex', 'pB']:
+    derived_names = ['kex', 'pB'] if 'kbc' not in names else []
+    for name in [*names, *derived_names]:
         index = names.index(name) if name in names else None
         values = [row['parameters'][index] if index is not None else row[name] for row in good]
         fixed = index not in free if index is not None else not any(names[i] in ('kab', 'kba') for i in free)

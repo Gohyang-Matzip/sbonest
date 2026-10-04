@@ -36,6 +36,12 @@ def _restore(model, state):
         setattr(model, name, value)
 
 
+def _init_config(model):
+    """A model's init section; Sideband models expand grouped-name aliases."""
+    accessor = getattr(model, "init_config", None)
+    return accessor() if callable(accessor) else model.config["init"]
+
+
 def _json_safe(value):
     if isinstance(value, np.ndarray):
         return _json_safe(value.tolist())
@@ -104,7 +110,7 @@ def _read_snapshot(model, snapshot):
         if not isinstance(state, dict) or set(state) != set(_STATE):
             raise ValueError("Completed fit statistics are missing or unknown")
         state.update(_read_initialization(state, size))
-        vary = model.config["init"].get("vary", model.parameter_names)
+        vary = _init_config(model).get("vary", model.parameter_names)
         configured_free = [model.parameter_names.index(name) for name in vary]
         if not np.array_equal(state["free"], configured_free):
             raise ValueError("Completed fit free parameters do not match configured vary order")
@@ -154,7 +160,7 @@ def restore_fit(model, snapshot):
         # search, initial overrides or optimization. Generic prepared models
         # expose their current bounds directly.
         if hasattr(model, "prepare_fit"):
-            cfg = {key: value for key, value in model.config["init"].items()
+            cfg = {key: value for key, value in _init_config(model).items()
                    if key not in ("initial", "multistart", "profile", "bootstrap", "profile_interval")}
             model.prepare_fit(p0=p, fitting_config=cfg)
         for name in ("lower", "upper"):
@@ -225,10 +231,11 @@ def local_jacobian(model, p, *, pool=None):
         def evaluate_many(vectors):
             return pool.evaluate_many([expand(q) for q in vectors])
     sizes = [sum(len(es.offset) for es in r.estSpecs) for r in model.dataset.res if r.active]
-    nr, nlocal = len(model.rf_names), len(model.local_keys)
+    n_global = getattr(model, "n_global", 2 + len(model.rf_names))
+    nlocal = len(model.local_keys)
     full_order = np.array_equal(free, np.arange(len(p)))
     jacobian = _block_jacobian(
-        residual, sizes, 2 + nr, nlocal,
+        residual, sizes, n_global, nlocal,
         relative_step=1e-5 if not full_order or model.proton_mode == "fit" else 1e-6,
         free=free, bounds=(lower[free], upper[free]),
         method="2-point" if full_order else "3-point", evaluate_many=evaluate_many)
@@ -286,7 +293,8 @@ def identifiability(model, p, *, pool=None, strong=0.95):
                 if abs(value) >= strong:
                     pairs.append({"parameters": [names[i], names[k]], "correlation": value})
     pairs.sort(key=lambda row: -abs(row["correlation"]))
-    derived = (derived_errors(p, covariance) if rank == len(free) and {0, 1} <= set(free)
+    two_state = "kbc" not in names
+    derived = (derived_errors(p, covariance) if two_state and rank == len(free) and {0, 1} <= set(free)
                else {"kex": None, "pB": None})
     return {
         "parameters": {name: float(p[i]) for i, name in enumerate(names)},
@@ -311,6 +319,9 @@ def _number(value):
 
 
 def _multistart_settings(model, settings):
+    normalize = getattr(model, "normalize_init", None)
+    if callable(normalize) and isinstance(settings, dict):
+        settings = normalize({"multistart": settings})["multistart"]
     if not isinstance(settings, dict) or set(settings) - {"starts", "seed", "random_starts"}:
         raise ValueError("multistart allows starts, seed, and random_starts")
     count = settings.get("random_starts", 0)
@@ -324,7 +335,7 @@ def _multistart_settings(model, settings):
     starts = settings.get("starts", [])
     if not isinstance(starts, list):
         raise ValueError("multistart.starts must be a list of parameter mappings")
-    vary = model.config["init"].get("vary", model.parameter_names)
+    vary = _init_config(model).get("vary", model.parameter_names)
     for entry in starts:
         if not isinstance(entry, dict) or any(name not in model.parameter_names for name in entry):
             raise ValueError("Each multistart start must map known parameter names to values")
@@ -360,7 +371,7 @@ def _random_start(model, base, rng):
 
 def base_fit_config(model):
     """The configured fit settings without optional analyses."""
-    return {k: v for k, v in model.config["init"].items()
+    return {k: v for k, v in _init_config(model).items()
             if k not in ("multistart", "profile", "bootstrap", "profile_interval")}
 
 
@@ -524,6 +535,8 @@ def _profile_settings(settings, names):
     for name, values in settings.items():
         if name == "v1n_scale" and name not in names:
             raise ValueError("v1n_scale profiling requires scale RF mode")
+        if name in ("kex", "pB") and "kbc" in names:
+            raise ValueError("kex and pB profiles are defined for the two-state model only")
         if not isinstance(values, list) or not values or not all(_number(v) for v in values):
             raise ValueError(f"profile.{name} must be a nonempty list of finite numbers")
 
@@ -651,7 +664,8 @@ def _profile_jacobian(model, residual, full_indices, lower, upper, evaluate_many
     if type(model) is not SidebandModel:
         return "3-point"
     active = [(i, r) for i, r in enumerate(model.dataset.res) if r.active]
-    names = ["kab", "kba", *model.rf_names]
+    rate_names = list(getattr(model, "rate_names", ["kab", "kba"]))
+    names = [*rate_names, *model.rf_names]
     names.extend(f"{r.label}.{key}" for _, r in active for key in model.local_keys)
     if list(model.parameter_names) != names:
         return "3-point"
@@ -661,7 +675,7 @@ def _profile_jacobian(model, residual, full_indices, lower, upper, evaluate_many
     expected_order = [i for i, _ in active for row in data if row[0] == i]
     if row_order != expected_order or not all(sizes):
         return "3-point"
-    grouped = _block_jacobian(residual, sizes, 2 + len(model.rf_names), len(model.local_keys),
+    grouped = _block_jacobian(residual, sizes, len(rate_names) + len(model.rf_names), len(model.local_keys),
                               relative_step=1e-5, free=full_indices,
                               bounds=(lower, upper), method="3-point",
                               evaluate_many=evaluate_many)
@@ -843,6 +857,8 @@ def _interval_settings(settings, names):
         raise ValueError("profile_interval.parameters must list unique names among kex, pB, v1n_scale")
     if "v1n_scale" in parameters and "v1n_scale" not in names:
         raise ValueError("v1n_scale intervals require scale RF mode")
+    if ("kex" in parameters or "pB" in parameters) and "kbc" in names:
+        raise ValueError("kex and pB intervals are defined for the two-state model only")
     confidence = settings.get("confidence", 0.95)
     if isinstance(confidence, bool) or not _number(confidence) or not 0 < confidence < 1:
         raise ValueError("profile_interval.confidence must be between 0 and 1")

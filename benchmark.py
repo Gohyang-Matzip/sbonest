@@ -18,7 +18,7 @@ def run_benchmark(config_path, profile=False, profile_output=None):
     config = load_config(config_path)
 
     print("Loading datasets...")
-    if config["init"].get("Method") == "Sideband":
+    if str(config["init"].get("Method", "")).startswith("Sideband"):
         from sbfit import SidebandModel
 
         model = SidebandModel(config, Path(config_path).resolve().parent)

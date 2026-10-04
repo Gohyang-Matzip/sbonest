@@ -190,7 +190,7 @@ def check_automatic_proton_rates(folder):
     explicit = SidebandModel(fixed)
     nitrogen = np.r_[15.0, 285.0, 1.08, peaks["A1"][:5], peaks["S3"][:5]]
     assert_allclose(legacy.errFunc(nitrogen), explicit.errFunc(nitrogen), atol=1e-12)
-    for case in ("bad_mode", "conflicting_fixed_rates", "multiple_fields"):
+    for case in ("bad_mode", "conflicting_fixed_rates", "bad_nitrogen_mode"):
         bad = copy.deepcopy(cfg)
         if case == "bad_mode":
             bad["sideband"]["proton_relaxation"] = {"mode": "typo"}
@@ -198,13 +198,23 @@ def check_automatic_proton_rates(folder):
             bad["sideband"]["proton_relaxation"] = {"mode": "fit"}
             bad["sideband"]["decoupling"]["R1H"] = 2.0
         else:
-            bad["sideband"]["datasets"] = [{}, {"h_larmor_mhz": 800.0}]
+            bad["sideband"]["nitrogen_relaxation"] = {"mode": "typo"}
         try:
             SidebandModel(bad)
         except ValueError:
             pass
         else:
             raise AssertionError(f"Invalid automatic proton settings accepted: {case}")
+    # Several proton fields with automatic proton rates now give one R1H/R2H pair
+    # per field group; single-field names are unchanged.
+    two_fields = copy.deepcopy(cfg)
+    two_fields["sideband"]["datasets"] = [{}, {"h_larmor_mhz": 800.0}]
+    grouped = SidebandModel(two_fields)
+    assert grouped.field_groups == [600.0, 800.0] or len(grouped.field_groups) == 2
+    assert grouped.proton_groups == 2 and grouped.nitrogen_groups == 1
+    labels = [r.label for r in grouped.dataset.res if r.active]
+    assert f"{labels[0]}.R1H[0]" in grouped.parameter_names and f"{labels[0]}.R2H[1]" in grouped.parameter_names
+    assert f"{labels[0]}.R1" in grouped.parameter_names and f"{labels[0]}.R1[0]" not in grouped.parameter_names
     print(
         "PASS: automatic peakwise proton fitting, inactive peak, reports and legacy fixed mode"
     )

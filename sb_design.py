@@ -89,7 +89,7 @@ def load_design(path):
         raise ValueError('Scenario names must be unique')
     config_path = (path.parent / design['config']).resolve()
     config = load_config(str(config_path))
-    if config['init'].get('Method') != 'Sideband':
+    if not str(config['init'].get('Method', '')).startswith('Sideband'):
         raise ValueError('Design requires a Sideband base configuration')
     if 'truth_result' in design:
         result = json.loads((path.parent / design['truth_result']).resolve().read_text(encoding='utf-8'))

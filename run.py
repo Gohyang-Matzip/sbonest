@@ -32,9 +32,11 @@ def load_config(config_file_path):
                 or not isinstance(config["init"], dict)
             ):
                 raise ValueError("Invalid config value types or empty dataset list.")
-            if ("sideband" in config) != (config["init"].get("Method") == "Sideband"):
+            method = config["init"].get("Method")
+            is_sideband = isinstance(method, str) and method.startswith("Sideband")
+            if ("sideband" in config) != is_sideband:
                 raise ValueError(
-                    'Use init.Method = "Sideband" together with a sideband section.'
+                    'Use a Sideband init.Method together with a sideband section.'
                 )
             config_dir = Path(config_file_path).resolve().parent
             config["datasets"] = [
@@ -104,7 +106,7 @@ def main():
         parser.error("--workers must be a positive integer")
     config = load_config(args.config_file)
 
-    if config["init"].get("Method") == "Sideband":
+    if str(config["init"].get("Method", "")).startswith("Sideband"):
         from sbfit import check_config, run_config
 
         try:

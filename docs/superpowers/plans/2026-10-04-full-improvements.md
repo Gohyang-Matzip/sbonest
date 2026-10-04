@@ -54,14 +54,14 @@ otherwise, executable `test_*.py` regressions.
 
 ## PR 3 — `codex/multifield-and-three-state` (model extensions)
 
-- [ ] Field groups by `h_larmor_mhz`; `proton_relaxation.mode = "fit"` with
+- [x] Field groups by `h_larmor_mhz`; `proton_relaxation.mode = "fit"` with
       several fields gives `<peak>.R1H[g]`/`R2H[g]`; optional
       `sideband.nitrogen_relaxation.mode = "per_field"` gives `R1[g]`/`R2a[g]`/`R2b[g]`.
       Single-field names and layouts unchanged.
-- [ ] `sideband.profile_states`: n-state Liouvillian (16 n × 16 n) with exchange
+- [x] `sideband.profile_states`: n-state Liouvillian (16 n × 16 n) with exchange
       matrix; `init.Method = "Sideband_3st_Linear"` and `"Sideband_3st_Triangle"`
       with `h_ppm_c`, `dwC_ppm`, `R2c`; 2-state results unchanged.
-- [ ] Tests on synthetic two-field and three-state data; docs; HANDOFF.
+- [x] Tests on synthetic two-field and three-state data; docs; HANDOFF.
 
 ## PR 4 — `codex/packaging-import-web` (deployment)
 
@@ -83,6 +83,9 @@ otherwise, executable `test_*.py` regressions.
 - Label synthetic evidence; bootstrap/profile intervals remain conditional.
 
 ## Execution record
+
+- 2026-10-04: PR 3 worktree `session_artifacts/improve4_20261004/tree`, branch
+  `codex/multifield-and-three-state`, stacked on PR 2 (`e73df58`).
 
 - 2026-10-04: PR 2 worktree `session_artifacts/improve3_20261004/tree`, branch
   `codex/design-intervals-comparison`, stacked on PR 1 (`675109a`).

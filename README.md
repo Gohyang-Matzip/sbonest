@@ -8,7 +8,9 @@ common scale or independently for each dataset, or keep it fixed.
 as independent nuisance parameters for each peak, alongside exchange, nitrogen
 relaxation, and RF parameters. It starts at (2, 25) s⁻¹; these are starting
 values, not arbitrary fixed rates. H rates are shared across RF datasets and
-states A/B for the same peak. Current automatic mode supports one proton field.
+states A/B for the same peak. Several proton fields can be fitted jointly with
+field-specific proton (and optionally nitrogen) relaxation, and linear or
+triangular three-state exchange is available (manual section 12).
 
 [English manual](SBONEST_MANUAL.md) · [한국어 매뉴얼](SBONEST_MANUAL.ko.md) ·
 [Model and configuration](SIDEBAND.md) · [Contributor guide](AGENTS.md) ·
@@ -190,6 +192,7 @@ After setting the thread variables above:
 .venv/bin/python test_profile_interval.py
 .venv/bin/python test_sb_design.py
 .venv/bin/python test_sb_compare.py
+.venv/bin/python test_sb_models.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 

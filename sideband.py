@@ -180,3 +180,122 @@ def profile(
     if not np.isfinite(out).all():
         raise ValueError("Non-finite Sideband propagation")
     return out if np.ndim(offsets) else float(out[0])
+
+
+def stationary_populations(exchange):
+    """Equilibrium populations of a first-order exchange network.
+
+    ``exchange[i, j]`` is the rate from site i to site j. The populations solve
+    p^T K = 0 with sum(p) = 1 for the generator K (rows sum to zero). A network
+    that does not connect every site to a unique equilibrium is rejected.
+    """
+    K = np.asarray(exchange, dtype=float)
+    n = K.shape[0]
+    if K.ndim != 2 or K.shape != (n, n) or n < 2 or not np.isfinite(K).all():
+        raise ValueError("exchange must be a finite square matrix of at least two sites")
+    if np.any(K < 0) or np.any(np.diag(K) != 0):
+        raise ValueError("exchange rates must be nonnegative with zero diagonal")
+    generator = K - np.diag(K.sum(axis=1))
+    system = np.vstack([generator.T, np.ones(n)])
+    rhs = np.r_[np.zeros(n), 1.0]
+    populations, residual, rank, _ = np.linalg.lstsq(system, rhs, rcond=None)
+    if rank < n or not np.isfinite(populations).all() or np.any(populations <= 0) \
+            or not np.allclose(system @ populations, rhs, rtol=0, atol=1e-10):
+        raise ValueError("exchange network has no unique positive equilibrium")
+    return populations / populations.sum()
+
+
+def profile_states(
+    segments,
+    offsets,
+    *,
+    T,
+    nu,
+    exchange,
+    shifts,
+    h_shifts,
+    r1,
+    r2,
+    J=92.0,
+    r1h=2.0,
+    r2h=25.0,
+):
+    """I/I0 for an n-site NH system; sites exchange through ``exchange[i, j]`` (i -> j).
+
+    ``shifts`` are each site's nitrogen offsets relative to site A (Hz, first
+    entry 0), ``h_shifts`` each site's proton offset from the decoupler carrier
+    (Hz), ``r2`` one transverse nitrogen rate per site; ``r1``, ``r1h``,
+    ``r2h`` are shared. Populations start at equilibrium and the observable is
+    Nz of site A divided by its population, as in the two-site model.
+    """
+    seg = np.asarray(segments, dtype=float)
+    off = np.atleast_1d(np.asarray(offsets, dtype=float))
+    K = np.asarray(exchange, dtype=float)
+    n = K.shape[0]
+    shifts, h_shifts, r2 = (np.asarray(x, dtype=float) for x in (shifts, h_shifts, r2))
+    if (
+        seg.ndim != 2 or seg.shape[1] != 3 or len(seg) == 0 or not np.isfinite(seg).all()
+        or np.any(seg[:, 0] <= 0)
+    ):
+        raise ValueError("segments must be finite (n,3) rows with positive durations")
+    if (
+        off.ndim != 1 or not off.size or not np.isfinite(off).all()
+        or shifts.shape != (n,) or h_shifts.shape != (n,) or r2.shape != (n,)
+        or shifts[0] != 0 or not np.isfinite(np.r_[shifts, h_shifts, r2]).all()
+        or not np.isfinite([T, nu, r1, r1h, r2h, J]).all()
+        or min(T, nu, r1, r1h, r2h) < 0 or np.any(r2 < 0)
+    ):
+        raise ValueError("Invalid offsets, shifts or rates for the multi-site model")
+    populations = stationary_populations(K)
+    size = 16 * n
+    c0 = np.zeros(size)
+    for j in range(n):
+        c0[16 * j + 12] = populations[j]
+    period = seg[:, 0].sum()
+    n_full = int(np.floor(T / period))
+    remaining = T - n_full * period
+    identity = np.eye(size)
+    hrf = [np.kron(np.eye(n), a) for a in (_HX, _HY)]
+    outflow = K.sum(axis=1)
+    values = []
+    for start in range(0, off.size, 128):
+        o = off[start : start + 128]
+        a = np.zeros((len(o), size, size))
+        for j in range(n):
+            blk = slice(16 * j, 16 * (j + 1))
+            relaxation = (
+                np.array([0, r2[j], r2[j], r1])[:, None]
+                + np.array([0, r2h, r2h, r1h])[None, :]
+            ).ravel()
+            a[:, blk, blk] = (
+                (shifts[j] - o)[:, None, None] * _NZ
+                + nu * _NX
+                + h_shifts[j] * _HZ
+                + J * _J
+                - np.diag(relaxation + outflow[j])
+            )
+            for m in range(n):
+                if m != j and K[j, m]:
+                    a[:, 16 * m : 16 * (m + 1), blk] = K[j, m] * np.eye(16)
+        full = np.broadcast_to(identity, a.shape).copy()
+        partial = full.copy()
+        rem = remaining
+
+        @lru_cache(maxsize=16)
+        def propagate(duration, fx, fy):
+            return expm((a + fx * hrf[0] + fy * hrf[1]) * duration)
+
+        for duration, fx, fy in seg:
+            u = propagate(duration, fx, fy)
+            full = u @ full
+            use = min(duration, rem)
+            if use > 0:
+                q = u if use == duration else propagate(use, fx, fy)
+                partial = q @ partial
+                rem = max(0.0, rem - use)
+        end = (partial @ np.linalg.matrix_power(full, n_full)) @ c0
+        values.extend(end[:, 12] / populations[0])
+    out = np.asarray(values)
+    if not np.isfinite(out).all():
+        raise ValueError("Non-finite multi-site Sideband propagation")
+    return out if np.ndim(offsets) else float(out[0])
