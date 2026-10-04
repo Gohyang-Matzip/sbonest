@@ -86,7 +86,7 @@ local standard errors, not experimental accuracy estimates.
 From the repository root, use the bundled input copies and a new output path:
 
 ```bash
-.venv/bin/python compare_field_models.py \
+.venv/bin/python scripts/compare_field_models.py \
   --source results/field_comparison_600_800_20261003_02/inputs \
   --out results/field_comparison_repeat_01
 ```
@@ -94,5 +94,5 @@ From the repository root, use the bundled input copies and a new output path:
 The original local `results/600/` and `results/800/` directories are not
 distributed. [The bundle](../../results/field_comparison_600_800_20261003_02)
 contains their input copies, all fitted parameters, covariances, predictions,
-figures, and source hashes. See the [SBONEST manual](../../SBONEST_MANUAL.md),
+figures, and source hashes. See the [SBONEST manual](../../docs/manual/SBONEST_MANUAL.md),
 section 7.1, for units, uncertainty conventions, and interpretation limits.

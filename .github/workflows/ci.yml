@@ -31,40 +31,40 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
       - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff
-      - run: ruff check *.py --select F
-      - run: python -m py_compile *.py
-      - run: python generate_api_reference.py --check
+      - run: ruff check *.py tests scripts --select F
+      - run: python -m py_compile *.py tests/*.py scripts/*.py
+      - run: python scripts/generate_api_reference.py --check
       - name: Core numerics and inherited ONEST checks
         if: matrix.shard == 'core'
         run: |
-          python test_performance.py
-          python test_debugging.py
-          python verify_3state.py
-          python test_sideband.py
-          python test_grouped_jacobian.py
-          python test_benchmark.py
-          python test_sb_check.py
-          python test_sb_checkpoint.py
-          python test_sb_models.py
+          python tests/test_performance.py
+          python tests/test_debugging.py
+          python tests/verify_3state.py
+          python tests/test_sideband.py
+          python tests/test_grouped_jacobian.py
+          python tests/test_benchmark.py
+          python tests/test_sb_check.py
+          python tests/test_sb_checkpoint.py
+          python tests/test_sb_models.py
       - name: Analysis checks
         if: matrix.shard == 'analysis'
         run: |
-          python test_sb_analysis.py
-          python test_profile_jacobian.py
-          python test_sb_bootstrap.py
-          python test_uncertainty_validation.py
-          python test_sb_parallel.py
-          python test_profile_interval.py
-          python test_sb_diagnostics.py
+          python tests/test_sb_analysis.py
+          python tests/test_profile_jacobian.py
+          python tests/test_sb_bootstrap.py
+          python tests/test_uncertainty_validation.py
+          python tests/test_sb_parallel.py
+          python tests/test_profile_interval.py
+          python tests/test_sb_diagnostics.py
       - name: Workflow tool checks
         if: matrix.shard == 'tools'
         run: |
-          python test_sb_workflow.py
-          python test_sb_design.py
-          python test_sb_compare.py
-          python test_sb_import.py
-          python test_sb_server.py
-          python test_sb_cli.py
+          python tests/test_sb_workflow.py
+          python tests/test_sb_design.py
+          python tests/test_sb_compare.py
+          python tests/test_sb_import.py
+          python tests/test_sb_server.py
+          python tests/test_sb_cli.py
 
   workflow:
     name: full fit, demo and dummy guide (Python 3.12)
@@ -84,16 +84,16 @@ jobs:
           python -m pip install -e . -c constraints-sideband.txt
           sbonest version
           sbonest check example/sideband_auto_H/two_RF.json --no-pdf
-      - run: python test_sb_output.py
+      - run: python tests/test_sb_output.py
       - name: Canonical historical golden and exact worker identity
         shell: bash
         run: |
           mkdir -p .omo/evidence/task-8
-          python test_sb_golden.py --out .omo/evidence/task-8/ci_golden 2>&1 | tee .omo/evidence/task-8/golden.log
+          python tests/test_sb_golden.py --out .omo/evidence/task-8/ci_golden 2>&1 | tee .omo/evidence/task-8/golden.log
       - name: Noneditable wheel and sdist acceptance
         shell: bash
-        run: python test_sb_distribution.py --out .omo/evidence/task-8/ci_distribution 2>&1 | tee .omo/evidence/task-8/distribution.log
-      - run: python demo_sideband.py --out session_artifacts/ci_sideband_demo
+        run: python tests/test_sb_distribution.py --out .omo/evidence/task-8/ci_distribution 2>&1 | tee .omo/evidence/task-8/distribution.log
+      - run: python scripts/demo_sideband.py --out session_artifacts/ci_sideband_demo
       - name: Run the dummy-guide workflow with two workers
         run: |
           python sb_workflow.py init-demo --out session_artifacts/ci_guide

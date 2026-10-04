@@ -4,6 +4,13 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- Reorganize the repository: tests move to `tests/`, research and maintenance
+  scripts to `scripts/`, and documents to `docs/manual/`, `docs/guides/`,
+  `docs/reports/` and `docs/images/` (`MANUAL.md` becomes
+  `docs/manual/ONEST_MANUAL.md`, `result.md` becomes
+  `docs/reports/ONEST_CLUSTER_RESULT.ko.md`). Installed modules stay flat at the
+  root; moved tests and scripts insert the root into `sys.path`, and CI, README,
+  manuals and the dummy guides use the new paths. No numerical behaviour changes.
 - Package runtime diagnostics and portable synthetic two-RF demo resources in
   wheel and source distributions; version reporting no longer loads demo data.
 - Align installed `compare --models/--h-ppm-c` and `serve --token/--max-age-days`
