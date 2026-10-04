@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Root modules include `run.py` (CLI dispatch), `sbfit.py` (Sideband fitting), `sideband.py` (spin propagation), and `est_data.py`, `estmodel.py`, and `fit.py` (shared infrastructure). `server_run.py`, `prepare.py`, and `mcrun.py` support inherited ONEST workflows.
+Root modules include `run.py` (CLI dispatch), `sbfit.py` (Sideband fitting), `sideband.py` (spin propagation), and `est_data.py`, `estmodel.py`, and `fit.py` (shared infrastructure). `sb_cli.py` is the installed `sbonest` entry point (`pyproject.toml`, flat modules), `sb_import.py` converts Bruker pseudo-2D data and `sb_server.py` is the Sideband web runner (jobs under ignored `SB_JOBS/`). `server_run.py`, `prepare.py`, and `mcrun.py` support inherited ONEST workflows.
 
 Root `test_*.py` and `verify_3state.py` contain regression checks. `example/` holds portable synthetic examples; `results/` preserves evidence. `compare_field_models.py` compares 600/800 MHz models. `manuscript/sideband_30ppm/` contains published manuscript materials. Update both `SBONEST_MANUAL` languages when changing documented behavior.
 
@@ -42,6 +42,9 @@ python test_profile_interval.py
 python test_sb_design.py
 python test_sb_compare.py
 python test_sb_models.py
+python test_sb_import.py
+python test_sb_server.py
+python test_sb_cli.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
@@ -78,6 +81,10 @@ only when several fields exist; ungrouped names are aliases for every group.
 `init.Method` may be `Sideband`, `Sideband_3st_Linear` or `Sideband_3st_Triangle`
 (`sideband.profile_states`, 16 n-dimensional Liouvillian); two-state single-field
 results must remain bit-identical (checked against `results/auto_H_refit`).
+Keep every module importable from the repository root: `provenance` hashes
+sources by file name and the package installs them as flat modules; add new
+modules to `py-modules` in `pyproject.toml`. `sbonest <command>` must delegate
+to the same functions as the scripts.
 
 ## Coding Style & Naming Conventions
 

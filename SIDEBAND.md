@@ -253,6 +253,12 @@ fitting해 chi2·AICc·BIC·중첩 F-검정으로 비교한다(매뉴얼 8.5–8
 48차원 Liouvillian으로 3상태 교환을 전파하며 분포는 정상 분포로 보고한다
 (매뉴얼 12절). 단일 자기장 2상태 결과는 비트 단위로 동일하다.
 
+`pip install -e .`로 설치하면 `sbonest` 명령이 모든 도구를 묶어 제공한다
+(`sb_cli.py`, 매뉴얼 13절). `sb_import.py`는 Bruker 처리 pseudo-2D 데이터를
+NumPy만으로 읽어 SBONEST 입력으로 변환하고(14절), `sb_server.py`는 Sideband
+작업의 업로드·사전 검사·백그라운드 fitting·재개·보고서를 제공하는 Flask 실행기다
+(15절). 기존 ONEST 웹 UI(`server_run.py`)는 그대로 ONEST 모델용이다.
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

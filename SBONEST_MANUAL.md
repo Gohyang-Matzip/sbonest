@@ -998,8 +998,70 @@ synthetic linear three-state truth.
 "sideband": {"residues": {"A1": {"h_ppm_a": 6.2, "h_ppm_b": 6.5, "h_ppm_c": 7.1}}, ...}
 ```
 
+## 13. Installing the `sbonest` command
+
+The repository is also an installable package. In a Python 3.12 environment:
+
+```bash
+python -m pip install -e . -c constraints-sideband.txt
+sbonest --help
+sbonest version
+```
+
+The console command groups every tool: `sbonest check CONFIG [--identifiability]`,
+`sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
+`sbonest report RESULT_JSON --out PREFIX`, `sbonest init-demo --out DIR`,
+`sbonest design DESIGN_JSON --out DIR`, `sbonest compare CONFIG --out DIR`,
+`sbonest import-bruker ...` (section 14), `sbonest serve` (section 15),
+`sbonest benchmark CONFIG [profile]` and `sbonest version`, which prints the
+package version and the executed-source hashes recorded in provenance. Every
+command calls the same functions as the scripts (`run.py`, `sb_workflow.py`, …),
+so outputs, checkpoints and provenance are identical; the scripts remain usable
+from a plain checkout without installation. The modules stay flat at the
+repository root, which keeps the source hashes in `provenance` meaningful.
+
+## 14. Importing Bruker pseudo-2D data
+
+`python sb_import.py PDATA OFFSETS --out NEW_FILE --peak LABEL=ppm[:dw_ppm] ...`
+(or `sbonest import-bruker ...`) converts a processed Bruker pseudo-2D CEST
+experiment into one SBONEST dataset file. `PDATA` is the processed directory
+(`.../pdata/1`) with `procs`, `proc2s` and `2rr`; the reader handles the
+submatrix layout, both byte orders, int32 and float64 storage and the
+`NC_proc` scaling with NumPy alone. The detected dimension is the proton axis
+(ppm from `OFFSET`, `SW_p`, `SF`); each row is one saturation offset.
+
+Required inputs are explicit: `OFFSETS` lists one saturation offset per row
+(ppm on the saturated nucleus, or Hz with `--offset-unit hz --carrier-ppm X`);
+`--peak A1=8.30:2.5` gives each residue's proton position and optional
+starting `dw` (repeatable); `--reference-row K` names the reference spectrum
+that normalizes intensities and is excluded from the output; `--noise-region
+LO HI` is a signal-free proton range whose standard deviation in the reference
+row becomes the absolute error; `--saturation-s` and `--v1-hz` fill the header.
+`--half-width` (ppm) and `--mode max|sum` select the window statistic, `--r2a`,
+`--r2b` set the header starting values, `--exclude-row` removes further rows,
+and the saturated-nucleus field defaults to `SF × γ(15N)/γ(1H)` (`--nucleus`,
+`--field-mhz`). The output is the text format of section 2 and a JSON summary is
+printed. Phase and baseline quality, peak overlap and the choice of reference
+row are the user's responsibility; inspect the converted profiles before fitting.
+
+## 15. Web runner for Sideband fits
+
+`python sb_server.py [--host 127.0.0.1 --port 5050]` (or `sbonest serve`) starts
+a Flask page for people who prefer a browser to the terminal. A job is created
+by uploading a Sideband configuration and its data files (and an optional OC
+waveform); the server rewrites `datasets` to the uploaded names and the output
+prefix to `fit`, stores everything under `SB_JOBS/<job id>/` (or
+`SBONEST_JOBS_DIR`), runs the preflight check with identifiability and shows
+its JSON. Buttons start the fit as a background `run.py` process with the
+chosen worker count, resume an interrupted job through its checkpoint, and
+regenerate reports; the page polls the job status (process state, checkpoint
+records, result summary, log tail) and links to every output for download. Only
+files inside a job directory are served. The runner is meant for a trusted
+local network; it has no authentication.
+
 Implementation references: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
 [run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),
 [sb_checkpoint.py](sb_checkpoint.py), [sb_workflow.py](sb_workflow.py),
-[sb_report.py](sb_report.py), [sb_bootstrap.py](sb_bootstrap.py), and
-[validate_uncertainty.py](validate_uncertainty.py).
+[sb_report.py](sb_report.py), [sb_bootstrap.py](sb_bootstrap.py),
+[sb_design.py](sb_design.py), [sb_compare.py](sb_compare.py), [sb_import.py](sb_import.py),
+[sb_server.py](sb_server.py), [sb_cli.py](sb_cli.py) and [validate_uncertainty.py](validate_uncertainty.py).
