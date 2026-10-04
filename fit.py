@@ -135,7 +135,7 @@ def generate_initial_parameters(model_instance, initConf):
 
 def _block_jacobian(
     fun, residue_sizes, n_global, n_local, relative_step=None,
-    *, free=None, bounds=(-np.inf, np.inf), method="2-point",
+    *, free=None, bounds=(-np.inf, np.inf), method="2-point", evaluate_many=None,
 ):
     """Group independent locals; inputs, bounds and output columns follow free.
 
@@ -143,9 +143,15 @@ def _block_jacobian(
     ``fun``. Omitting it retains the full global-then-residue parameter layout.
     Three-point differences follow SciPy's relative steps and bounded stencils;
     two-point differences retain the legacy ``max(1, abs(p))`` step scaling.
+    ``evaluate_many(vectors)`` may evaluate a list of parameter vectors at once,
+    for example in a process pool; it must return ``fun`` results in order. The
+    stencil, steps and arithmetic do not depend on how vectors are evaluated.
     """
     if method not in ("2-point", "3-point"):
         raise ValueError("Grouped Jacobian method must be '2-point' or '3-point'")
+    if evaluate_many is None:
+        def evaluate_many(vectors):
+            return [fun(vector) for vector in vectors]
     n_parameters = n_global + n_local * len(residue_sizes)
     free = np.arange(n_parameters) if free is None else np.asarray(free, dtype=int)
     full_to_free = np.full(n_parameters, -1, dtype=int)
@@ -165,7 +171,7 @@ def _block_jacobian(
             groups.append((rows[active], reduced[active], np.unique(reduced[active])))
 
     def jacobian(p):
-        base = fun(p)
+        base = np.asarray(evaluate_many([p.copy()])[0])
         jac = np.zeros((len(base), len(p)))
         lower_distance, upper_distance = p - lower, upper - p
         if method == "2-point":
@@ -202,19 +208,33 @@ def _block_jacobian(
             adjusted_central = ~central & (np.abs(step) <= min_distance)
             step[adjusted_central] = min_distance[adjusted_central]
             one_sided = ~central & ~adjusted_central
+        vectors = []
         for group_rows, column, changed in groups:
             first = p.copy()
             if method == "2-point":
                 first[changed] = np.clip(
                     p[changed] + step[changed], lower[changed], upper[changed]
                 )
-                delta = first - p
-                difference = (fun(first) - base)[group_rows]
+                vectors.append(first)
             else:
                 second = p.copy()
                 first[changed] += np.where(one_sided[changed], step[changed], -step[changed])
                 second[changed] += np.where(one_sided[changed], 2 * step[changed], step[changed])
-                f1, f2 = fun(first)[group_rows], fun(second)[group_rows]
+                vectors.extend((first, second))
+        values = [np.asarray(value) for value in evaluate_many(vectors)]
+        if len(values) != len(vectors):
+            raise ValueError("Jacobian evaluation returned the wrong number of results")
+        position = 0
+        for group_rows, column, changed in groups:
+            if method == "2-point":
+                first = vectors[position]
+                delta = first - p
+                difference = (values[position] - base)[group_rows]
+                position += 1
+            else:
+                first, second = vectors[position], vectors[position + 1]
+                f1, f2 = values[position][group_rows], values[position + 1][group_rows]
+                position += 2
                 difference = np.where(
                     one_sided[column], -3.0 * base[group_rows] + 4 * f1 - f2, f2 - f1
                 )

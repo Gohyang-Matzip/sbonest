@@ -46,6 +46,17 @@ not run an optimizer, although an initialization grid may evaluate the model.
 Optional analyses are validated before fitting. This checks preparation, not
 convergence or identifiability; do it before creating a new run's outputs.
 
+`--check --identifiability` additionally evaluates one grouped finite-difference
+Jacobian at the initial point (about one to two seconds for this example) and
+reports, under `identifiability`, the column-scaled singular values, rank,
+condition number, the expected standard error and relative error of every free
+parameter from `(J^T J)^-1` with the supplied absolute sigma, parameters with
+zero sensitivity, weakly determined parameters (relative error above 100% or no
+finite error), pairwise correlations at or above 0.95 and the derived kex/pB
+errors. These are properties of the initial point and the sampling design, so
+they can warn about poorly separated R1H/R2H before any optimizer runs; they do
+not replace the fitted covariance. See section 8.4 for parallel execution.
+
 This example fits three peaks at 25 and 100 Hz nitrogen RF, each sampled at
 147 uniformly spaced offsets from 105 to 135 ppm. The spacing is approximately
 24.985 Hz. All 882 observations, including sidebands, are fitted with 24 free
@@ -703,6 +714,31 @@ profile points and negative Δχ² remain visible. With renamed files, use
 predictions to report. The command preserves existing files; choose a new report
 prefix for each export. This also creates a PDF after an original `--no-pdf` fit.
 
+## 8.4. Parallel execution with `--workers`
+
+`run.py CONFIG --workers N` (also accepted by `sbfit.py` and by `--check
+--identifiability`) starts N worker processes, each holding one copy of the model
+with the same configuration and data. The main process keeps the optimizer and
+the checkpoint; workers evaluate the grouped Jacobian columns of every fit, the
+explicit and random restarts, the profile points and the bootstrap replicates.
+Rows are collected in index order, so checkpoint records remain an ordered
+prefix and `--resume` behaves exactly as in a serial run. The worker count is
+not part of the checkpoint identity because results do not depend on it: the
+parallel run reproduces every number of the serial run, which the regression
+`test_sb_parallel.py` verifies on result JSON and checkpoint records.
+
+Keep `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` at
+one; the pool supplies the parallelism. On a 10-core laptop the bundled
+882-point fit took about 33 s with one worker and 16 s with eight, because the
+optimizer's own residual evaluations stay serial; restarts, profile points and
+bootstrap replicates scale almost linearly with the worker count up to the
+number of items. Workers are started with the spawn method, so Python scripts
+that call `run_config(..., workers=N)` must guard their entry point with
+`if __name__ == "__main__":`. Progress lines with an elapsed time and a
+remaining-time estimate are printed for restarts, profile points and bootstrap
+replicates. After Ctrl-C, workers finish their current item before exiting;
+completed items are already in the checkpoint.
+
 ## 9. Experimental fitting workflow and limits
 
 1. Record field frequencies, carrier, pulse phases and timing, calibrated ¹H
@@ -759,7 +795,7 @@ the decoupling model must be tested with the planned experiment.
 | Negative profile Δχ² | The scan improved on the baseline; examine its vector and refit from that solution with a fresh output prefix |
 | Missing `derived_se`, `covariance` or `provenance` | Check whether this is an older archived result; preserve it and produce a new fit with current code |
 | `Profile already exists` | Choose a fresh `--profile-output` filename; do not remove earlier measurements |
-| Long runtime | Keep numerical-library threads at one; use `--no-pdf`; nonzero `v1err` adds RF averaging work |
+| Long runtime | Keep numerical-library threads at one; use `--no-pdf` and `--workers N` (section 8.4); nonzero `v1err` adds RF averaging work |
 
 The numerical regression checks can be rerun from the project directory:
 

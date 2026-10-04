@@ -410,14 +410,70 @@ def _summary_lines(summary):
     return lines
 
 
+def _paginate(lines, capacity):
+    """Split wrapped lines into pages at blank-line section boundaries.
+
+    Pages are balanced so the last page is not a near-empty orphan: the page
+    budget is the smallest count that fits, and lines are distributed evenly
+    across it before section-aware breaking. Sections longer than a page split.
+    """
+    if not lines:
+        return [[]]
+    sections, current = [], []
+    for line in lines:
+        current.append(line)
+        if line == '':
+            sections.append(current)
+            current = []
+    if current:
+        sections.append(current)
+
+    def build(limit):
+        pages, page = [], []
+        for section in sections:
+            rest = list(section)
+            while rest:
+                if not page and len(rest) > limit:
+                    pages.append(rest[:limit])
+                    rest = rest[limit:]
+                elif len(page) + len(rest) <= limit:
+                    page.extend(rest)
+                    rest = []
+                else:
+                    pages.append(page)
+                    page = []
+        if page:
+            pages.append(page)
+        return pages
+
+    greedy = build(capacity)
+    count = len(greedy)
+    chosen = greedy
+    for limit in range(-(-len(lines) // count), capacity + 1):
+        pages = build(limit)
+        if len(pages) <= count:
+            chosen = pages
+            break
+    # Leading blank lines on a page only carried section breaks.
+    cleaned = [_strip_leading_blank(page) for page in chosen]
+    return [page for page in cleaned if page] or [[]]
+
+
+def _strip_leading_blank(page):
+    index = 0
+    while index < len(page) and page[index] == '':
+        index += 1
+    return page[index:]
+
+
 def _summary_pdf_pages(pdf, summary):
     import matplotlib.pyplot as plt
 
     lines = [part for line in _summary_lines(summary)
              for part in (textwrap.wrap(line, width=100, replace_whitespace=False) or [''])]
-    for start in range(0, len(lines), 54):
+    for page in _paginate(lines, 56):
         fig = plt.figure(figsize=(8.5, 11))
-        fig.text(.07, .95, '\n'.join(lines[start:start + 54]), va='top',
+        fig.text(.07, .95, '\n'.join(page), va='top',
                  family='monospace', fontsize=8.5, linespacing=1.5)
         pdf.savefig(fig)
         plt.close(fig)

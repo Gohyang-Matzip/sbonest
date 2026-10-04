@@ -195,6 +195,117 @@ def _chi2(model, p):
     return value
 
 
+def local_jacobian(model, p, *, pool=None):
+    """Grouped finite-difference Jacobian of the Sideband residual at full vector p.
+
+    Uses the same stencils, steps and bounds as ``SidebandModel.fit`` for the
+    model's current ``free``, ``lower`` and ``upper``; columns follow ``free``.
+    """
+    p = np.asarray(p, dtype=float)
+    free = np.asarray(model.free, dtype=int)
+    lower, upper = np.asarray(model.lower), np.asarray(model.upper)
+    if p.shape != (len(model.parameter_names),) or not np.isfinite(p).all():
+        raise ValueError("Invalid parameter vector for a local Jacobian")
+    if np.any(p[free] < lower[free]) or np.any(p[free] > upper[free]):
+        raise ValueError("Jacobian point lies outside the parameter bounds")
+
+    def expand(q):
+        out = p.copy()
+        out[free] = q
+        return out
+
+    def residual(q):
+        values = np.asarray(model.errFunc(expand(q)), dtype=float)
+        if not np.isfinite(values).all():
+            raise ValueError("Non-finite residual at the Jacobian point")
+        return values
+
+    evaluate_many = None
+    if pool is not None:
+        def evaluate_many(vectors):
+            return pool.evaluate_many([expand(q) for q in vectors])
+    sizes = [sum(len(es.offset) for es in r.estSpecs) for r in model.dataset.res if r.active]
+    nr, nlocal = len(model.rf_names), len(model.local_keys)
+    full_order = np.array_equal(free, np.arange(len(p)))
+    jacobian = _block_jacobian(
+        residual, sizes, 2 + nr, nlocal,
+        relative_step=1e-5 if not full_order or model.proton_mode == "fit" else 1e-6,
+        free=free, bounds=(lower[free], upper[free]),
+        method="2-point" if full_order else "3-point", evaluate_many=evaluate_many)
+    return jacobian(p[free])
+
+
+def identifiability(model, p, *, pool=None, strong=0.95):
+    """Local linear identifiability diagnostics at p with the supplied absolute sigma.
+
+    Reports column-scaled singular values, rank, condition, the expected
+    standard errors and relative errors from (J^T J)^-1, zero-sensitivity and
+    weakly determined free parameters, strong pairwise correlations, and the
+    derived kex/pB errors. These are properties of the point and the design, not
+    of a fit; they neither guarantee nor replace convergence.
+    """
+    from sb_report import derived_errors
+
+    names = list(model.parameter_names)
+    free = [int(i) for i in model.free]
+    p = np.asarray(p, dtype=float)
+    cached = getattr(model, "_fit_data", None)
+    try:
+        if cached is None and hasattr(model, "_prepare_data"):
+            model._fit_data = model._prepare_data()
+        jac = local_jacobian(model, p, pool=pool)
+        chi2 = _chi2(model, p)
+    finally:
+        if hasattr(model, "_fit_data"):
+            model._fit_data = cached
+    norms = np.linalg.norm(jac, axis=0)
+    scaled = jac / np.where(norms > 0, norms, 1.0)
+    singular = np.linalg.svd(scaled, compute_uv=False)
+    rank = int(np.count_nonzero(singular > singular[0] * 1e-8)) if singular.size and singular[0] > 0 else 0
+    condition = float(singular[0] / singular[-1]) if singular.size and singular[-1] > 0 else None
+    covariance = np.full((len(names), len(names)), np.nan)
+    if rank == len(free):
+        _, s, vt = np.linalg.svd(jac, full_matrices=False)
+        covariance[np.ix_(free, free)] = (vt.T / s**2) @ vt
+    std = np.sqrt(np.diag(covariance))
+    expected, relative, weak = {}, {}, []
+    for i in free:
+        value = float(std[i]) if np.isfinite(std[i]) else None
+        expected[names[i]] = value
+        ratio = None if value is None or p[i] == 0 else value / abs(p[i])
+        relative[names[i]] = ratio
+        if value is None or (ratio is not None and ratio > 1.0):
+            weak.append(names[i])
+    zero = [names[i] for k, i in enumerate(free) if norms[k] == 0]
+    pairs = []
+    for a in range(len(free)):
+        for b in range(a + 1, len(free)):
+            i, k = free[a], free[b]
+            if np.isfinite(std[i]) and np.isfinite(std[k]) and std[i] > 0 and std[k] > 0:
+                value = float(covariance[i, k] / (std[i] * std[k]))
+                if abs(value) >= strong:
+                    pairs.append({"parameters": [names[i], names[k]], "correlation": value})
+    pairs.sort(key=lambda row: -abs(row["correlation"]))
+    derived = (derived_errors(p, covariance) if rank == len(free) and {0, 1} <= set(free)
+               else {"kex": None, "pB": None})
+    return {
+        "parameters": {name: float(p[i]) for i, name in enumerate(names)},
+        "free_parameters": [names[i] for i in free],
+        "n_points": int(jac.shape[0]), "n_free": len(free),
+        "chi2_at_point": chi2,
+        "scaled_singular_values": [float(v) for v in singular],
+        "jacobian_rank": rank,
+        "scaled_condition": condition,
+        "expected_se": expected, "relative_se": relative,
+        "zero_sensitivity": zero, "weak_parameters": weak,
+        "strong_correlations": pairs, "strong_threshold": strong,
+        "derived_se": derived,
+        "interpretation": ("Local linear diagnostics at this point with the supplied absolute sigma; "
+                           "expected errors assume the point is the solution. Weak means a relative error "
+                           "above 100% or no finite error."),
+    }
+
+
 def _number(value):
     return isinstance(value, numbers.Real) and not isinstance(value, (bool, np.bool_)) and np.isfinite(value)
 
@@ -247,7 +358,63 @@ def _random_start(model, base, rng):
     return start
 
 
-def fit_multistart(model, settings, *, completed=None, on_complete=None):
+def base_fit_config(model):
+    """The configured fit settings without optional analyses."""
+    return {k: v for k, v in model.config["init"].items()
+            if k not in ("multistart", "profile", "bootstrap", "profile_interval")}
+
+
+def fit_attempt(model, start, source, index, cfg):
+    """Fit one start and return its JSON-safe attempt row; never raises for fit failure.
+
+    ``start`` is a full parameter vector or None for the configured initial fit.
+    The same function serves the serial loop and pool workers, so rows agree exactly.
+    """
+    row = {"index": int(index), "source": source, "start": None,
+           "parameters": None, "success": False, "chi2": None,
+           "nfev": None, "status": None, "message": "", "selected": False,
+           "initialization": None, "fit_snapshot": None}
+    model.result = None
+    prior_initial = getattr(model, "initial_parameters", None)
+    if start is not None:
+        start = np.asarray(start, dtype=float)
+        row["start"] = start.tolist()
+    try:
+        use_cfg = cfg if start is None else {k: v for k, v in cfg.items() if k != "initial"}
+        p, covariance = model.fit(p0=start, fitting_config=use_cfg)
+        if model.result is not None and not model.result.success:
+            raise RuntimeError(str(model.result.message))
+        fit_state = _state(model)
+        value = _chi2(model, p)
+        _restore(model, fit_state)
+        row.update(success=True, chi2=value, parameters=np.asarray(p).tolist())
+        row["fit_snapshot"] = snapshot_fit(model, p, covariance)
+    except Exception as exc:
+        row["message"] = f"{type(exc).__name__}: {exc}"
+    if (row["start"] is None and hasattr(model, "initial_parameters")
+            and (row["success"] or model.initial_parameters is not prior_initial)):
+        initial = np.asarray(model.initial_parameters)
+        if np.isfinite(initial).all():
+            row["start"] = initial.tolist()
+    result = model.result
+    if result is not None:
+        row.update(nfev=int(result.nfev), status=int(result.status))
+        if row["success"]:
+            row["message"] = str(result.message)
+        elif row["start"] is not None:
+            last = np.asarray(row["start"]).copy()
+            last[model.free] = result.x
+            if np.isfinite(last).all():
+                row["parameters"] = last.tolist()
+            value = float(np.sum(np.asarray(result.fun)**2))
+            if np.isfinite(value):
+                row["chi2"] = value
+    if row["start"] is not None:
+        row["initialization"] = _initialization(model)
+    return row
+
+
+def fit_multistart(model, settings, *, completed=None, on_complete=None, pool=None):
     """Fit the configured baseline plus starts; restore and return the best fit.
 
     ``model.fit`` must expose full ``initial_parameters``, ``lower``, and
@@ -256,10 +423,11 @@ def fit_multistart(model, settings, *, completed=None, on_complete=None):
     complete attempt list, allowing callers to save failure evidence. ``completed``
     is an ordered prefix of prior rows. ``on_complete(row)`` runs after each new
     attempt; persistence errors and interrupts propagate to the caller.
+    With ``pool``, explicit and random starts are fitted in worker processes in
+    index order; the configured initial fit always runs in this process.
     """
     starts, count, seed = _multistart_settings(model, settings)
-    cfg = {k: v for k, v in model.config["init"].items()
-           if k not in ("multistart", "profile", "bootstrap")}
+    cfg = base_fit_config(model)
     completed = [] if completed is None else copy.deepcopy(completed)
     sources = ["initial"] + ["explicit"] * len(starts) + ["random"] * count
     if not isinstance(completed, list) or len(completed) > len(sources):
@@ -282,78 +450,66 @@ def fit_multistart(model, settings, *, completed=None, on_complete=None):
                                                   for key in ("initial_parameters", "free", "lower", "upper")}):
                 raise ValueError("Completed multistart row disagrees with its fit snapshot")
     attempts, best = [], None
+    progress = None
 
-    def attempt(start, source):
+    def accept(row):
         nonlocal best
-        index = len(attempts)
-        if index < len(completed):
-            row = completed[index]
-            if start is not None and row["start"] != start.tolist():
-                raise ValueError("Completed multistart starting vector does not match configuration")
-            row["selected"] = False
-            _restore(model, _read_initialization(row["initialization"], len(model.parameter_names)))
-            if row["success"] and (best is None or row["chi2"] < best[0]):
-                best = row["chi2"], row["fit_snapshot"], index
-            attempts.append(row)
-            return
-        row = {"index": len(attempts), "source": source, "start": None,
-               "parameters": None, "success": False, "chi2": None,
-               "nfev": None, "status": None, "message": "", "selected": False,
-               "initialization": None, "fit_snapshot": None}
-        model.result = None
-        prior_initial = getattr(model, "initial_parameters", None)
-        if start is not None:
-            row["start"] = start.tolist()
-        try:
-            use_cfg = cfg if start is None else {k: v for k, v in cfg.items() if k != "initial"}
-            p, covariance = model.fit(p0=start, fitting_config=use_cfg)
-            if model.result is not None and not model.result.success:
-                raise RuntimeError(str(model.result.message))
-            fit_state = _state(model)
-            value = _chi2(model, p)
-            _restore(model, fit_state)
-            row.update(success=True, chi2=value, parameters=np.asarray(p).tolist())
-            row["fit_snapshot"] = snapshot_fit(model, p, covariance)
-            if best is None or value < best[0]:
-                best = value, row["fit_snapshot"], row["index"]
-        except Exception as exc:
-            row["message"] = f"{type(exc).__name__}: {exc}"
-        if (row["start"] is None and hasattr(model, "initial_parameters")
-                and (row["success"] or model.initial_parameters is not prior_initial)):
-            initial = np.asarray(model.initial_parameters)
-            if np.isfinite(initial).all():
-                row["start"] = initial.tolist()
-        result = model.result
-        if result is not None:
-            row.update(nfev=int(result.nfev), status=int(result.status))
-            if row["success"]:
-                row["message"] = str(result.message)
-            elif row["start"] is not None:
-                last = np.asarray(row["start"]).copy()
-                last[model.free] = result.x
-                if np.isfinite(last).all():
-                    row["parameters"] = last.tolist()
-                value = float(np.sum(np.asarray(result.fun)**2))
-                if np.isfinite(value):
-                    row["chi2"] = value
-        if row["start"] is not None:
-            row["initialization"] = _initialization(model)
+        if row["success"] and (best is None or row["chi2"] < best[0]):
+            best = row["chi2"], row["fit_snapshot"], row["index"]
         attempts.append(row)
         if on_complete is not None:
             on_complete(copy.deepcopy(row))
+        if progress is not None:
+            progress.step()
 
-    attempt(None, "initial")
+    def reuse(index, start):
+        nonlocal best
+        row = completed[index]
+        if start is not None and row["start"] != np.asarray(start, dtype=float).tolist():
+            raise ValueError("Completed multistart starting vector does not match configuration")
+        row["selected"] = False
+        _restore(model, _read_initialization(row["initialization"], len(model.parameter_names)))
+        if row["success"] and (best is None or row["chi2"] < best[0]):
+            best = row["chi2"], row["fit_snapshot"], index
+        attempts.append(row)
+
+    if completed:
+        reuse(0, None)
+    else:
+        accept(fit_attempt(model, None, "initial", 0, cfg))
     if attempts[0]["start"] is None or not all(hasattr(model, key) for key in ("initial_parameters", "lower", "upper")):
         raise MultiStartError(attempts)
     base = np.asarray(model.initial_parameters).copy()
+    planned = []
     for entry in starts:
         start = base.copy()
         for name, value in entry.items():
             start[model.parameter_names.index(name)] = value
-        attempt(start, "explicit")
+        planned.append((start, "explicit"))
     rng = np.random.default_rng(seed)
     for _ in range(count):
-        attempt(_random_start(model, base, rng), "random")
+        planned.append((_random_start(model, base, rng), "random"))
+    pending = []
+    for index, (start, source) in enumerate(planned, 1):
+        if index < len(completed):
+            reuse(index, start)
+        else:
+            pending.append((index, start, source))
+    if pending:
+        from sb_parallel import Progress
+
+        progress = Progress("multistart", len(sources), enabled=bool(getattr(model, "verbose", False)),
+                            done=len(attempts))
+    if pending and pool is not None:
+        from sb_parallel import multistart_task
+
+        payloads = [{"start": start.tolist(), "source": source, "index": index, "cfg": cfg}
+                    for index, start, source in pending]
+        for row in pool.map(multistart_task, payloads):
+            accept(row)
+    else:
+        for index, start, source in pending:
+            accept(fit_attempt(model, start, source, index, cfg))
     if best is None:
         raise MultiStartError(attempts)
     _, snapshot, selected = best
@@ -513,7 +669,66 @@ def _profile_jacobian(model, residual, full_indices, lower, upper):
     return lambda q: np.asfortranarray(grouped(q))
 
 
-def profile_likelihood(model, p, settings, *, completed=None, on_complete=None):
+def profile_point(model, p, name, target, baseline):
+    """Constrained nuisance refit for one target; returns its JSON-safe row.
+
+    Requires the model's current bounds and free indices for the base fit and a
+    cached ``_fit_data``. Shared by the serial scan and pool workers.
+    """
+    row = {"target": float(target), "start": None, "parameters": None,
+           "success": False, "chi2": None, "delta_chi2": None,
+           "below_base_minimum": False, "nuisance_parameters": [],
+           "optimization_performed": False, "nfev": None,
+           "status": None, "message": ""}
+    try:
+        q0, lower, upper, expand, labels, full_indices = _constrained_coordinates(model, p, name, float(target))
+        row["start"] = expand(q0).tolist()
+        row["nuisance_parameters"] = labels
+        if len(q0):
+            memo = {}
+
+            def residual(q):
+                key = np.asarray(q, dtype=float).tobytes()
+                if memo.get("key") == key:
+                    return memo["values"].copy()
+                r = np.asarray(model.errFunc(expand(q)), dtype=float)
+                if not np.isfinite(r).all():
+                    raise ValueError("Non-finite profile residual")
+                memo["key"], memo["values"] = key, r.copy()
+                return r
+
+            row["optimization_performed"] = True
+            jacobian = _profile_jacobian(model, residual, full_indices, lower, upper)
+            fit = least_squares(residual, q0, bounds=(lower, upper),
+                                jac=jacobian, diff_step=1e-5, x_scale="jac",
+                                ftol=1e-9, xtol=1e-9, gtol=1e-9,
+                                max_nfev=model.config["init"].get("max_nfev", 500))
+            row.update(nfev=int(fit.nfev), status=int(fit.status), message=str(fit.message))
+            if not fit.success:
+                raise RuntimeError(f"Profile fit did not converge: {fit.message}")
+            solution = expand(fit.x)
+        else:
+            solution = expand(q0)
+            row.update(nfev=1, status=0, message="Direct evaluation: no nuisance parameters vary")
+        value = _chi2(model, solution)
+        delta = value-baseline
+        below = delta < -1e-8*max(1., abs(baseline))
+        row.update(success=True, parameters=solution.tolist(), chi2=value,
+                   delta_chi2=delta, below_base_minimum=below)
+    except Exception as exc:
+        row["message"] = f"{type(exc).__name__}: {exc}"
+    return row
+
+
+def _profile_warning(name, target, row):
+    if not row["success"]:
+        return f"Profile {name}={target:g} failed: {row['message']}"
+    if row["below_base_minimum"]:
+        return f"{name}={target:g} improves on the base chi2; the base fit is not the best solution found."
+    return None
+
+
+def profile_likelihood(model, p, settings, *, completed=None, on_complete=None, pool=None):
     """Nuisance-refit each requested target, preserving the original fitted state.
 
     Failed targets have null chi2/delta_chi2; negative successful differences
@@ -522,6 +737,7 @@ def profile_likelihood(model, p, settings, *, completed=None, on_complete=None):
     constraint feasible. No warm start or automatic confidence interval is used.
     ``completed`` maps profile names to row prefixes; ``on_complete(name, row)``
     runs after each new point. Callback exceptions propagate after state restore.
+    With ``pool``, new points are refitted in worker processes in grid order.
     """
     _profile_settings(settings, model.parameter_names)
     p = np.asarray(p, dtype=float).copy()
@@ -556,59 +772,47 @@ def profile_likelihood(model, p, settings, *, completed=None, on_complete=None):
             model._fit_data = model._prepare_data()
         baseline = _chi2(model, p)
         out["base_chi2"] = baseline
+        total = sum(len(values) for values in settings.values())
+        finished = sum(min(len(values), len(completed.get(name, []))) for name, values in settings.items())
+        progress = None
+        if finished < total:
+            from sb_parallel import Progress
+
+            progress = Progress("profile", total, enabled=bool(getattr(model, "verbose", False)), done=finished)
         for name, values in settings.items():
             rows = out[name] = []
+            pending = []
             for index, target in enumerate(values):
                 if index < len(completed.get(name, [])):
                     row = completed[name][index]
                     rows.append(row)
-                    if not row["success"]:
-                        out["warnings"].append(f"Profile {name}={target:g} failed: {row['message']}")
-                    elif row["below_base_minimum"]:
-                        out["warnings"].append(f"{name}={target:g} improves on the base chi2; the base fit is not the best solution found.")
-                    continue
-                row = {"target": float(target), "start": None, "parameters": None,
-                       "success": False, "chi2": None, "delta_chi2": None,
-                       "below_base_minimum": False, "nuisance_parameters": [],
-                       "optimization_performed": False, "nfev": None,
-                       "status": None, "message": ""}
-                try:
-                    q0, lower, upper, expand, labels, full_indices = _constrained_coordinates(model, p, name, float(target))
-                    row["start"] = expand(q0).tolist()
-                    row["nuisance_parameters"] = labels
-                    if len(q0):
-                        def residual(q):
-                            r = np.asarray(model.errFunc(expand(q)), dtype=float)
-                            if not np.isfinite(r).all():
-                                raise ValueError("Non-finite profile residual")
-                            return r
+                    warning = _profile_warning(name, target, row)
+                    if warning:
+                        out["warnings"].append(warning)
+                else:
+                    pending.append(target)
 
-                        row["optimization_performed"] = True
-                        jacobian = _profile_jacobian(model, residual, full_indices, lower, upper)
-                        fit = least_squares(residual, q0, bounds=(lower, upper),
-                                            jac=jacobian, diff_step=1e-5, x_scale="jac",
-                                            ftol=1e-9, xtol=1e-9, gtol=1e-9,
-                                            max_nfev=model.config["init"].get("max_nfev", 500))
-                        row.update(nfev=int(fit.nfev), status=int(fit.status), message=str(fit.message))
-                        if not fit.success:
-                            raise RuntimeError(f"Profile fit did not converge: {fit.message}")
-                        solution = expand(fit.x)
-                    else:
-                        solution = expand(q0)
-                        row.update(nfev=1, status=0, message="Direct evaluation: no nuisance parameters vary")
-                    value = _chi2(model, solution)
-                    delta = value-baseline
-                    below = delta < -1e-8*max(1., abs(baseline))
-                    row.update(success=True, parameters=solution.tolist(), chi2=value,
-                               delta_chi2=delta, below_base_minimum=below)
-                    if below:
-                        out["warnings"].append(f"{name}={target:g} improves on the base chi2; the base fit is not the best solution found.")
-                except Exception as exc:
-                    row["message"] = f"{type(exc).__name__}: {exc}"
-                    out["warnings"].append(f"Profile {name}={target:g} failed: {row['message']}")
+            def accept(target, row):
+                warning = _profile_warning(name, target, row)
+                if warning:
+                    out["warnings"].append(warning)
                 rows.append(row)
                 if on_complete is not None:
                     on_complete(name, copy.deepcopy(row))
+                if progress is not None:
+                    progress.step()
+
+            if pending and pool is not None:
+                from sb_parallel import profile_task
+
+                cfg = base_fit_config(model)
+                payloads = [{"p": np.asarray(p).tolist(), "name": name, "target": float(target),
+                             "baseline": baseline, "cfg": cfg} for target in pending]
+                for target, row in zip(pending, pool.map(profile_task, payloads)):
+                    accept(target, row)
+            else:
+                for target in pending:
+                    accept(target, profile_point(model, p, name, target, baseline))
     finally:
         try:
             model.errFunc(p)

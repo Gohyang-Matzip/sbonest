@@ -36,6 +36,14 @@ OC is installed as `optimalcontrol-nmr`; a neighboring OC checkout is not
 required. Add `--no-pdf` to both check and fit to skip figures while keeping numerical
 outputs. `--check` prints a JSON summary of inputs, parameters and output conflicts
 without optimization or file writes; an initialization grid may evaluate the model.
+`--check --identifiability` adds one grouped Jacobian at the initial point: scaled
+singular values, rank, condition, expected standard errors, weakly determined
+parameters and strong correlations, so weak proton rates are visible before a fit.
+`--workers N` runs Jacobian columns, restarts, profile points and bootstrap
+replicates in N worker processes with results identical to `--workers 1`
+(on this 10-core Mac the 882-point fit takes about 33 s serially and 16 s with 8
+workers; bootstrap replicates and profile points scale almost linearly). Keep
+the numerical-library thread variables at one in both cases.
 
 The first example fits three peaks at **1.2 GHz, 25/100 Hz nitrogen RF,
 105–135 ppm**, with 147 equally spaced offsets per peak and RF
@@ -168,6 +176,7 @@ After setting the thread variables above:
 .venv/bin/python test_sb_workflow.py
 .venv/bin/python test_profile_jacobian.py
 .venv/bin/python test_sb_bootstrap.py
+.venv/bin/python test_sb_parallel.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 

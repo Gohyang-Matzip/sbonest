@@ -69,6 +69,9 @@ The JSON summary should contain `valid: true`, 882 points and 24 free parameters
 It lists resolved inputs, fields/RF, free/fixed parameters, bounds and output
 conflicts. It writes no files and runs no optimizer; an initialization grid can
 still evaluate the model. A valid check does not guarantee convergence.
+Adding `--identifiability` to the check evaluates one Jacobian at the initial
+values and lists weakly determined parameters and strong correlations; for this
+example it already names the three `R1H` rates and their `R1H/R2H` pairs.
 
 ## 3. Run the fit
 
@@ -94,6 +97,10 @@ A successful run adds these outputs and a checkpoint directory:
 To skip PDFs, use `--no-pdf` for both the check and the first fit; the three
 numerical files and checkpoint are still created. To start a different run,
 repeat step 2 with an unused name such as `dummy_02`. Preserve previous folders.
+On a multi-core computer, add `--workers 4` (or the number of cores you can
+spare) to the fit command; the results are identical and the fit, restarts,
+scans and bootstrap replicates finish sooner. Keep the thread variables from
+step 1 at one.
 
 After an interruption, resume the unchanged run with:
 

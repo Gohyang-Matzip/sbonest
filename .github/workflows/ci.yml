@@ -8,20 +8,26 @@ on:
 permissions:
   contents: read
 
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  VECLIB_MAXIMUM_THREADS: "1"
+  MPLBACKEND: Agg
+
 jobs:
-  regression:
+  checks:
+    name: checks (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      OMP_NUM_THREADS: "1"
-      OPENBLAS_NUM_THREADS: "1"
-      VECLIB_MAXIMUM_THREADS: "1"
-      MPLBACKEND: Agg
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
           cache: pip
       - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff
       - run: ruff check *.py --select F
@@ -33,18 +39,31 @@ jobs:
       - run: python test_grouped_jacobian.py
       - run: python test_benchmark.py
       - run: python test_sb_analysis.py
-      - run: python test_sb_output.py
       - run: python test_sb_check.py
       - run: python test_sb_checkpoint.py
       - run: python test_profile_jacobian.py
       - run: python test_sb_bootstrap.py
       - run: python test_sb_workflow.py
       - run: python test_uncertainty_validation.py
+      - run: python test_sb_parallel.py
+
+  workflow:
+    name: full fit, demo and dummy guide (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
+      - run: python test_sb_output.py
       - run: python demo_sideband.py --out session_artifacts/ci_sideband_demo
-      - name: Run the dummy-guide workflow
+      - name: Run the dummy-guide workflow with two workers
         run: |
           python sb_workflow.py init-demo --out session_artifacts/ci_guide
-          python run.py session_artifacts/ci_guide/fit.json --check --no-pdf
-          python run.py session_artifacts/ci_guide/fit.json --no-pdf
+          python run.py session_artifacts/ci_guide/fit.json --check --identifiability --no-pdf
+          python run.py session_artifacts/ci_guide/fit.json --no-pdf --workers 2
           python run.py session_artifacts/ci_guide/fit.json --no-pdf --resume
           python sb_workflow.py report session_artifacts/ci_guide/fit_result.json --out session_artifacts/ci_guide/report

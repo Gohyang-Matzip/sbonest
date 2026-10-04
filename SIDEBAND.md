@@ -233,6 +233,12 @@ Profile scan은 제약 좌표에서도 잔기별 독립성을 이용해 3-point 
 묶는다. 수치미분 간격과 optimizer 허용오차는 유지한다. 일반 모델의 구조를
 확인할 수 없으면 dense 미분을 사용한다.
 
+`--workers N`은 spawn 방식 worker pool(`sb_parallel.py`)로 Jacobian 열,
+restart, profile 점, bootstrap replicate를 병렬 계산한다. 직렬 실행과 수치가
+동일하며 checkpoint 식별 정보에는 포함되지 않는다. `--check --identifiability`는
+초기값에서 Jacobian 기반 식별성 진단(rank, 조건수, 기대 표준오차, 약한
+파라미터, 강한 상관)을 보고한다.
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

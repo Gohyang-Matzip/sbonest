@@ -23,12 +23,83 @@ def validate_bootstrap(settings):
     return {'replicates': count, 'seed': seed, 'confidence': float(confidence)}
 
 
-def bootstrap_fit(model, p, settings, *, completed=None, on_complete=None):
+def bootstrap_draws(model, p, settings, index):
+    """Independent Gaussian observations for replicate ``index``, in data order.
+
+    SeedSequence([seed, index]) makes each draw independent of resume position
+    and of the process that performs the fit.
+    """
+    data = model._fit_data if getattr(model, '_fit_data', None) is not None else model._prepare_data()
+    parameters = model.seParam(np.asarray(p, dtype=float))
+    means = [np.asarray(model.calc(parameters, i, offsets, es), dtype=float)
+             for i, es, offsets, _, _ in data]
+    if any(not np.isfinite(values).all() for values in means):
+        raise ValueError('Nonfinite bootstrap generating predictions')
+    rng = np.random.default_rng(np.random.SeedSequence([settings['seed'], index]))
+    return [mean + rng.normal(size=mean.shape) * sigma
+            for (_, _, _, _, sigma), mean in zip(data, means)]
+
+
+def bootstrap_replicate(model, p, cfg, index, observed):
+    """Fit one replicate's observations from the baseline; restore the model's data.
+
+    Returns the JSON-safe sample row. Shared by the serial loop and pool workers.
+    """
+    names = list(model.parameter_names)
+    p = np.asarray(p, dtype=float)
+    data = model._prepare_data()
+    if len(observed) != len(data) or any(np.shape(values) != np.shape(es.int) for values, (_, es, *_) in zip(observed, data)):
+        raise ValueError('Bootstrap observations do not match the data layout')
+    original = [(es, es.int) for _, es, *_ in data]
+    old_cache, old_verbose = getattr(model, '_fit_data', None), model.verbose
+    row = {'index': int(index), 'success': False, 'parameters': None,
+           'stderr': None, 'derived_se': None, 'kex': None, 'pB': None,
+           'chi2': None, 'message': '', 'at_bounds': []}
+    try:
+        model.verbose = False
+        for (es, _), values in zip(original, observed):
+            es.int = np.asarray(values, dtype=float).tolist()
+        model._fit_data = None
+        try:
+            fitted, covariance = model.fit(p0=p.copy(), fitting_config=cfg)
+            if not model.result.success or not np.isfinite(fitted).all():
+                raise RuntimeError('Bootstrap fit did not converge to finite parameters')
+            residual = np.asarray(model.errFunc(fitted), dtype=float)
+            if not np.isfinite(residual).all():
+                raise RuntimeError('Nonfinite bootstrap residual')
+            total = fitted[names.index('kab')] + fitted[names.index('kba')]
+            if total <= 0:
+                raise ValueError('Invalid bootstrap exchange rates')
+            rate_indices = [names.index('kab'), names.index('kba')]
+            errors = derived_errors(fitted[rate_indices], covariance[np.ix_(rate_indices, rate_indices)])
+            free = set(int(i) for i in model.free)
+            row.update(success=True, parameters=fitted.tolist(),
+                       stderr=[float(np.sqrt(value)) if np.isfinite(value) and value >= 0 else None
+                               for value in np.diag(covariance)],
+                       derived_se=errors, kex=float(total),
+                       pB=float(fitted[names.index('kab')]/total),
+                       chi2=float(residual @ residual), message=str(model.result.message),
+                       at_bounds=[name for i, name in enumerate(names) if i in free and (
+                           np.isclose(fitted[i], model.lower[i], rtol=1e-5, atol=1e-8)
+                           or np.isclose(fitted[i], model.upper[i], rtol=1e-5, atol=1e-8))])
+        except Exception as exc:
+            row['message'] = f'{type(exc).__name__}: {exc}'
+    finally:
+        for es, values in original:
+            es.int = values
+        model._fit_data = old_cache
+        model.verbose = old_verbose
+    return row
+
+
+def bootstrap_fit(model, p, settings, *, completed=None, on_complete=None, pool=None):
     """Refit independent Gaussian draws, retaining every outcome and original state.
 
     SeedSequence([seed, index]) makes each draw independent of resume position.
     Completion callbacks run outside the optimizer exception handler so failed
     persistence and user interrupts cannot be mistaken for failed fits.
+    With ``pool``, replicates are fitted in worker processes in index order from
+    observations drawn in this process.
     """
     settings = validate_bootstrap(settings)
     p = np.asarray(p, dtype=float)
@@ -48,59 +119,40 @@ def bootstrap_fit(model, p, settings, *, completed=None, on_complete=None):
                 raise ValueError('Invalid completed bootstrap parameters')
     state = _state(model)
     old_cache = getattr(model, '_fit_data', None)
-    old_verbose = model.verbose
-    data = model._prepare_data()
-    original = [(es, es.int) for _, es, *_ in data]
     free = set(int(i) for i in model.free)
     varied = [name for i, name in enumerate(names) if i in free]
     cfg = {key: value for key, value in model.config['init'].items()
-           if key not in ('initial', 'multistart', 'profile', 'bootstrap')}
-    parameters = model.seParam(p)
-    means = [np.asarray(model.calc(parameters, i, offsets, es), dtype=float)
-             for i, es, offsets, _, _ in data]
-    if any(not np.isfinite(values).all() for values in means):
-        raise ValueError('Nonfinite bootstrap generating predictions')
+           if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval')}
+    pending = list(range(len(samples), settings['replicates']))
+    progress = None
+    if pending:
+        from sb_parallel import Progress
+
+        progress = Progress('bootstrap', settings['replicates'],
+                            enabled=bool(getattr(model, 'verbose', False)), done=len(samples))
+
+    def accept(row):
+        samples.append(row)
+        if on_complete is not None:
+            on_complete(copy.deepcopy(row))
+        if progress is not None:
+            progress.step()
+
     try:
-        model.verbose = False
-        for index in range(len(samples), settings['replicates']):
-            rng = np.random.default_rng(np.random.SeedSequence([settings['seed'], index]))
-            for (_, es, _, _, sigma), mean in zip(data, means):
-                es.int = (mean + rng.normal(size=mean.shape) * sigma).tolist()
-            model._fit_data = None
-            row = {'index': index, 'success': False, 'parameters': None,
-                   'stderr': None, 'derived_se': None, 'kex': None, 'pB': None,
-                   'chi2': None, 'message': '', 'at_bounds': []}
-            try:
-                fitted, covariance = model.fit(p0=p.copy(), fitting_config=cfg)
-                if not model.result.success or not np.isfinite(fitted).all():
-                    raise RuntimeError('Bootstrap fit did not converge to finite parameters')
-                residual = np.asarray(model.errFunc(fitted), dtype=float)
-                if not np.isfinite(residual).all():
-                    raise RuntimeError('Nonfinite bootstrap residual')
-                total = fitted[names.index('kab')] + fitted[names.index('kba')]
-                if total <= 0:
-                    raise ValueError('Invalid bootstrap exchange rates')
-                rate_indices = [names.index('kab'), names.index('kba')]
-                errors = derived_errors(fitted[rate_indices], covariance[np.ix_(rate_indices, rate_indices)])
-                row.update(success=True, parameters=fitted.tolist(),
-                           stderr=[float(np.sqrt(value)) if np.isfinite(value) and value >= 0 else None
-                                   for value in np.diag(covariance)],
-                           derived_se=errors, kex=float(total),
-                           pB=float(fitted[names.index('kab')]/total),
-                           chi2=float(residual @ residual), message=str(model.result.message),
-                           at_bounds=[name for i, name in enumerate(names) if i in free and (
-                               np.isclose(fitted[i], model.lower[i], rtol=1e-5, atol=1e-8)
-                               or np.isclose(fitted[i], model.upper[i], rtol=1e-5, atol=1e-8))])
-            except Exception as exc:
-                row['message'] = f'{type(exc).__name__}: {exc}'
-            samples.append(row)
-            if on_complete is not None:
-                on_complete(copy.deepcopy(row))
+        if pending and pool is not None:
+            from sb_parallel import bootstrap_task
+
+            payloads = [{'p': p.tolist(), 'cfg': cfg, 'index': index,
+                         'observed': [values.tolist() for values in bootstrap_draws(model, p, settings, index)]}
+                        for index in pending]
+            for row in pool.map(bootstrap_task, payloads):
+                accept(row)
+        else:
+            for index in pending:
+                observed = bootstrap_draws(model, p, settings, index)
+                accept(bootstrap_replicate(model, p, cfg, index, observed))
     finally:
-        for es, values in original:
-            es.int = values
         model._fit_data = old_cache
-        model.verbose = old_verbose
         _restore(model, state)
     good = [row for row in samples if row['success']]
     alpha = (1-settings['confidence'])/2
