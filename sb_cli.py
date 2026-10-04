@@ -4,6 +4,7 @@ Every command delegates to the existing module functions, so behaviour,
 outputs and provenance are identical to running the scripts directly.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -57,12 +58,18 @@ def build_parser():
     compare.add_argument("--out", required=True)
     compare.add_argument("--workers", type=int, default=1)
     compare.add_argument("--pdf", action="store_true")
+    compare.add_argument("--models", nargs="+", metavar="MODEL",
+                         help="Compare Sideband models on the same data instead of residues")
+    compare.add_argument("--h-ppm-c", nargs="+", metavar="LABEL=ppm",
+                         help="State-C proton shifts (default: the state-B shift)")
 
     commands.add_parser("import-bruker", help="Convert Bruker pseudo-2D data (see sb_import.py --help)",
                         add_help=False)
     serve = commands.add_parser("serve", help="Start the Sideband web runner")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=5050)
+    serve.add_argument("--token", help="Access token (default: SBONEST_TOKEN environment variable)")
+    serve.add_argument("--max-age-days", type=float, help="Archive idle jobs older than this many days")
 
     commands.add_parser("benchmark", help="Time or profile one fit (see benchmark.py --help)", add_help=False)
     commands.add_parser("version", help="Print the package version and executed-source hashes")
@@ -107,27 +114,46 @@ def main(argv=None):
 
             paths = run_design(args.design_json, args.out, workers=args.workers)
         elif args.command == "compare":
-            from sb_compare import run_comparison
+            from sb_compare import compare_models, run_comparison
 
             config, config_dir = _config(args.config_file)
-            paths = run_comparison(config, config_dir, args.out, no_pdf=not args.pdf, workers=args.workers)
+            if not str(config['init'].get('Method', '')).startswith('Sideband'):
+                raise ValueError('compare requires a Sideband init.Method')
+            if args.models:
+                shifts = None
+                if args.h_ppm_c:
+                    shifts = {}
+                    for item in args.h_ppm_c:
+                        label, _, value = item.partition('=')
+                        if not label or not value:
+                            raise ValueError('--h-ppm-c entries must be LABEL=ppm')
+                        shifts[label] = float(value)
+                paths = compare_models(config, config_dir, args.out, models=tuple(args.models),
+                                       h_ppm_c=shifts, no_pdf=not args.pdf, workers=args.workers)
+            else:
+                paths = run_comparison(config, config_dir, args.out, no_pdf=not args.pdf, workers=args.workers)
         elif args.command == "serve":
             import sb_server
 
-            return sb_server.main(["--host", args.host, "--port", str(args.port)])
+            server_args = ["--host", args.host, "--port", str(args.port)]
+            if args.token is not None:
+                server_args.extend(["--token", args.token])
+            if args.max_age_days is not None:
+                server_args.extend(["--max-age-days", str(args.max_age_days)])
+            return sb_server.main(server_args)
         else:
             from importlib.metadata import PackageNotFoundError, version
-            from sb_report import provenance
 
             try:
                 print(f"sbonest {version('sbonest')}")
             except PackageNotFoundError:
                 print("sbonest (not installed as a package; running from source)")
-            demo = Path(__file__).resolve().parent / "example/sideband_auto_H/two_RF.json"
-            config = json.loads(demo.read_text(encoding="utf-8"))
-            config["datasets"] = [str((demo.parent / p).resolve()) for p in config["datasets"]]
-            for name, item in provenance(config, demo.parent)["source_sha256"].items():
-                print(f"{name}: {item}")
+            root = Path(__file__).resolve().parent
+            sources = ('run.py', 'sbfit.py', 'sideband.py', 'fit.py', 'estmodel.py',
+                       'est_data.py', 'sb_report.py', 'sb_analysis.py', 'sb_workflow.py',
+                       'sb_checkpoint.py', 'sb_bootstrap.py', 'sb_run.py', 'sb_diagnostics.py')
+            for name in sources:
+                print(f"{name}: {hashlib.sha256((root / name).read_bytes()).hexdigest()}")
             return 0
         for label, path in paths.items():
             print(f"{label}: {path}")

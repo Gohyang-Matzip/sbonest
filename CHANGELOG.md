@@ -2,6 +2,32 @@
 
 All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia/Seoul.
 
+## Unreleased
+
+- Reorganize the repository: tests move to `tests/`, research and maintenance
+  scripts to `scripts/`, and documents to `docs/manual/`, `docs/guides/`,
+  `docs/reports/` and `docs/images/` (`MANUAL.md` becomes
+  `docs/manual/ONEST_MANUAL.md`, `result.md` becomes
+  `docs/reports/ONEST_CLUSTER_RESULT.ko.md`). Installed modules stay flat at the
+  root; moved tests and scripts insert the root into `sys.path`, and CI, README,
+  manuals and the dummy guides use the new paths. No numerical behaviour changes.
+- Golden regression (`tests/test_sb_golden.py`): tolerances now reflect what the
+  model determines. Linux CI reproduces the archived macOS chi2 to 1e-11 and every
+  non-proton value to 1e-6, but standard errors differ by up to 1e-4 and the weakly
+  constrained peakwise proton rates by up to 2e-3 (G2.R1H). Standard errors use
+  rtol 1e-4 (proton rates 1e-3) and proton-rate values rtol 1e-2; chi2 (1e-7) and
+  all other values (1e-6) keep their tolerances.
+- Package runtime diagnostics and portable synthetic two-RF demo resources in
+  wheel and source distributions; version reporting no longer loads demo data.
+- Align installed `compare --models/--h-ppm-c` and `serve --token/--max-age-days`
+  with their script entry points.
+- Keep browser action failures visible, preserve selection after failed archive,
+  ignore obsolete job-status responses, and support previews with or without tokens.
+- Add independent runs and correlation direction labels without changing the
+  two-sided tests, thresholds, default absolute-sigma errors or numerical model.
+  Residual warnings call for inspection of model, noise and acquisition rather
+  than identifying a cause; concatenated overall runs are descriptive.
+
 ## 1.2.0 — 2026-10-04
 
 - Worker pool pre-warms every process and predicts data blocks in parallel for the
