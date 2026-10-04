@@ -23,8 +23,8 @@ Use Python 3.12 (the CI target). Install the dependencies in a new checkout:
 ```bash
 git clone https://github.com/Gohyang-Matzip/sbonest.git
 cd sbonest
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-sideband.txt
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
@@ -454,16 +454,19 @@ For `Project Name = results/my_sideband_fit`, the files are:
 
 | File | Contents |
 |---|---|
-| `results/my_sideband_fit_result.json` | Parameters, RF in Hz, diagnostics, and input configuration |
+| `results/my_sideband_fit_predictions.csv` | Full-precision observations, predictions, sigma, standardized residuals and dataset/residue identifiers |
+| `results/my_sideband_fit_result.json` | Parameters, full covariance, derived standard errors, diagnostics, configuration and provenance |
 | `results/my_sideband_fit_result.txt` | Human-readable fit report and observed/calculated intensity tables |
-| `results/my_sideband_fit.pdf` | Experimental data and calculated profiles, one page per active residue |
+| `results/my_sideband_fit.pdf` | Profile and standardized-residual panels, one page per active residue |
 | `results/my_sideband_fit_data.pdf` | Data-only profile plots |
 
 The PDF covers the full supplied offset range. Calculated lines join values
 at the measured offsets; they are not an independently dense simulation and
-can miss narrow structure between points. Legend RF values are **nominal**;
-read actual fitted RF from JSON `v1n_hz`. Text intensity tables are rounded to
-three decimals; retain the original input for quantitative reanalysis.
+can miss narrow structure between points. Fit-PDF legend RF values are **fitted**;
+the data-only PDF uses nominal RF. JSON `v1n_hz` also stores fitted values. Text
+intensity tables remain rounded to three decimals; use the full-precision CSV
+and original input for quantitative reanalysis. CSV `residual_sigma` is
+`(observed-predicted)/sigma`; its sum of squares equals chi2.
 `plot_full_profile.py` expects the separate demo's files and `validation.json`;
 it is not a general plotter for arbitrary fit output.
 
@@ -499,9 +502,71 @@ errors as absolute σ. It is **not rescaled by reduced χ²**. Rank-deficient fi
 report `null` errors for free parameters. A fixed parameter has `vary=false`
 and `stderr=0`; this expresses an assumption, not experimental precision.
 These errors exclude uncertainty in fixed proton inputs and model mismatch.
-The JSON does not export the full covariance matrix; do not derive errors for
-`kex` or `pB` by assuming `kab` and `kba` are independent. Profile-likelihood and
-bootstrap procedures are not built-in CLI commands in this version.
+The JSON exports `covariance` in `parameter_order` and `derived_se.kex` /
+`derived_se.pB`, including the covariance between `kab` and `kba`. Unavailable
+entries/errors are `null`. `schema_version=2` retains existing scalar fields.
+`provenance` snapshots input, waveform and executed-source SHA-256 hashes before
+fitting, a canonical config hash, Python/package versions, platform, thread
+settings, Git state and elapsed seconds. Hashes do not replace preserved inputs.
+`constraints-sideband.txt` records the tested Python 3.12 dependency combination.
+Optional profile likelihood is described below; bootstrap is not implemented.
+
+## 8.1. Restarts, profile likelihood and performance checks
+
+These optional settings belong inside `init`; omitting them retains a single fit:
+
+```json
+"multistart": {
+  "starts": [{"kab": 20.0, "kba": 380.0, "v1n_scale": 1.0}],
+  "random_starts": 2,
+  "seed": 20261004
+},
+"profile": {
+  "kex": [295.0, 300.0, 305.0],
+  "pB": [0.045, 0.05, 0.055],
+  "v1n_scale": [1.06, 1.08, 1.10]
+}
+```
+
+`multistart` always includes the configured initial fit. `starts` contains
+explicit parameter overrides in the names from section 6. An explicit seed is
+required for random starts. Only varying parameters may be restarted; fixed
+parameters remain fixed. Random starts sample uniformly inside two finite bounds;
+one-sided/unbounded parameters use local perturbations described in `sb_analysis.py`.
+This explores starting-point sensitivity and does not prove a global optimum.
+Every attempt's full start, fitted vector, status, message and chi2 is retained in
+`multistart`; `selected=true` marks the lowest chi2 among converged attempts.
+If all attempts fail, the CLI exits nonzero and preserves their records and
+provenance in `_result.json`, with `success=false`; choose a new output prefix
+before retrying. Invalid settings are rejected rather than treated as fit attempts.
+
+`profile` requests explicit grid points for kex, pB or v1n_scale (scale mode only).
+At each point all remaining varying nuisance parameters are refitted, respecting
+physical bounds, user bounds and fixed parameters. kex/pB constraints transform
+kab/kba exactly; they do not add a penalty residual. Infeasible or failed points
+retain their target and failure message with null chi2. `profiles` stores the
+baseline chi2, fitted vectors, nuisance names and raw delta chi2. Negative delta
+chi2 is retained and flagged: the scan found a better solution than the baseline.
+The scan does not silently replace the reported fit. Each point starts from the
+selected baseline, so successful local convergence does not prove the constrained
+global minimum. No confidence interval is automatically inferred from a grid:
+boundaries, weak identifiability, grid extent and model adequacy require assessment.
+These are within-model absolute-sigma likelihood diagnostics, not experimental
+validation or uncertainty in fixed inputs. Bootstrap is not implemented.
+
+Grouped finite differences also apply to arbitrary `init.vary` subsets and orders,
+with feasible inward steps at bounds. The benchmark now accepts both Sideband and
+ONEST configs and times a single fit (optional analysis settings are not run):
+
+```bash
+.venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json
+.venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json profile \
+  --profile-output session_artifacts/sideband_01.prof
+```
+
+Create the parent directory first. Existing profile files are protected. The
+historical `config.json profile` form still writes `benchmark_profile.prof` when
+that path is unused. Profiles can be inspected with Python's `pstats` module.
 
 ## 9. Experimental fitting workflow and limits
 

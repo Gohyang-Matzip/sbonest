@@ -10,8 +10,8 @@ main/minor dip과 ¹H decoupling sideband를 모두 동일한 residual에 포함
 OC는 PyPI의 `optimalcontrol-nmr` 패키지로 설치되며 인접한 OC 폴더는 필요 없다.
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-sideband.txt
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
@@ -21,7 +21,7 @@ R1H/R2H를 입력하지 않는다. 자세한 절차는 [영문](SBONEST_MANUAL.m
 [한글 매뉴얼](SBONEST_MANUAL.ko.md)을 참고한다.
 
 결과는 **실행한 작업 디렉터리**의 `<Project Name>_result.txt`, `_result.json`,
-`.pdf`, `_data.pdf`에 저장한다. `--no-pdf`로 그림을 생략할 수 있다.
+`_predictions.csv`, `.pdf`, `_data.pdf`에 저장한다. `--no-pdf`로 그림을 생략할 수 있다.
 동일 이름의 결과가 있으면 덮어쓰지 않고 중단하므로 `Project Name`을 바꾼다.
 `sbfit.py config.json`도 같은 fitting 경로를 사용한다.
 입력 데이터·OC waveform의 상대 경로는 config 파일의 디렉터리를 기준으로 한다.
@@ -136,6 +136,10 @@ RF와 다른 parameter의 correlation, bound 도달 여부, 사용한 config가 
 표준오차는 입력 intensity error를 절대 σ로 본 local covariance이며 reduced χ²로
 재조정하지 않는다. rank가 부족하면 free parameter의 표준오차는 `null`이다.
 고정된 parameter의 `stderr=0`은 데이터로 정밀하게 측정됐다는 뜻이 아니다.
+전체 `covariance`와 `parameter_order`, 공분산을 반영한 `derived_se.kex/pB`,
+입력·소스 해시와 환경 정보인 `provenance`도 저장한다. CSV는 전체 정밀도의
+관측값·예측값·표준화 잔차를, fit PDF는 잔차 패널을 제공한다. 선택적인
+`init.multistart`와 `init.profile` 설정은 두 매뉴얼의 8.1절을 참고한다.
 
 **v1n을 fitting parameter로 사용할 수 있음은 합성 데이터에서 확인했다.**
 실측에서 식별 가능한지는 RF 수·T·offset sampling·sideband SNR과 고정된 ¹H 조건에

@@ -1,150 +1,169 @@
-# HANDOFF: SBONEST loader debugging and refactor
+# HANDOFF: SBONEST diagnostics, uncertainty and fitting performance
 
 **Written:** 2026-10-04 (Asia/Seoul)
-**Working directory:** `/Users/donghanlee/work/projects/sbonest`
 **Repository:** https://github.com/Gohyang-Matzip/sbonest
-**Implementation branch:** `codex/refactor-spectrum-loader`
-**Target branch:** `main`
-**Starting commit:** `010ad74299d09ec1b97de95674849866b0340f31`
+**Main checkout:** `/Users/donghanlee/work/projects/sbonest`
+**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve_20261004/tree`
+**Branch:** `codex/fit-diagnostics-and-uncertainty`
+**Base:** `96d6dd68ae3991e840e8f90696edbb6498c5f0dc`
 
-## User requests and completion criteria
+## Goal and current status
 
-The user requested, in order: `debugging this repo`, `refactor`, `handoff`,
-and `commit push PR merge`. The final request authorizes committing these
-changes, pushing the branch, opening a PR, merging after passing CI, verifying
-the merged commit's CI, and synchronizing local `main`.
+The user approved six proposed improvements, followed by debugging, refactoring,
+handoff, then commit, push, PR and merge. This authorizes the complete remote
+workflow, including passing PR CI, merge, merged-commit CI and local main sync.
 
-The code work is complete and locally validated. No further feature or research
-work is pending. Check live GitHub state before repeating delivery actions; this
-file is part of the change being published, not proof that publication finished.
+Implementation, debugging/refactoring, independent review and local validation
+are complete. At the time this handoff was written the changes are uncommitted
+in the worktree above; remote delivery is the remaining step. This document is
+part of the change to publish, so it is not evidence that delivery has happened.
+Inspect live Git/GitHub state before repeating any delivery action.
 
-## Changes in this delivery
+## Applied changes
 
-Every change below is **still applied**; no production fix was reverted.
+Every item below is **still applied**.
 
-- **[still applied] `est_data.py`:** reject missing fourth column-header lines,
-  observations outside residue blocks, empty files, and empty residue blocks.
-  Previously a standalone comment inside a spectrum could silently discard all
-  remaining points, and a missing column-header line could swallow the first
-  residue. Invalid inputs now raise `ValueError` with the filename and a useful
-  explanation. A `#` line still terminates a data block; comments between complete
-  residue blocks and blank lines remain accepted.
-- **[still applied] `est_data.py` refactor:** module-level regexes share one numeric
-  pattern; `_read_conditions()` parses acquisition values; `_read_points()` fills
-  one spectrum and returns the next comment/header. `addData()` retains its public
-  signature and handles residue format validation and attachment. File length
-  decreased from 293 lines after the bug fix to 213. Numerical fitting code,
-  accepted numeric grammar, error messages, and random draw order are preserved.
-- **[still applied] `test_debugging.py`:** `check_loader_structure()` covers eight
-  malformed input cases plus valid data. `check_loader_formats_and_noise()` covers
-  full/simple headers, multi-file residue ordering, defaults, inline comments,
-  mixed-format rejection, and seeded RF/intensity perturbations. Both are called
-  by the executable test runner.
-- **[still applied] `SBONEST_MANUAL.md` and `SBONEST_MANUAL.ko.md`:** matching input
-  rules and troubleshooting entries for the stricter loader.
-- **[still applied] `HANDOFF.md`:** this current briefing. Its previous complete
-  version is archived locally at `.archive/handoff-before-loader-20261004-094051.md`.
+- **[still applied] `sbfit.py`, `sb_report.py`:** result schema version 2 keeps
+  existing scalar fields and adds ordered full covariance, covariance-aware
+  `derived_se.kex`/`pB`, calculation-time source/input/waveform SHA-256 hashes,
+  config hash, package/Python/platform/thread/Git metadata and elapsed time.
+  Nonfinite covariance entries and unavailable errors are JSON null. Fixed
+  parameters remain zero-uncertainty assumptions. CSV preserves all observation,
+  prediction, sigma and standardized-residual digits; its residual square sum
+  matches chi2. CLI fit PDFs include residual panels and fitted-RF labels.
+- **[still applied] `fit.py`, `sbfit.py`:** grouped finite differences support
+  ordered free subsets and feasible bound stencils. Natural full-order fits keep
+  the prior 2-point scheme; partial/reordered fits keep prior 3-point steps and
+  accuracy while grouping independent residue parameters. The measured 23-free
+  case uses 21 residual evaluations per Jacobian instead of 47; full 24-parameter
+  fits retain 11. No physical forward model or numerical tolerance was loosened.
+- **[still applied] `sb_analysis.py`:** optional `init.multistart` accepts explicit
+  starts and seeded random starts, preserves all attempts and restores the lowest
+  converged solution. `init.profile` scans kex, pB or v1n_scale with exact
+  constrained nuisance refits, fixed parameters and user/physical bounds.
+  Failed points and raw negative delta-chi2 are retained and warned about. No
+  automatic confidence-interval or global-optimum claim is made. All-failed
+  multistart runs exit nonzero but preserve attempts/provenance in result JSON.
+- **[still applied] `benchmark.py`:** dispatches Sideband configs correctly;
+  retains legacy ONEST and `<config> [profile]`; adds `--profile-output PATH`.
+  Existing profiles are protected with early checks and exclusive creation.
+- **[still applied] `constraints-sideband.txt`, CI:** tested Python 3.12 dependency
+  snapshot and four new executable regression scripts. No new runtime library
+  family was introduced.
+- **[still applied] `test_grouped_jacobian.py`, `test_benchmark.py`,
+  `test_sb_analysis.py`, `test_sb_output.py`:** independent derivative/reference
+  tests, actual CLI checks, analytical constrained fits, failure/state/seed/bound
+  tests, provenance bytes, correlated errors, CSV reconciliation and overwrite
+  protection. Real-data partial fitting is compared to the prior SciPy 3-point
+  path at rtol=1e-8/atol=1e-8 for parameters and chi2.
+- **[still applied] README, both SBONEST manuals, SIDEBAND, AGENTS:** synchronized
+  setup/CLI/output/uncertainty documentation. `docs/diagnostics-preview.png` is
+  the A1 page from the existing synthetic two-RF example; it is not new
+  experimental evidence. All three generated fit-PDF pages were rendered and
+  inspected. Local documentation links were checked.
+- **[still applied] `HANDOFF.md`:** this briefing. The prior loader handoff is
+  archived in the worktree at `.archive/HANDOFF.before-improve-20261004.md`.
 
-The initial worktree was clean. Only the five files listed above belong in this
-PR. Temporary environments, generated fits, verification logs, and backups are
-ignored local artifacts, not files to add to Git.
+No files in historical `results/`, manuscript bundles or raw inputs were changed.
+The root `.venv` was preserved. Temporary environments, runs and worktree are
+ignored local artifacts and must not be added to Git.
 
-## Verified results
+## Debugging and refactoring findings
 
-The eight checks in `session_artifacts/refactor_20261004/verification/summary.json`
-all exited 0 under Python 3.12.14:
+- An initial grouped-forward derivative for partial fits was **replaced**, not
+  shipped: it changed chi2 by 3.06115e-5 and rank in a real-data comparison. Its
+  evidence remains in `session_artifacts/improve_20261004/partial_after*` and
+  `performance.json`. Do not use those as the final performance/parity result.
+  The final grouped 3-point comparison changes chi2 by only 1.53079e-9 and the
+  largest parameter by 1.37803e-10; both paths report rank 22 of 23 for that
+  particular boundary-start example. Null covariance for this example is an
+  identifiability diagnostic, not an error to suppress.
+- Feasible profile rates can reconstruct one ULP outside a bound. Only actual
+  IEEE-scale rate/interval roundoff is repaired; infeasible small-rate targets
+  are rejected. A `max(1,rate)` tolerance floor was found too broad and removed.
+- A rejected default start originally blocked valid explicit restarts, and a
+  reused model could retain stale fixed values. The model now publishes fresh
+  initialization/bounds before the start-feasibility check; stale preparation
+  cannot be consumed. New/reused real-model regressions verify this behavior.
+- Dangling output symlinks were not caught by `Path.exists()`. They now fail
+  before writing; numerical reports and CSV use exclusive creation.
+- Report/provenance logic lives in a small separate module; the original NH
+  propagation and inherited ONEST reporting remain intact. No bulk formatting of
+  executed research sources was performed.
 
-1. `ruff check *.py --select F`
-2. `python -m py_compile *.py`
-3. `python test_performance.py`
-4. `python test_debugging.py`
-5. `python verify_3state.py`
-6. `python test_sideband.py`
-7. `python demo_sideband.py --out <fresh directory>`
-8. The real `run.py` CLI on a copy of `example/sideband_auto_H/two_RF.json` with
-   absolute input paths and a fresh output prefix, using `--no-pdf`.
+## Verified evidence and commands
 
-`session_artifacts/refactor_20261004/parser_parity.json` records 272 exact
-comparisons (68 tracked spectrum files, each with all four noise-flag
-combinations), plus 64 boundary/error comparisons against the pre-refactor
-loader. Parsed state, exceptions, partial state after failure, and subsequent
-random draws matched. Independent review found no actionable regression.
-
-`session_artifacts/refactor_20261004/fit_parity.json` records exact equality
-of all result fields except configuration paths for five demo fits and the
-automatic-H fit, compared with `session_artifacts/debug_20261004/`.
-The automatic-H fit has 882 observations, 24 parameters, rank 24, 858 degrees
-of freedom, and chi2 = 802.8203212916861. This is synthetic evidence.
-
-Before the initial fix, the new structure test failed on all eight malformed
-inputs. After the fix, the ONEST CLI, MC CLI, and both Sideband entry points
-rejected the interrupted-block reproduction without tracebacks or fit outputs.
-Their local logs are in `session_artifacts/debug_20261004/reproductions/`.
-
-## Environment and reproducible commands
-
-Use `session_artifacts/debug_20261004/.venv/bin/python` for Python 3.12 locally.
-The root `.venv/bin/python` is Python 3.14.7 and `.venv/bin/ruff` was absent;
-that original environment is preserved. Do not mistake it for the CI environment.
-A fresh checkout should create a Python 3.12 environment and install
-`requirements-sideband.txt` plus `ruff`. CI uses Python 3.12 and PyPI
-`optimalcontrol-nmr==0.5.0` was used for these local checks.
+Use the existing Python 3.12.14 environment:
 
 ```bash
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
-session_artifacts/debug_20261004/.venv/bin/ruff check *.py --select F
-session_artifacts/debug_20261004/.venv/bin/python -m py_compile *.py
-session_artifacts/debug_20261004/.venv/bin/python test_performance.py
-session_artifacts/debug_20261004/.venv/bin/python test_debugging.py
-session_artifacts/debug_20261004/.venv/bin/python verify_3state.py
-session_artifacts/debug_20261004/.venv/bin/python test_sideband.py
+PY=/Users/donghanlee/work/projects/sbonest/session_artifacts/repo_review_20261004_01/.venv/bin/python
+cd /Users/donghanlee/work/projects/sbonest/session_artifacts/improve_20261004/tree
+"$PY" test_performance.py
+"$PY" test_debugging.py
+"$PY" verify_3state.py
+"$PY" test_sideband.py
+"$PY" test_grouped_jacobian.py
+"$PY" test_benchmark.py
+"$PY" test_sb_analysis.py
+"$PY" test_sb_output.py
 ```
 
-The pre-refactor sources and diff are preserved in
-`session_artifacts/refactor_20261004/before_est_data.py`, `before_test_debugging.py`,
-and `before.diff`. Final local demo outputs are in
-`session_artifacts/refactor_20261004/demo/`; automatic-H results are
-`session_artifacts/refactor_20261004/auto_H_two_RF_result.{json,txt}`.
-Never rerun a saved config with its old `Project Name`; select a fresh output
-prefix. Dataset paths resolve from the config directory; output prefixes resolve
-from the process working directory.
+The 12 entries in the main checkout's
+`session_artifacts/improve_20261004/verification_03/summary.json` all exited zero:
+Ruff F, compilation, the eight scripts above, demo, and real automatic-H CLI
+including PDF output. Logs and fresh outputs are in that directory. The full
+fit has 882 points, 24 parameters, rank 24 and chi2=802.8203212916861, exactly the
+prior local baseline. CSV contents equal the preceding inspected PDF run.
 
-## Delivery: check live state, then resume only missing steps
+`session_artifacts/improve_20261004/partial_final_parity.json` stores the final
+partial-fit comparison; `measure_final.py` and `performance_final.json` record
+Jacobian timings and evaluation counts. Timing applies to one Jacobian on this
+machine, not every full fit. Independent reviews found no unresolved actionable
+issue, including a final review of grouped 3-point wiring and small-rate bounds.
+
+A fresh checkout should create a Python 3.12 environment and install:
+`python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff`.
+The original root `.venv/bin/python` is Python 3.14; do not mistake it for CI.
+New output prefixes are mandatory. Dataset/waveform paths resolve from config;
+output prefixes resolve from the current working directory.
+
+## Delivery steps — perform only those still missing
+
+1. Check both worktrees and remote state. At handoff, main and origin/main were
+   the base SHA above; no user-owned dirty files existed. Do not reset or discard
+   subsequently appearing user edits.
+2. Stage only implementation, test, constraints, CI, docs/preview and this handoff;
+   commit using the repository's conventional prefix, then push the branch.
+3. GitHub account `Gohyang-Matzip` has verified ADMIN access. Global gh account
+   is `dleess`; preserve it. The local helper
+   `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve_20261004/github.py`
+   obtains the correct account token into a subprocess environment without
+   printing or saving it. Use it to run scoped gh commands and Git with
+   `-c credential.helper= -c 'credential.helper=!gh auth git-credential'`.
+4. Find an existing PR for `codex/fit-diagnostics-and-uncertainty` before creating
+   one. Use a body file, include numerical validation and the committed preview.
+   Require successful CI for its exact head SHA, then merge into main.
+5. Verify successful push CI for the merge SHA, fetch, and fast-forward the clean
+   main checkout to origin/main. Report actual PR URL, merge SHA and CI outcome.
+6. Retain or archive the ignored worktree and evidence; do not destructively
+   remove artifacts. Stop after delivery; no further research work is authorized.
+
+Useful read-only status commands:
 
 ```bash
 git status --short --branch
-git fetch origin
 gh pr list --repo Gohyang-Matzip/sbonest --state all \
-  --head codex/refactor-spectrum-loader \
+  --head codex/fit-diagnostics-and-uncertainty \
   --json number,state,url,headRefOid,mergeCommit
 gh run list --repo Gohyang-Matzip/sbonest --branch main --limit 5
 ```
 
-At delivery preparation, local `main` equaled `origin/main` at the starting
-commit above, with no open PR. The branch was created from that commit.
-GitHub account `Gohyang-Matzip` was verified to have push/admin access;
-the globally active account was `dleess`. Use scoped authentication for
-`Gohyang-Matzip`, obtained through `gh auth token --user Gohyang-Matzip` into a
-subprocess environment. Never print or save the token, and do not change global
-credentials. Scoped Git pushes can use `credential.helper=!gh auth git-credential`.
+## Scientific boundaries
 
-1. If this branch has an open PR, inspect its exact head and require passing CI
-   before merging. Do not recreate an existing PR.
-2. If merged, verify the push CI for the merge SHA, then fast-forward local `main`
-   to `origin/main`. Report the PR URL, merge SHA, and CI outcome.
-3. Preserve any unrelated work; do not reset or discard dirty files.
-4. When delivery is already complete, stop. This handoff does not authorize new
-   features, new experiments, or rerunning historical research studies.
-
-## Constraints and boundaries
-
-Follow `AGENTS.md`. Never destructively delete artifacts; archive them or ignore
-large raw data. Preserve public names, parameter order, units, tolerances, and
-calculation-time source hashes. The 600/800 MHz study uses fixed H rates and
-separate field fits; the current examples fit H rates automatically. Synthetic
-fits and local covariance are not experimental validation.
-
-No behavior changed in `sideband.py`, `sbfit.py`, `fit.py`, or `estmodel.py`.
-No dependencies were added. No manuscript, historical result, or figure was
-modified. The longer field-comparison study was not rerun during this task.
-Remote PR/merge CI is live state and must be verified as described above.
+All new validation uses existing or small independently generated synthetic
+inputs. Local errors/profile differences are conditional on the model and fixed
+inputs. Weak H-rate identifiability, boundaries and model mismatch still require
+scientific interpretation. Bootstrap and automatic profile-based confidence
+intervals are not implemented. The historical fixed-H 600/800 MHz benchmark was
+not rerun or altered.

@@ -23,12 +23,16 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install -r requirements-sideband.txt ruff
+      - run: python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff
       - run: ruff check *.py --select F
       - run: python -m py_compile *.py
       - run: python test_performance.py
       - run: python test_debugging.py
       - run: python verify_3state.py
       - run: python test_sideband.py
+      - run: python test_grouped_jacobian.py
+      - run: python test_benchmark.py
+      - run: python test_sb_analysis.py
+      - run: python test_sb_output.py
       - run: python demo_sideband.py --out session_artifacts/ci_sideband_demo
       - run: python run.py example/sideband_auto_H/two_RF.json --no-pdf

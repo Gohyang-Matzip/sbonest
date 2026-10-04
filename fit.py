@@ -133,30 +133,93 @@ def generate_initial_parameters(model_instance, initConf):
     return np.array(p_initial_list, dtype=float)
 
 
-def _block_jacobian(fun, residue_sizes, n_global, n_local, relative_step=None):
-    """Group independent residue parameters while returning a dense Jacobian."""
+def _block_jacobian(
+    fun, residue_sizes, n_global, n_local, relative_step=None,
+    *, free=None, bounds=(-np.inf, np.inf), method="2-point",
+):
+    """Group independent locals; inputs, bounds and output columns follow free.
+
+    ``free`` contains original full-vector indices in the order accepted by
+    ``fun``. Omitting it retains the full global-then-residue parameter layout.
+    Three-point differences follow SciPy's relative steps and bounded stencils;
+    two-point differences retain the legacy ``max(1, abs(p))`` step scaling.
+    """
+    if method not in ("2-point", "3-point"):
+        raise ValueError("Grouped Jacobian method must be '2-point' or '3-point'")
+    n_parameters = n_global + n_local * len(residue_sizes)
+    free = np.arange(n_parameters) if free is None else np.asarray(free, dtype=int)
+    full_to_free = np.full(n_parameters, -1, dtype=int)
+    full_to_free[free] = np.arange(len(free))
+    lower, upper = [np.broadcast_to(limit, (len(free),)) for limit in bounds]
     rows = np.arange(sum(residue_sizes))
     local_columns = np.repeat(
         n_global + n_local * np.arange(len(residue_sizes)), residue_sizes
     )
     columns = [np.full(len(rows), i) for i in range(n_global)]
     columns.extend(local_columns + i for i in range(n_local))
-    groups = [(c, np.unique(c)) for c in columns]
+    groups = []
+    for column in columns:
+        reduced = full_to_free[column]
+        active = reduced >= 0
+        if np.any(active):
+            groups.append((rows[active], reduced[active], np.unique(reduced[active])))
 
     def jacobian(p):
         base = fun(p)
         jac = np.zeros((len(base), len(p)))
-        # Negative parameters are unbounded shifts; bounded rates always step up.
-        step = (
-            (np.sqrt(np.finfo(float).eps) if relative_step is None else relative_step)
-            * np.where(p >= 0, 1.0, -1.0)
-            * np.maximum(1.0, np.abs(p))
-        )
-        for column, changed in groups:
-            shifted = p.copy()
-            shifted[changed] += step[changed]
-            delta = shifted - p
-            jac[rows, column] = (fun(shifted) - base) / delta[column]
+        lower_distance, upper_distance = p - lower, upper - p
+        if method == "2-point":
+            step = (
+                (np.sqrt(np.finfo(float).eps) if relative_step is None else relative_step)
+                * np.where(p >= 0, 1.0, -1.0)
+                * np.maximum(1.0, np.abs(p))
+            )
+            violated = (p + step < lower) | (p + step > upper)
+            fits = np.abs(step) <= np.maximum(lower_distance, upper_distance)
+            step[violated & fits] *= -1
+            shorten = violated & ~fits
+            step[shorten] = np.where(
+                upper_distance >= lower_distance, upper_distance, -lower_distance
+            )[shorten]
+        else:
+            eps = np.finfo(p.dtype).eps
+            if np.issubdtype(base.dtype, np.inexact):
+                eps = max(eps, np.finfo(base.dtype).eps)
+            sign = (p >= 0).astype(p.dtype) * 2 - 1
+            default_step = (eps ** (1 / 3) * sign * np.maximum(1.0, np.abs(p))).astype(p.dtype)
+            if relative_step is None:
+                step = default_step
+            else:
+                step = (relative_step * sign * np.abs(p)).astype(p.dtype)
+                step = np.where((p + step) - p == 0, default_step, step)
+            step = np.abs(step)
+            central = (lower_distance >= step) & (upper_distance >= step)
+            forward = ~central & (upper_distance >= lower_distance)
+            backward = ~central & ~forward
+            step[forward] = np.minimum(step[forward], 0.5 * upper_distance[forward])
+            step[backward] = -np.minimum(step[backward], 0.5 * lower_distance[backward])
+            min_distance = np.minimum(lower_distance, upper_distance)
+            adjusted_central = ~central & (np.abs(step) <= min_distance)
+            step[adjusted_central] = min_distance[adjusted_central]
+            one_sided = ~central & ~adjusted_central
+        for group_rows, column, changed in groups:
+            first = p.copy()
+            if method == "2-point":
+                first[changed] = np.clip(
+                    p[changed] + step[changed], lower[changed], upper[changed]
+                )
+                delta = first - p
+                difference = (fun(first) - base)[group_rows]
+            else:
+                second = p.copy()
+                first[changed] += np.where(one_sided[changed], step[changed], -step[changed])
+                second[changed] += np.where(one_sided[changed], 2 * step[changed], step[changed])
+                f1, f2 = fun(first)[group_rows], fun(second)[group_rows]
+                difference = np.where(
+                    one_sided[column], -3.0 * base[group_rows] + 4 * f1 - f2, f2 - f1
+                )
+                delta = second - np.where(one_sided, p, first)
+            jac[group_rows, column] = difference / delta[column]
         return jac
 
     return jacobian

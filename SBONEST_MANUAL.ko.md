@@ -24,8 +24,8 @@ Python 3.12를 CI 기준으로 사용한다. 새로 받은 저장소에서는 �
 ```bash
 git clone https://github.com/Gohyang-Matzip/sbonest.git
 cd sbonest
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-sideband.txt
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
@@ -447,16 +447,18 @@ profile과 표준화 residual을 확인할 수 있다. 새 실행은 fitting·�
 
 | 파일 | 내용 |
 |---|---|
-| `results/my_sideband_fit_result.json` | 파라미터, 실제 RF (Hz), 진단값, 입력 config |
+| `results/my_sideband_fit_result.json` | 파라미터, 전체 공분산, 파생 표준오차, 진단값, 입력 config 및 실행 이력 |
+| `results/my_sideband_fit_predictions.csv` | 전체 정밀도의 관측값·예측값·σ·표준화 잔차, 잔기 및 dataset 식별자 |
 | `results/my_sideband_fit_result.txt` | 사람이 읽는 결과와 관측/계산 intensity 표 |
-| `results/my_sideband_fit.pdf` | 활성 잔기당 한 페이지의 데이터와 계산 profile |
+| `results/my_sideband_fit.pdf` | 활성 잔기당 profile 및 표준화 잔차 패널 |
 | `results/my_sideband_fit_data.pdf` | 데이터만 그린 profile |
 
 PDF는 입력된 전체 offset 범위를 보여준다. 계산선은 측정 offset에서 계산한
 값을 연결한 것이며, 별도의 촘촘한 simulation이 아니다. 측정점 사이의 좁은
-구조는 드러나지 않을 수 있다. 범례의 RF는 **명목값**이며 실제 fitting RF는
-JSON의 `v1n_hz`에서 확인한다. 텍스트 intensity 표는 소수 셋째 자리까지
-출력하므로 정량 재분석에는 원래 입력 데이터를 보존해 사용한다.
+구조는 드러나지 않을 수 있다. Fit PDF 범례의 RF는 **fitting된 값**이며 데이터 전용 PDF는 명목값이다.
+JSON의 `v1n_hz`에도 실제 RF를 기록한다. 텍스트 intensity 표는 소수 셋째
+자리까지 출력하므로 정량 재분석에는 전체 정밀도의 CSV와 원래 입력을 사용한다.
+CSV의 `residual_sigma`는 `(관측−예측)/σ`이며 제곱합은 χ²와 일치한다.
 `plot_full_profile.py`는 별도 demo의 파일과 `validation.json`을 전제로 하므로,
 임의 fitting 결과에 사용하는 범용 plotter가 아니다.
 
@@ -492,9 +494,69 @@ PY
 파라미터의 오차는 `null`이다. 고정 파라미터의 `vary=false`, `stderr=0`은
 가정을 나타낼 뿐 실험적으로 정밀하게 측정했다는 뜻이 아니다.
 이 오차에는 고정 proton 입력의 불확도나 모델 불일치가 포함되지 않는다.
-JSON은 전체 covariance matrix를 출력하지 않으므로, `kab`와 `kba`를
-독립이라고 가정해 `kex`나 `pB` 오차를 계산하지 않는다.
-현재 버전에는 profile likelihood나 bootstrap을 수행하는 내장 CLI 명령이 없다.
+JSON의 `covariance`는 `parameter_order` 순서의 전체 행렬이며,
+`derived_se.kex`와 `derived_se.pB`는 `kab`·`kba`의 공분산까지 반영한다.
+계산할 수 없는 원소·표준오차는 `null`로 기록한다. `schema_version=2`는 기존
+scalar 필드를 유지하고 이 정보를 추가한다. `provenance`에는 fitting 전 입력·
+waveform·실행 소스의 SHA-256, canonical config 해시, Python/package 버전,
+플랫폼·thread 설정·Git 상태와 실행 시간을 저장한다. 해시는 원본 보관을 대신하지 않는다.
+`constraints-sideband.txt`는 검증한 Python 3.12 의존성 조합이다.
+선택적 profile likelihood는 아래와 같이 지원하며 bootstrap은 제공하지 않는다.
+
+## 8.1. 다중 초기값, profile likelihood 및 성능 검사
+
+아래 선택 항목은 `init` 안에 넣는다. 생략하면 기존의 단일 fitting을 수행한다.
+
+```json
+"multistart": {
+  "starts": [{"kab": 20.0, "kba": 380.0, "v1n_scale": 1.0}],
+  "random_starts": 2,
+  "seed": 20261004
+},
+"profile": {
+  "kex": [295.0, 300.0, 305.0],
+  "pB": [0.045, 0.05, 0.055],
+  "v1n_scale": [1.06, 1.08, 1.10]
+}
+```
+
+`multistart`는 설정된 초기 fitting을 항상 포함한다. `starts`는 6절의
+파라미터 이름으로 지정한 초기값 override 목록이다. 난수 초기값에는 명시적
+seed가 필요하다. 자유 파라미터만 바꿀 수 있으며 고정 파라미터는 유지한다.
+유한한 양쪽 bounds 안에서는 균등분포를, 한쪽/무한 bounds에서는
+`sb_analysis.py`에 명시된 국소 섭동을 사용한다. 초기값 민감도를 살피는
+절차이며 전역 최적해를 입증하지 않는다. 모든 시도의 전체 초기값·결과 벡터,
+상태·메시지·χ²를 `multistart`에 기록하고, 수렴한 시도 중 최저 χ²를
+`selected=true`로 표시한다. 전부 실패하면 CLI는 실패 종료하고
+`success=false`인 `_result.json`에 시도와 실행 이력을 보존한다.
+재시도에는 새 출력 접두사를 사용한다. 잘못된 설정은 fitting 시도로 취급하지 않고 거부한다.
+
+`profile`은 kex, pB 또는 v1n_scale(scale 모드만)의 명시적 격자를 받는다.
+각 점에서 나머지 자유 파라미터를 다시 최적화하며 물리적·사용자 bounds와
+고정 파라미터를 지킨다. kex/pB는 kab/kba를 정확히 변환하여 제약하며 penalty
+잔차를 추가하지 않는다. 불가능하거나 수렴하지 않은 점은 target·실패 메시지와
+null χ²를 남긴다. `profiles`에는 기준 χ², 각 결과 벡터, nuisance 이름과
+원래 Δχ²를 저장한다. 음수 Δχ²는 0으로 바꾸지 않고 경고한다. 이는 기준보다
+더 좋은 해를 찾았다는 뜻이며, 기본 보고 결과를 몰래 교체하지 않는다.
+각 점은 선택된 기본 해에서 출발하므로 국소 수렴이 제약하의 전역 최적해를
+보장하지 않는다. 경계·약한 식별성·격자 범위·모델 적합성을 검토해야 하므로
+격자만으로 confidence interval을 자동 산출하지 않는다. 이는 절대 σ를
+사용하는 모델 내 likelihood 진단이며 실험 검증이나 고정 입력의 불확도는
+포함하지 않는다. Bootstrap은 제공하지 않는다.
+
+임의의 `init.vary` 부분집합·순서에도 묶음 수치미분을 사용하며 bounds에서는
+가능한 안쪽 방향으로 미분한다. 벤치마크는 Sideband·ONEST config를 모두 받아
+단일 fitting 시간을 측정한다(선택적 추가 분석은 실행하지 않는다).
+
+```bash
+.venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json
+.venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json profile \
+  --profile-output session_artifacts/sideband_01.prof
+```
+
+상위 폴더를 먼저 만든다. 기존 profile 파일은 덮어쓰지 않는다. 예전의
+`config.json profile` 형식도 유지하며 경로가 비어 있을 때
+`benchmark_profile.prof`를 저장한다. Python `pstats`로 읽을 수 있다.
 
 ## 9. 실험 fitting 순서와 모델 한계
 
