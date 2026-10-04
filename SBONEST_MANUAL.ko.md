@@ -1,8 +1,9 @@
 # SBONEST fitting 매뉴얼
 
-[English](SBONEST_MANUAL.md) · [README](README.md) · [기술 설명](SIDEBAND.md)
+[English](SBONEST_MANUAL.md) · [Step-by-step dummy 가이드](DUMMY_GUIDE.ko.md) ·
+[README](README.md) · [기술 설명](SIDEBAND.md)
 
-이 매뉴얼은 현재 코드의 CLI `Sideband` 모델을 설명하며, 2026-10-03에
+이 매뉴얼은 현재 코드의 CLI `Sideband` 모델을 설명하며, 2026-10-04에
 실행을 확인했다. OC의 NH spin operator를 사용해 ¹H decoupling sideband를
 포함한 두 상태 ¹⁵N CEST profile을 fitting한다. 주 예제는
 90°x–240°y–90°x 반복 decoupling, 1.2 GHz 장비, 전체 30 ppm offset 범위다.
@@ -20,6 +21,10 @@
 ## 1. 실행환경과 첫 fitting
 
 Python 3.12를 CI 기준으로 사용한다. 새로 받은 저장소에서는 다음처럼 설치한다.
+
+처음 사용한다면 입력 복사, 새 출력 경로 생성, 결과 확인까지 포함한
+[dummy 데이터 가이드](DUMMY_GUIDE.ko.md)를 따른다. 아래의 간단한 명령은
+예제의 고정 출력 접두사를 사용하므로 해당 설정의 최초 실행용이다.
 
 ```bash
 git clone https://github.com/Gohyang-Matzip/sbonest.git
@@ -55,8 +60,11 @@ H-rate의 약한 식별성과 경계 경고가 나올 수 있다. Jacobian rank�
 실행을 확인하는 것이며 실험 시료에 대한 검증을 대신하지 않는다.
 
 출력 접두사는 `results/auto_H_two_RF`이며 파일 종류는 8절을 참고한다.
-재실행하려면 JSON 사본의 `Project Name`을 새 접두사로 변경한다. 기존
-출력은 덮어쓰지 않는다. 25/50/100 Hz는
+재실행하려면 JSON 사본의 `Project Name`을 새 접두사로 변경한다. JSON을 다른
+폴더로 옮겼다면 데이터·waveform 경로도 변경하거나 입력 파일을 함께 복사한다.
+입력 경로는 JSON 폴더 기준이고, 상대 출력 경로는 작업 폴더 기준이다.
+Dummy 가이드 2단계는 제공 예제의 입력을 복사하고 새 절대 출력 접두사를 만든다.
+기존 출력은 덮어쓰지 않는다. 25/50/100 Hz는
 `example/sideband_auto_H/three_RF.json`을 사용한다(1323개 관측점, 24개 파라미터).
 
 이전의 single-peak·H-rate 고정 예제는
@@ -469,7 +477,9 @@ CSV의 `residual_sigma`는 `(관측−예측)/σ`이며 제곱합은 χ²와 일
 import json
 from pathlib import Path
 r = json.loads(Path("results/auto_H_two_RF_result.json").read_text())
-print("kex:", r["kex"], "pB:", r["pB"])
+assert r["success"], r.get("message")
+print("kex (s^-1):", r["kex"], "SE:", r["derived_se"]["kex"])
+print("pB (fraction):", r["pB"], "SE:", r["derived_se"]["pB"])
 print("actual RF (Hz):", r["v1n_hz"])
 print("reduced chi2:", r["chi2"] / r["dof"])
 print("rank:", r["jacobian_rank"], "of", r["n_parameters"])
@@ -494,18 +504,25 @@ PY
 파라미터의 오차는 `null`이다. 고정 파라미터의 `vary=false`, `stderr=0`은
 가정을 나타낼 뿐 실험적으로 정밀하게 측정했다는 뜻이 아니다.
 이 오차에는 고정 proton 입력의 불확도나 모델 불일치가 포함되지 않는다.
-JSON의 `covariance`는 `parameter_order` 순서의 전체 행렬이며,
+JSON의 `covariance`는 행과 열이 `parameter_order` 순서인 전체 행렬이며,
 `derived_se.kex`와 `derived_se.pB`는 `kab`·`kba`의 공분산까지 반영한다.
 계산할 수 없는 원소·표준오차는 `null`로 기록한다. `schema_version=2`는 기존
 scalar 필드를 유지하고 이 정보를 추가한다. `provenance`에는 fitting 전 입력·
 waveform·실행 소스의 SHA-256, canonical config 해시, Python/package 버전,
 플랫폼·thread 설정·Git 상태와 실행 시간을 저장한다. 해시는 원본 보관을 대신하지 않는다.
+`parameter_order`는 고정 파라미터까지 포함하지만 `n_parameters`는 자유
+파라미터만 센다. `pB`와 `derived_se.pB`는 분율이므로 각각 100을 곱해
+population은 %, SE는 percentage point로 보고한다. 이전 보존 결과에는 새
+필드가 없을 수 있다. 원본은 유지하고 필요하면 현재 코드로 새 fitting을 수행한다.
 `constraints-sideband.txt`는 검증한 Python 3.12 의존성 조합이다.
 선택적 profile likelihood는 아래와 같이 지원하며 bootstrap은 제공하지 않는다.
 
 ## 8.1. 다중 초기값, profile likelihood 및 성능 검사
 
 아래 선택 항목은 `init` 안에 넣는다. 생략하면 기존의 단일 fitting을 수행한다.
+이 블록은 기존 `init`에 합칠 부분이며 독립적인 전체 설정 파일이 아니다.
+[Dummy 가이드](DUMMY_GUIDE.ko.md)의 6단계는 JSON을 직접 편집하지 않고도
+완전한 설정 파일을 만들고 실행하는 명령을 제공한다.
 
 ```json
 "multistart": {
@@ -527,7 +544,9 @@ seed가 필요하다. 자유 파라미터만 바꿀 수 있으며 고정 파라�
 `sb_analysis.py`에 명시된 국소 섭동을 사용한다. 초기값 민감도를 살피는
 절차이며 전역 최적해를 입증하지 않는다. 모든 시도의 전체 초기값·결과 벡터,
 상태·메시지·χ²를 `multistart`에 기록하고, 수렴한 시도 중 최저 χ²를
-`selected=true`로 표시한다. 전부 실패하면 CLI는 실패 종료하고
+`selected=true`로 표시한다. 위 예제는 기본 1회, 명시적 초기값 1회, 난수
+초기값 2회로 총 4회 시도한다. 수렴 상태가 서로 다를 수 있어 각 기록을 확인한다.
+전부 실패하면 CLI는 실패 종료하고
 `success=false`인 `_result.json`에 시도와 실행 이력을 보존한다.
 재시도에는 새 출력 접두사를 사용한다. 잘못된 설정은 fitting 시도로 취급하지 않고 거부한다.
 
@@ -544,12 +563,18 @@ null χ²를 남긴다. `profiles`에는 기준 χ², 각 결과 벡터, nuisanc
 사용하는 모델 내 likelihood 진단이며 실험 검증이나 고정 입력의 불확도는
 포함하지 않는다. Bootstrap은 제공하지 않는다.
 
+최상위 `success`는 선택된 fitting의 성공 여부이며 모든 scan 점의 성공을
+뜻하지 않는다. `profiles.<name>`의 각 항목에 있는 `success`, `message`와
+profile 경고를 읽는다. Multistart 벡터의 순서는 `parameter_order`, profile
+벡터의 순서는 `profiles.parameter_names`에 기록된다.
+
 임의의 `init.vary` 부분집합·순서에도 묶음 수치미분을 사용하며 bounds에서는
 가능한 안쪽 방향으로 미분한다. 벤치마크는 Sideband·ONEST config를 모두 받아
 단일 fitting 시간을 측정한다(선택적 추가 분석은 실행하지 않는다).
 
 ```bash
 .venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json
+mkdir -p session_artifacts
 .venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json profile \
   --profile-output session_artifacts/sideband_01.prof
 ```
@@ -557,6 +582,9 @@ null χ²를 남긴다. `profiles`에는 기준 χ², 각 결과 벡터, nuisanc
 상위 폴더를 먼저 만든다. 기존 profile 파일은 덮어쓰지 않는다. 예전의
 `config.json profile` 형식도 유지하며 경로가 비어 있을 때
 `benchmark_profile.prof`를 저장한다. Python `pstats`로 읽을 수 있다.
+벤치마크는 일반 fitting의 JSON/CSV/PDF를 생성하거나 덮어쓰지 않는다.
+Profiling 시간에는 profiler와 보고 출력의 비용이 포함되므로 일반 fitting
+시간과 직접 비교하지 않는다.
 
 ## 9. 실험 fitting 순서와 모델 한계
 
@@ -609,6 +637,10 @@ CSA–DD cross-correlation, 시간에 따른 RF drift는 포함하지 않는다.
 | 초기값이 bounds 밖 | 헤더의 `dw`/R2와 명시적 초기값이 모든 제한 안에 있는지 확인 |
 | 최대 평가 횟수 초과 | 단위, 초기값, 식별성을 먼저 확인한 뒤 필요할 때 `init.max_nfev` 조정 |
 | Rank 경고 또는 `stderr: null` | Correlation과 sampling을 살펴 불필요한 자유 파라미터를 줄이거나 정보가 있는 데이터 추가 |
+| `No multistart attempt converged` | 실패 결과 JSON의 상태·메시지를 확인한 뒤 타당한 초기값·bounds와 새 접두사로 재시도 |
+| Profile Δχ²가 음수 | Scan이 기준 해를 개선함. 해당 벡터를 확인하고 새 출력 접두사로 그 해에서 다시 fitting |
+| `derived_se`, `covariance`, `provenance` 없음 | 이전 보존 결과인지 확인. 원본을 유지하고 현재 코드로 새 fitting 수행 |
+| `Profile already exists` | 기존 측정은 보존하고 새 `--profile-output` 파일명 지정 |
 | 실행이 오래 걸림 | 수치 라이브러리 thread를 1로 유지하고 `--no-pdf` 사용. 0이 아닌 `v1err`는 RF 평균화 비용 추가 |
 
 프로젝트 폴더에서 수치 회귀 검증을 다시 실행할 수 있다.

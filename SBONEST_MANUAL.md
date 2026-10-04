@@ -1,9 +1,10 @@
 # SBONEST fitting manual
 
-[한국어](SBONEST_MANUAL.ko.md) · [README](README.md) · [Technical notes](SIDEBAND.md)
+[한국어](SBONEST_MANUAL.ko.md) · [Step-by-step dummy guide](DUMMY_GUIDE.md) ·
+[README](README.md) · [Technical notes](SIDEBAND.md)
 
 This manual covers the command-line `Sideband` model in this checkout, checked on
-2026-10-03. It fits two-state ¹⁵N CEST profiles, including ¹H decoupling sidebands,
+2026-10-04. It fits two-state ¹⁵N CEST profiles, including ¹H decoupling sidebands,
 using NH spin operators from OC. The main example uses repeated
 90°x–240°y–90°x decoupling and a complete 30 ppm offset window at 1.2 GHz.
 All supplied demonstration data are **synthetic**, not experimental measurements.
@@ -19,6 +20,10 @@ The inherited [ONEST manual](MANUAL.md) describes other models. Its web interfac
 ## 1. Environment and first fit
 
 Use Python 3.12 (the CI target). Install the dependencies in a new checkout:
+
+For a first run with input copies, automatically fresh output paths, and result
+checks, use the [dummy-data guide](DUMMY_GUIDE.md). The shorter commands below
+use the example's fixed output prefix and are intended for its first execution.
 
 ```bash
 git clone https://github.com/Gohyang-Matzip/sbonest.git
@@ -55,8 +60,12 @@ full Jacobian rank does not imply precise H-rate estimates. Reproducing this
 example checks execution, not an experimental sample.
 
 The output prefix is `results/auto_H_two_RF`; see section 8 for its files.
-To rerun, change `Project Name` in a copy of the JSON to a new prefix. Existing
-outputs are protected. For 25/50/100 Hz, run
+To rerun, change `Project Name` in a copy of the JSON to a new prefix. If the copy
+is moved to another folder, also rebase dataset/waveform paths or copy those inputs
+with it; these paths resolve from the JSON directory. Relative output prefixes
+resolve from the working directory. The dummy guide's step 2 handles input copies
+and a fresh absolute output prefix for the bundled example. Existing outputs are
+protected. For 25/50/100 Hz, run
 `example/sideband_auto_H/three_RF.json` instead (1323 observations, 24 parameters).
 
 The older single-peak, fixed-H example remains in
@@ -477,7 +486,9 @@ After running section 1, inspect the result from the project directory:
 import json
 from pathlib import Path
 r = json.loads(Path("results/auto_H_two_RF_result.json").read_text())
-print("kex:", r["kex"], "pB:", r["pB"])
+assert r["success"], r.get("message")
+print("kex (s^-1):", r["kex"], "SE:", r["derived_se"]["kex"])
+print("pB (fraction):", r["pB"], "SE:", r["derived_se"]["pB"])
 print("actual RF (Hz):", r["v1n_hz"])
 print("reduced chi2:", r["chi2"] / r["dof"])
 print("rank:", r["jacobian_rank"], "of", r["n_parameters"])
@@ -502,9 +513,13 @@ errors as absolute σ. It is **not rescaled by reduced χ²**. Rank-deficient fi
 report `null` errors for free parameters. A fixed parameter has `vary=false`
 and `stderr=0`; this expresses an assumption, not experimental precision.
 These errors exclude uncertainty in fixed proton inputs and model mismatch.
-The JSON exports `covariance` in `parameter_order` and `derived_se.kex` /
-`derived_se.pB`, including the covariance between `kab` and `kba`. Unavailable
+The JSON exports `covariance` with rows and columns ordered by `parameter_order`.
+`derived_se.kex` and `derived_se.pB` include the covariance between `kab` and `kba`. Unavailable
 entries/errors are `null`. `schema_version=2` retains existing scalar fields.
+The order includes fixed parameters as well as free ones; `n_parameters` counts
+only free parameters. `pB` and `derived_se.pB` are fractions: multiply both by 100
+to report population in percent and its SE in percentage points. Older archived
+results may lack the new fields; preserve them and run a fresh fit if needed.
 `provenance` snapshots input, waveform and executed-source SHA-256 hashes before
 fitting, a canonical config hash, Python/package versions, platform, thread
 settings, Git state and elapsed seconds. Hashes do not replace preserved inputs.
@@ -513,7 +528,10 @@ Optional profile likelihood is described below; bootstrap is not implemented.
 
 ## 8.1. Restarts, profile likelihood and performance checks
 
-These optional settings belong inside `init`; omitting them retains a single fit:
+These optional settings belong inside `init`; omitting them retains a single fit.
+The following is a fragment to merge into the existing `init`, not a standalone
+configuration. [Dummy-guide step 6](DUMMY_GUIDE.md#6-optional-try-another-start-and-scan-kex)
+creates and runs a complete configuration without hand-editing JSON.
 
 ```json
 "multistart": {
@@ -536,6 +554,8 @@ one-sided/unbounded parameters use local perturbations described in `sb_analysis
 This explores starting-point sensitivity and does not prove a global optimum.
 Every attempt's full start, fitted vector, status, message and chi2 is retained in
 `multistart`; `selected=true` marks the lowest chi2 among converged attempts.
+The example fragment requests four attempts: one initial, one explicit and two
+random. They can have different convergence statuses; inspect every record.
 If all attempts fail, the CLI exits nonzero and preserves their records and
 provenance in `_result.json`, with `success=false`; choose a new output prefix
 before retrying. Invalid settings are rejected rather than treated as fit attempts.
@@ -554,12 +574,18 @@ boundaries, weak identifiability, grid extent and model adequacy require assessm
 These are within-model absolute-sigma likelihood diagnostics, not experimental
 validation or uncertainty in fixed inputs. Bootstrap is not implemented.
 
+The top-level `success` describes the selected fit, not every requested scan
+point. Read each `profiles.<name>` entry's `success` and `message`, and the
+profile warnings, before interpreting the scan. `parameter_order` indexes
+multistart vectors; `profiles.parameter_names` indexes profile vectors.
+
 Grouped finite differences also apply to arbitrary `init.vary` subsets and orders,
 with feasible inward steps at bounds. The benchmark now accepts both Sideband and
 ONEST configs and times a single fit (optional analysis settings are not run):
 
 ```bash
 .venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json
+mkdir -p session_artifacts
 .venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json profile \
   --profile-output session_artifacts/sideband_01.prof
 ```
@@ -567,6 +593,9 @@ ONEST configs and times a single fit (optional analysis settings are not run):
 Create the parent directory first. Existing profile files are protected. The
 historical `config.json profile` form still writes `benchmark_profile.prof` when
 that path is unused. Profiles can be inspected with Python's `pstats` module.
+Benchmarking does not write the usual fit JSON/CSV/PDF files or overwrite them.
+The reported profiled timing includes profiler/reporting overhead and is not
+directly comparable with an uninstrumented fit.
 
 ## 9. Experimental fitting workflow and limits
 
@@ -619,6 +648,10 @@ the decoupling model must be tested with the planned experiment.
 | Initial values outside bounds | Check header `dw`/R2 values and explicit overrides against all limits |
 | Maximum evaluations exceeded | Inspect units, starts, and identifiability first; then adjust `init.max_nfev` if justified |
 | Rank warning or `stderr: null` | Examine correlations and sampling; reduce unjustified free parameters or add informative data |
+| `No multistart attempt converged` | Inspect statuses/messages in the failure result JSON, then retry with a fresh prefix and justified starts/bounds |
+| Negative profile Δχ² | The scan improved on the baseline; examine its vector and refit from that solution with a fresh output prefix |
+| Missing `derived_se`, `covariance` or `provenance` | Check whether this is an older archived result; preserve it and produce a new fit with current code |
+| `Profile already exists` | Choose a fresh `--profile-output` filename; do not remove earlier measurements |
 | Long runtime | Keep numerical-library threads at one; use `--no-pdf`; nonzero `v1err` adds RF averaging work |
 
 The numerical regression checks can be rerun from the project directory:

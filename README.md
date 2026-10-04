@@ -14,6 +14,10 @@ states A/B for the same peak. Current automatic mode supports one proton field.
 [Model and configuration](SIDEBAND.md) · [Contributor guide](AGENTS.md) ·
 [Development handoff](HANDOFF.md)
 
+**First time here?** Follow the [step-by-step dummy-data guide](DUMMY_GUIDE.md)
+or [한국어 따라하기](DUMMY_GUIDE.ko.md): install, copy synthetic inputs into a
+fresh folder, fit, inspect PDFs/CSV/uncertainty, and try optional restarts and scans.
+
 ## Install and run
 
 Python 3.12 is the CI target. From a new checkout:
@@ -73,8 +77,8 @@ Read `warnings`, `at_bounds`, `jacobian_rank`, `scaled_condition`,
 `v1n_correlations`, and proton diagnostics in the result JSON. A converged fit
 does not establish that every parameter is identifiable. Local standard errors
 use the supplied absolute intensity errors and are not scaled by reduced χ².
-The JSON includes the full covariance in `parameter_order`, correlated-rate
-`derived_se` for kex/pB, and calculation-time input/source hashes and environment
+The JSON includes the full `covariance` matrix ordered by `parameter_order`,
+`derived_se` for kex/pB accounting for rate covariance, and calculation-time input/source hashes and environment
 versions in `provenance`. The CSV preserves full precision; the fit PDF includes
 standardized residuals. Optional `init.multistart` and `init.profile` provide
 reproducible restarts and constrained nuisance refits; see section 8.1 of either manual.
