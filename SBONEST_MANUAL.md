@@ -918,8 +918,16 @@ and a model that describes the data. After each fit the result JSON contains
 - Per residue, per dataset and per residue/dataset block: point counts and reduced
   chi-square; per block, a Wald–Wolfowitz runs test on the residual signs ordered by
   offset, the lag-1 autocorrelation with its `2/sqrt(n)` flag level and the largest
-  standardized residual. Systematic sign runs or autocorrelation warn about model
-  inadequacy, not about sigma.
+  standardized residual. Sign structure or autocorrelation calls for inspection
+  of the model, noise and acquisition; neither establishes a cause.
+  `runs_direction` is `alternating` for positive runs z, `clustered` for negative z,
+  `balanced` for zero z, and `unavailable` for null z. Independently,
+  `correlation_direction` is `positive`, `negative`, `zero`, or `unavailable`
+  according to lag-1 correlation. Direction alone is not a significance test:
+  the two-sided runs p-value and the absolute-correlation threshold are unchanged.
+  Alternation and clustering can both trigger warnings. `overall_runs_test`
+  is descriptive because concatenated block boundaries are artificial; inspect
+  the offset-sorted per-block statistics.
 - Outlier counts beyond 3 sigma against the Gaussian expectation.
 - `rescaled_stderr` and, per varied parameter, `stderr_rescaled`: the local
   standard errors multiplied by `sqrt(chi2/dof)`. This is the conventional
@@ -1097,13 +1105,33 @@ synthetic linear three-state truth.
 
 ## 13. Installing the `sbonest` command
 
-The repository is also an installable package. In a Python 3.12 environment:
+The repository is also an installable package. Install noneditably from the
+checkout in a Python 3.12 environment (`-e .` remains available for development):
 
 ```bash
-python -m pip install -e . -c constraints-sideband.txt
+python -m pip install . -c constraints-sideband.txt
 sbonest --help
 sbonest version
 ```
+
+Wheel and source-distribution installs include the synthetic two-RF demo and
+runtime diagnostics. No checkout or `example/` directory is needed afterward.
+In a writable working directory, with the numerical thread settings from section 1
+and a new `demo` directory name, run:
+
+```bash
+sbonest init-demo --out demo
+sbonest check demo/fit.json --no-pdf
+sbonest fit demo/fit.json --no-pdf --workers 1
+sbonest resume demo/fit.json --no-pdf --workers 1
+sbonest report demo/fit_result.json --out demo/report
+```
+
+`init-demo` copies the bundled inputs into `demo/data/`, writes `demo/fit.json`
+with relative dataset paths and an absolute output prefix, and rejects an existing
+destination. A second ordinary fit also rejects existing outputs; use resume only
+with matching configuration, inputs, source/dependency identity, thread settings
+and PDF mode (section 8.3). `version` reads source hashes without loading a dataset.
 
 The console command groups every tool: `sbonest check CONFIG [--identifiability]`,
 `sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
@@ -1116,6 +1144,14 @@ command calls the same functions as the scripts (`run.py`, `sb_workflow.py`, …
 so outputs, checkpoints and provenance are identical; the scripts remain usable
 from a plain checkout without installation. The modules stay flat at the
 repository root, which keeps the source hashes in `provenance` meaningful.
+
+Installed `compare` accepts the script's `--models` and `--h-ppm-c` options.
+With `--models Sideband Sideband_3st_Linear`, supply a two-state `Sideband`
+configuration; three-state configurations are derived from it. `--h-ppm-c A1=7.1`
+supplies state C's proton shift for A1 (otherwise its state-B shift is used).
+Without `--models`, comparison remains shared versus per-residue exchange.
+The same `--workers N` and `--pdf` controls apply. Model comparisons remain
+within-model statements under the supplied absolute sigma, not experimental validation.
 
 ## 14. Importing Bruker pseudo-2D data
 
@@ -1179,6 +1215,19 @@ except the page itself; the page asks for it and sends it as the
 `X-SBONEST-Token` header (or `?token=` for downloads). Without a token the
 runner is meant for a trusted local network only.
 
+The installed command accepts the same token and archive options, for example:
+
+```bash
+sbonest serve --host 127.0.0.1 --port 5057 --token qa-token --max-age-days 30
+```
+
+Use your own access token instead of this demonstration value. Archive age must
+be positive. Fit, resume, report and archive errors are displayed separately from
+the job log and remain visible across status refreshes. Failed archive preserves
+the selected job and its controls; stale status responses cannot restore an
+archived selection. Authentication, network and invalid-response errors are
+shown rather than treated as success. PNG previews work with and without a token.
+
 ## 16. Module layout and API reference
 
 `sbfit.py` holds the model (`SidebandModel`, configuration validation);
@@ -1186,7 +1235,7 @@ runner is meant for a trusted local network only.
 line shared by `run.py` and `sbfit.py`), and both names remain importable from
 `sbfit`. `docs/API_REFERENCE.md` lists every public function and class of the
 Sideband modules with its signature and first docstring line; regenerate it with
-`python generate_api_reference.py` after changing a public signature (CI runs
+`python generate_api_reference.py` after changing a public signature or docstring (CI runs
 `--check`).
 
 Implementation references: [sbfit.py](sbfit.py), [sideband.py](sideband.py),

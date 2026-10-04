@@ -2,6 +2,19 @@
 
 All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia/Seoul.
 
+## Unreleased
+
+- Package runtime diagnostics and portable synthetic two-RF demo resources in
+  wheel and source distributions; version reporting no longer loads demo data.
+- Align installed `compare --models/--h-ppm-c` and `serve --token/--max-age-days`
+  with their script entry points.
+- Keep browser action failures visible, preserve selection after failed archive,
+  ignore obsolete job-status responses, and support previews with or without tokens.
+- Add independent runs and correlation direction labels without changing the
+  two-sided tests, thresholds, default absolute-sigma errors or numerical model.
+  Residual warnings call for inspection of model, noise and acquisition rather
+  than identifying a cause; concatenated overall runs are descriptive.
+
 ## 1.2.0 — 2026-10-04
 
 - Worker pool pre-warms every process and predicts data blocks in parallel for the
