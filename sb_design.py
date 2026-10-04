@@ -163,6 +163,11 @@ def evaluate_scenario(design, scenario, folder, *, workers=1):
     config = copy.deepcopy(design['config'])
     truth = design['truth']
     folder.mkdir(parents=True, exist_ok=False)
+    # Synthetic inputs contain the active residues only; inactive entries would
+    # otherwise be reported as missing from the data.
+    config['residues'] = [entry for entry in config['residues'] if entry.get('flag') == 'on']
+    if not config['residues']:
+        raise ValueError('Design needs at least one active residue in the base configuration')
     datasets, specs = [], []
     for i, ds in enumerate(scenario['datasets']):
         path = folder / f'data_{i}.txt'

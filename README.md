@@ -160,9 +160,25 @@ Copy a portable example configuration and replace the data, residue labels,
 proton shifts, and measured pulse conditions. The manuals cover the complete
 format, bounds, parameter sharing, normalization, and RF calibration choices.
 
-The supported Sideband workflow is `run.py` with `init.Method = "Sideband"`.
-The inherited web interface, `prepare.py`, and `mcrun.py` are for ONEST models;
-they are not the supported Sideband fitting or uncertainty workflow.
+The supported Sideband workflow is `run.py` (or the installed `sbonest`
+command) with a Sideband `init.Method`. Bruker processed pseudo-2D data can be
+converted with `sb_import.py` (explicit offsets, peaks, reference row and noise
+region; manual section 14), and `sb_server.py` provides a browser runner for
+Sideband jobs with background fits, resume and reports (manual section 15).
+The inherited ONEST web interface (`server_run.py`), `prepare.py` and `mcrun.py`
+are for ONEST models.
+
+To install the command line into an environment:
+
+```bash
+python -m pip install -e . -c constraints-sideband.txt
+sbonest version
+sbonest check example/sideband_auto_H/two_RF.json --identifiability
+```
+
+`sbonest check|fit|resume|report|init-demo|design|compare|import-bruker|serve|benchmark|version`
+call the same functions as the scripts, so outputs and provenance are identical
+(manual section 13). The scripts keep working from a plain checkout.
 
 Exact pulse-segment propagation is used, but the model has one N/H pair per
 state and phenomenological relaxation. Automatic proton relaxation does not
@@ -193,6 +209,9 @@ After setting the thread variables above:
 .venv/bin/python test_sb_design.py
 .venv/bin/python test_sb_compare.py
 .venv/bin/python test_sb_models.py
+.venv/bin/python test_sb_import.py
+.venv/bin/python test_sb_server.py
+.venv/bin/python test_sb_cli.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 

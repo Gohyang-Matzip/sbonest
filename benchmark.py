@@ -50,7 +50,7 @@ def run_benchmark(config_path, profile=False, profile_output=None):
     print(f"Fit completed in {end_time - start_time:.4f} seconds.")
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Benchmark a Sideband or ONEST fit.")
     parser.add_argument("config_file")
     parser.add_argument("mode", nargs="?", choices=["profile"])
@@ -58,8 +58,12 @@ if __name__ == "__main__":
         "--profile-output",
         help="Enable profiling and save to this new file (default: benchmark_profile.prof).",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         run_benchmark(args.config_file, args.mode == "profile", args.profile_output)
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
         parser.exit(1, f"Error: {exc}\n")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sbonest"
+version = "1.1.0"
+description = "Exact NH sideband CEST fitting with checkpoints, uncertainty analysis and design tools"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+requires-python = ">=3.12"
+authors = [{name = "Donghan Lee"}]
+dependencies = [
+  "numpy",
+  "scipy>=1.9",
+  "matplotlib",
+  "flask",
+  "werkzeug",
+  "optimalcontrol-nmr>=0.5.0",
+]
+
+[project.scripts]
+sbonest = "sb_cli:main"
+
+[project.urls]
+Repository = "https://github.com/Gohyang-Matzip/sbonest"
+
+[tool.setuptools]
+py-modules = [
+  "benchmark", "est_data", "estmodel", "fit", "mcrun", "prepare", "run", "server_run",
+  "sb_analysis", "sb_bootstrap", "sb_checkpoint", "sb_cli", "sb_compare", "sb_design",
+  "sb_import", "sb_parallel", "sb_report", "sb_server", "sb_workflow", "sbfit", "sideband",
+  "validate_uncertainty",
+]
+include-package-data = false
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["F"]

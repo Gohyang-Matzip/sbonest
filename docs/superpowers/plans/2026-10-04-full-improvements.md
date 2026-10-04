@@ -65,14 +65,14 @@ otherwise, executable `test_*.py` regressions.
 
 ## PR 4 — `codex/packaging-import-web` (deployment)
 
-- [ ] `pyproject.toml` (flat modules), `sbonest` console entry point with
+- [x] `pyproject.toml` (flat modules), `sbonest` console entry point with
       `check/fit/resume/report/init-demo/design/compare/import-bruker/serve`.
-- [ ] `sb_import.py`: pure-NumPy Bruker pseudo-2D (`2rr`, `procs`, `proc2s`)
+- [x] `sb_import.py`: pure-NumPy Bruker pseudo-2D (`2rr`, `procs`, `proc2s`)
       reader → SBONEST text input with explicit offsets, peaks, reference row
       and noise region; synthetic Bruker fixture test.
-- [ ] `sb_server.py`: Flask Sideband UI (upload, check, fit with workers,
+- [x] `sb_server.py`: Flask Sideband UI (upload, check, fit with workers,
       progress from checkpoint records, result downloads); live HTTP test.
-- [ ] Tests, docs, HANDOFF.
+- [x] Tests, docs, HANDOFF.
 
 ## Constraints
 
@@ -83,6 +83,9 @@ otherwise, executable `test_*.py` regressions.
 - Label synthetic evidence; bootstrap/profile intervals remain conditional.
 
 ## Execution record
+
+- 2026-10-04: PR 4 worktree `session_artifacts/improve5_20261004/tree`, branch
+  `codex/packaging-import-web`, stacked on PR 3.
 
 - 2026-10-04: PR 3 worktree `session_artifacts/improve4_20261004/tree`, branch
   `codex/multifield-and-three-state`, stacked on PR 2 (`e73df58`).

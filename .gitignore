@@ -2,6 +2,9 @@
 __pycache__/
 .agent/
 JOB_FILES/
+SB_JOBS/
+*.egg-info/
+build/
 session_artifacts/
 .venv/
 .ruff_cache/

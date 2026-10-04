@@ -957,8 +957,65 @@ null이며 `exchange.kex_AB`/`kex_BC`가 쌍별 합을 준다. 3상태에는 교
 "sideband": {"residues": {"A1": {"h_ppm_a": 6.2, "h_ppm_b": 6.5, "h_ppm_c": 7.1}}, ...}
 ```
 
+## 13. `sbonest` 명령 설치
+
+저장소는 설치 가능한 패키지이기도 하다. Python 3.12 환경에서:
+
+```bash
+python -m pip install -e . -c constraints-sideband.txt
+sbonest --help
+sbonest version
+```
+
+콘솔 명령은 모든 도구를 묶는다. `sbonest check CONFIG [--identifiability]`,
+`sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
+`sbonest report RESULT_JSON --out PREFIX`, `sbonest init-demo --out DIR`,
+`sbonest design DESIGN_JSON --out DIR`, `sbonest compare CONFIG --out DIR`,
+`sbonest import-bruker ...`(14절), `sbonest serve`(15절),
+`sbonest benchmark CONFIG [profile]`, 그리고 패키지 버전과 provenance에 기록되는
+실행 소스 해시를 출력하는 `sbonest version`이다. 모든 명령은 스크립트(`run.py`,
+`sb_workflow.py` 등)와 같은 함수를 호출하므로 출력·checkpoint·provenance가
+동일하며, 설치 없이 checkout에서 스크립트를 그대로 써도 된다. 모듈은 저장소
+루트에 평평하게 유지되어 `provenance`의 소스 해시가 의미를 잃지 않는다.
+
+## 14. Bruker pseudo-2D 데이터 가져오기
+
+`python sb_import.py PDATA OFFSETS --out NEW_FILE --peak LABEL=ppm[:dw_ppm] ...`
+(또는 `sbonest import-bruker ...`)은 처리된 Bruker pseudo-2D CEST 실험을 SBONEST
+dataset 파일 하나로 변환한다. `PDATA`는 `procs`, `proc2s`, `2rr`가 있는 처리
+폴더(`.../pdata/1`)이며, 판독기는 NumPy만으로 submatrix 배치, 두 byte order,
+int32·float64 저장, `NC_proc` 스케일을 처리한다. 검출 차원은 양성자 축(`OFFSET`,
+`SW_p`, `SF`에서 ppm)이고 각 행은 하나의 saturation offset이다.
+
+필수 입력은 명시적이다. `OFFSETS`는 행마다 하나의 saturation offset(포화 핵의
+ppm, 또는 `--offset-unit hz --carrier-ppm X`와 함께 Hz)을 나열한다.
+`--peak A1=8.30:2.5`는 잔기의 양성자 위치와 선택적 시작 `dw`를 준다(반복 가능).
+`--reference-row K`는 세기를 정규화하고 출력에서 제외되는 기준 스펙트럼이고,
+`--noise-region LO HI`는 기준 행에서 표준편차를 구해 absolute error로 쓰는 신호
+없는 양성자 구간이며, `--saturation-s`와 `--v1-hz`가 헤더를 채운다.
+`--half-width`(ppm)와 `--mode max|sum`은 창 통계를, `--r2a`, `--r2b`는 헤더
+시작값을, `--exclude-row`는 추가 제외 행을 정하고, 포화 핵 자기장은 기본적으로
+`SF × γ(15N)/γ(1H)`이다(`--nucleus`, `--field-mhz`). 출력은 2절의 텍스트 형식이며
+JSON 요약이 출력된다. 위상·baseline 품질, peak 겹침, 기준 행 선택은 사용자의
+책임이므로 fitting 전에 변환된 profile을 확인한다.
+
+## 15. Sideband fitting 웹 실행기
+
+`python sb_server.py [--host 127.0.0.1 --port 5050]`(또는 `sbonest serve`)은
+터미널보다 브라우저를 선호하는 사용자를 위한 Flask 페이지를 띄운다. Sideband
+설정과 데이터 파일(선택적으로 OC waveform)을 올리면 작업이 만들어진다. 서버는
+`datasets`를 올린 파일 이름으로, 출력 접두사를 `fit`으로 바꾸고 모든 것을
+`SB_JOBS/<작업 id>/`(또는 `SBONEST_JOBS_DIR`)에 저장한 뒤 식별성 진단을 포함한
+사전 검사를 실행해 JSON을 보여 준다. 버튼으로 선택한 worker 수의 백그라운드
+`run.py` 프로세스로 fitting을 시작하고, checkpoint로 중단된 작업을 재개하며,
+보고서를 다시 만든다. 페이지는 작업 상태(프로세스 상태, checkpoint 기록, 결과
+요약, 로그 끝부분)를 주기적으로 조회하고 모든 출력의 다운로드 링크를 보여 준다.
+작업 폴더 안의 파일만 제공한다. 실행기는 신뢰할 수 있는 로컬 네트워크용이며
+인증이 없다.
+
 구현 근거: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
 [run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),
 [sb_checkpoint.py](sb_checkpoint.py), [sb_workflow.py](sb_workflow.py),
 [sb_report.py](sb_report.py), [sb_bootstrap.py](sb_bootstrap.py),
-[validate_uncertainty.py](validate_uncertainty.py).
+[sb_design.py](sb_design.py), [sb_compare.py](sb_compare.py), [sb_import.py](sb_import.py),
+[sb_server.py](sb_server.py), [sb_cli.py](sb_cli.py), [validate_uncertainty.py](validate_uncertainty.py).
