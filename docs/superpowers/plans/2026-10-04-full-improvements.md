@@ -40,17 +40,17 @@ otherwise, executable `test_*.py` regressions.
 
 ## PR 2 — `codex/design-intervals-comparison` (science tools)
 
-- [ ] `sb_design.py` + `sb_workflow.py design`: Fisher-information expected SE,
+- [x] `sb_design.py` + `sb_workflow.py design`: Fisher-information expected SE,
       correlations, rank/condition for scenario JSON (offset grids, RF levels,
       T, sigma) at supplied truth; JSON/TXT/PDF outputs; no optimization.
-- [ ] `init.profile_interval`: bracket + Brent root finding on the exact
+- [x] `init.profile_interval`: bracket + Brent root finding on the exact
       nuisance-refit profile for kex/pB/v1n_scale at a chi-square threshold;
       every evaluated point retained and checkpointed; warnings for bracket
       failure or a profile below the base minimum.
-- [ ] `sb_workflow.py compare`: global shared-exchange fit versus per-residue
+- [x] `sb_workflow.py compare`: global shared-exchange fit versus per-residue
       individual fits; chi2, AICc, BIC, nested F-test with caveats; parallel
       sub-fits through the pool.
-- [ ] Tests, docs, HANDOFF.
+- [x] Tests, docs, HANDOFF.
 
 ## PR 3 — `codex/multifield-and-three-state` (model extensions)
 
@@ -83,6 +83,9 @@ otherwise, executable `test_*.py` regressions.
 - Label synthetic evidence; bootstrap/profile intervals remain conditional.
 
 ## Execution record
+
+- 2026-10-04: PR 2 worktree `session_artifacts/improve3_20261004/tree`, branch
+  `codex/design-intervals-comparison`, stacked on PR 1 (`675109a`).
 
 - 2026-10-04: PR 1 worktree `session_artifacts/improve2_20261004/tree`, branch
   `codex/parallel-and-diagnostics`, base `791fb1dee0f1d8b2e1a0d34fd43b264044c18a73`.

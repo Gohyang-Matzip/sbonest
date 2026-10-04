@@ -250,6 +250,17 @@ coverage를 보장하지 않는다. 추가 설정과 합성 국소 SE coverage�
 실패 종료한다. 기록을 확인하고 설정을 수정한 뒤 새 접두사로 실행한다. 실패
 결과에는 보고서에 필요한 predictions CSV가 없다.
 
+같은 파일로 선택 도구 세 가지를 더 쓸 수 있다. 설정 사본의 `init`에
+`"profile_interval": {"parameters": ["kex"]}`를 추가하면 profile 위에서 kex의
+95% likelihood-ratio 구간을 찾는다(계산 한 번이 재fitting 한 번이므로
+`--workers`가 도움이 된다). 측정 전에 offset 수나 RF 세기 수가 얼마나
+필요한지 보려면 매뉴얼 8.6절처럼 설계 파일을 쓰고
+`sb_workflow.py design DESIGN_JSON --out NEW_DIR`을 실행한다. fitting 없이
+시나리오별 기대 표준오차를 보고한다. 세 peak가 하나의 교환 과정을 공유하는지
+보려면 `sb_workflow.py compare "$SBONEST_DEMO_DIR/fit.json" --out "$SBONEST_DEMO_DIR/compare_01"`을
+실행한다. 공유 모델과 peak별 모델을 fitting해 AICc와 F-검정으로 비교하며
+(매뉴얼 8.7절) 전체 fitting이 여러 번 실행된다.
+
 ## 7. 선택: 단일 fitting의 실행 비용 측정하기
 
 ```bash

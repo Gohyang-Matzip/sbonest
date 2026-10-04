@@ -739,6 +739,104 @@ remaining-time estimate are printed for restarts, profile points and bootstrap
 replicates. After Ctrl-C, workers finish their current item before exiting;
 completed items are already in the checkpoint.
 
+## 8.5. Likelihood-ratio intervals from the profile
+
+`init.profile` (section 8.1) evaluates a fixed grid. `init.profile_interval`
+instead searches for the two points where the exact nuisance-refit profile
+crosses a chi-square threshold, which gives a within-model confidence interval
+without assuming a quadratic likelihood:
+
+```json
+"profile_interval": {
+  "parameters": ["kex", "pB"],
+  "confidence": 0.95,
+  "max_evaluations": 40,
+  "relative_tolerance": 0.001,
+  "max_doublings": 8
+}
+```
+
+`parameters` accepts `kex`, `pB` and, in scale RF mode, `v1n_scale`. The threshold
+is the chi-square quantile with one degree of freedom (3.84 for 95%). Starting
+from the fitted value, each side is bracketed outward in doubling steps from
+`z × local SE` (10% of the estimate when no finite local error exists), then
+Brent's method locates the crossing to `relative_tolerance × |estimate|`. Every
+evaluated profile point is retained in evaluation order, both in the result
+under `profile_intervals.<name>.points` and in the checkpoint as
+`profile_interval-<name>-N` records, so `--resume` replays the search without
+refitting. If the profile stays below the threshold up to a parameter bound or
+within `max_doublings`, the interval is reported as open on that side with a
+message instead of a number; a profile point below the base chi2 marks the base
+fit as not optimal and the interval as unreliable. A failed nuisance refit is
+recorded in `message` and the remaining parameters still run. Each evaluation is
+one constrained refit (about 10–17 s for the bundled example serially; use
+`--workers` to parallelize its Jacobian columns). The report lists the interval,
+all evaluated points and a plot of the evaluated profile with the threshold.
+These intervals are conditional on the model, the fixed inputs and the supplied
+absolute sigma; they do not guarantee a global optimum.
+
+## 8.6. Experimental design: expected errors before measuring
+
+`python sb_workflow.py design DESIGN_JSON --out NEW_DIRECTORY [--workers N]`
+evaluates how well a planned acquisition would determine the parameters, using
+only the model and the local Fisher information at a known truth. No optimizer
+runs. A design file names a base configuration (its decoupling, residues, RF
+and proton settings, bounds and `vary` are reused), a truth and scenarios:
+
+```json
+{
+  "config": "fit.json",
+  "truth_result": "results/auto_H_two_RF_result.json",
+  "scenarios": [
+    {"name": "two_rf_147", "datasets": [
+      {"v1n_hz": 25, "T": 0.4, "sigma": 0.01, "offsets_ppm": {"min": 105, "max": 135, "n": 147}},
+      {"v1n_hz": 100, "T": 0.4, "sigma": 0.01, "offsets_ppm": {"min": 105, "max": 135, "n": 147}}]},
+    {"name": "three_rf_60", "datasets": [
+      {"v1n_hz": 25, "T": 0.4, "sigma": 0.01, "offsets_rel_ppm": {"min": -15, "max": 15, "n": 60}},
+      {"v1n_hz": 50, "T": 0.4, "sigma": 0.01, "offsets_rel_ppm": {"min": -15, "max": 15, "n": 60}},
+      {"v1n_hz": 100, "T": 0.4, "sigma": 0.01, "offsets_rel_ppm": {"min": -15, "max": 15, "n": 60}}]}
+  ]
+}
+```
+
+`truth` maps every model parameter name to a value, or `truth_result` points to
+a saved result JSON whose fitted values are used as the truth (a fitted estimate
+is a planning assumption, not independent knowledge). Each scenario dataset
+gives the nitrogen RF amplitude, saturation time, absolute sigma and an offset
+grid, either absolute (`offsets_ppm`) or relative to each residue's `peak_ppm`
+(`offsets_rel_ppm`); `v1err_hz`, `field_mhz` and a `decoupling` override are
+optional. For every scenario the command writes complete noise-free synthetic
+inputs and `design_config.json` under `scenarios/<name>/`, evaluates the grouped
+Jacobian at the truth and reports, in `design.json`, `design.txt` and
+`design.pdf`, the point count, the acquisition proxy Σ(points × T), rank and
+condition, the expected standard error and relative error of every free
+parameter, the derived kex/pB errors, weakly determined parameters and strong
+correlations. Expected errors scale exactly with sigma and are local linear
+values at the truth; they rank designs under the model and do not validate a
+sample. For the bundled example at sigma 0.01, two RF levels with 147 offsets
+give an expected kex error of 6.7 s⁻¹, 60 offsets per level 10.8 s⁻¹ at 41% of
+the saturation time, and a single 100 Hz level 116 s⁻¹.
+
+## 8.7. Shared versus per-residue exchange
+
+`python sb_workflow.py compare CONFIG --out NEW_DIRECTORY [--workers N] [--pdf]`
+fits the configured model twice: once as configured with kab/kba (and the RF
+scale) shared by all active residues (global), and once per residue with every
+other residue switched off (individual). Per-residue `initial`, `bounds`,
+`vary` and multistart starts are kept for the fitted residue only; profile,
+bootstrap and interval analyses are not repeated. Each sub-fit runs through the
+normal checkpointed path under `global/` and `individual/<residue>/`.
+`comparison.json`, `comparison.txt` and `comparison.pdf` list chi2, parameter
+counts, kex and pB with local errors for every model, the summed individual
+chi2, AICc and BIC for both descriptions (Gaussian with the supplied absolute
+sigma, up to a common constant), the preferred description by AICc and the
+nested F-test of the shared model against the per-residue model. A failed
+sub-fit is reported and the comparison is left empty. The statistics compare
+descriptions under the supplied sigma and fixed inputs; a preference for shared
+rates is consistent with one exchange process but does not prove it, and a
+preference for individual rates can also reflect model mismatch or
+miscalibrated errors.
+
 ## 9. Experimental fitting workflow and limits
 
 1. Record field frequencies, carrier, pulse phases and timing, calibrated ¹H

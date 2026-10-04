@@ -239,6 +239,13 @@ restart, profile 점, bootstrap replicate를 병렬 계산한다. 직렬 실행�
 초기값에서 Jacobian 기반 식별성 진단(rank, 조건수, 기대 표준오차, 약한
 파라미터, 강한 상관)을 보고한다.
 
+`init.profile_interval`은 정확한 nuisance 재fitting profile에서 chi-square
+임계값 교차점을 찾아 kex·pB·RF scale의 likelihood-ratio 구간을 주며, 계산한
+모든 점을 보존하고 재개할 수 있다. `sb_workflow.py design`은 알려진 참값에서
+계획한 측정(offset 격자, RF 세기, T, sigma)의 기대 표준오차·rank·상관을 fitting
+없이 계산하고, `sb_workflow.py compare`는 공유 교환 모델과 잔기별 모델을
+fitting해 chi2·AICc·BIC·중첩 F-검정으로 비교한다(매뉴얼 8.5–8.7절).
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

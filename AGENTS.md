@@ -38,6 +38,9 @@ python test_sb_bootstrap.py
 python test_sb_workflow.py
 python test_uncertainty_validation.py
 python test_sb_parallel.py
+python test_profile_interval.py
+python test_sb_design.py
+python test_sb_compare.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
@@ -64,6 +67,11 @@ same configuration, inputs, source/dependency identity, thread settings and PDF
 mode; preserve checkpoints and do not manually edit their records. The synthetic
 coverage runner `validate_uncertainty.py` is an optional study, separate from CI's
 small executable coverage checks.
+`init.profile_interval` (root finding on the exact profile; `sb_analysis.profile_intervals`),
+`sb_workflow.py design` (`sb_design.py`, Fisher-information expected errors, no fitting)
+and `sb_workflow.py compare` (`sb_compare.py`, global versus per-residue fits with
+AICc/BIC/F-test) are documented in manual sections 8.5–8.7; keep their statistics
+labeled as within-model statements under the supplied absolute sigma.
 
 ## Coding Style & Naming Conventions
 

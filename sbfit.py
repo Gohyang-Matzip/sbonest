@@ -22,7 +22,7 @@ from sideband import composite_segments, profile, waveform_segments
 from sb_report import derived_errors, fit_pdf, prediction_rows, provenance, write_predictions
 from sb_analysis import (
     MultiStartError, _multistart_settings, _number, _profile_settings,
-    fit_multistart, profile_likelihood, snapshot_fit, restore_fit, _json_safe,
+    fit_multistart, profile_likelihood, profile_intervals, snapshot_fit, restore_fit, _json_safe,
 )
 
 
@@ -34,7 +34,7 @@ def _known(config, keys, label):
 def _validate_fit_config(model, cfg):
     """Validate settings before the initial grid or an optimizer can run."""
     _known(cfg, ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev",
-                 "multistart", "profile", "bootstrap"), "init")
+                 "multistart", "profile", "bootstrap", "profile_interval"), "init")
     model.selMethod(cfg)
     for name in ("kex", "pB"):
         if name not in cfg:
@@ -81,6 +81,10 @@ def _validate_fit_config(model, cfg):
         _multistart_settings(model, cfg["multistart"])
     if "profile" in cfg:
         _profile_settings(cfg["profile"], model.parameter_names)
+    if "profile_interval" in cfg:
+        from sb_analysis import _interval_settings
+
+        _interval_settings(cfg["profile_interval"], model.parameter_names)
     if "bootstrap" in cfg:
         from sb_bootstrap import validate_bootstrap
 
@@ -749,7 +753,7 @@ def check_config(config, config_dir=".", *, no_pdf=False, identifiability=False,
             free_parameters=list(vary),
             fixed_parameters=[name for name in model.parameter_names if name not in vary],
             rf_mode=model.rf_mode, proton_relaxation_mode=model.proton_mode,
-            analyses=[name for name in ("multistart", "profile", "bootstrap")
+            analyses=[name for name in ("multistart", "profile", "profile_interval", "bootstrap")
                       if name in config["init"]],
         )
         initial = model.prepare_fit()
@@ -894,6 +898,19 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False, workers=1)
                                                   completed=existing, on_complete=save_point,
                                                   pool=pool)
             info["warnings"].extend(info["profiles"]["warnings"])
+        if "profile_interval" in config["init"]:
+            names = config["init"]["profile_interval"]["parameters"]
+            existing = {name: completed(f"profile_interval-{name}") for name in names}
+            counts = {name: len(rows) for name, rows in existing.items()}
+
+            def save_interval_point(name, row):
+                journal.save(f"profile_interval-{name}-{counts[name]}", row)
+                counts[name] += 1
+
+            info["profile_intervals"] = profile_intervals(
+                model, fitted[0], fitted[1], config["init"]["profile_interval"],
+                completed=existing, on_complete=save_interval_point, pool=pool)
+            info["warnings"].extend(info["profile_intervals"]["warnings"])
         if "bootstrap" in config["init"]:
             info["bootstrap"] = bootstrap_fit(
                 model, fitted[0], config["init"]["bootstrap"], completed=completed("bootstrap"),

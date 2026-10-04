@@ -276,6 +276,34 @@ def _validate_analyses(info):
                         raise ValueError(f'Inconsistent profile delta chi2 for {name}')
                 elif row.get('chi2') is not None or row.get('delta_chi2') is not None:
                     raise ValueError(f'Failed profile point {name} must have null chi2/delta')
+    intervals = info.get('profile_intervals', {})
+    if not isinstance(intervals, dict):
+        raise ValueError('Invalid saved profile intervals')
+    if intervals:
+        base = _finite(intervals.get('base_chi2'), 'Profile interval base chi2', nonnegative=True)
+        if not np.isclose(base, info['chi2'], rtol=1e-9, atol=1e-9):
+            raise ValueError('Profile interval baseline differs from saved fit')
+        threshold = _finite(intervals.get('threshold_delta_chi2'), 'Profile interval threshold', nonnegative=True)
+        for name, result in intervals.items():
+            if name in ('confidence', 'threshold_delta_chi2', 'warnings', 'parameter_names', 'interpretation', 'base_chi2'):
+                continue
+            if not isinstance(result, dict) or not isinstance(result.get('success'), bool) or not isinstance(result.get('points'), list):
+                raise ValueError(f'Invalid profile interval {name}')
+            _finite(result.get('estimate'), f'{name} interval estimate')
+            for side in ('lower', 'upper'):
+                if result.get(side) is not None:
+                    _finite(result[side], f'{name} interval {side}')
+            if result['success'] and not (result['lower'] < result['estimate'] < result['upper']):
+                raise ValueError(f'Profile interval {name} does not enclose its estimate')
+            for row in result['points']:
+                if not isinstance(row, dict) or not isinstance(row.get('success'), bool):
+                    raise ValueError(f'Invalid profile interval point {name}')
+                _finite(row.get('target'), f'{name} interval target')
+                if row['success']:
+                    value = _finite(row.get('chi2'), f'{name} interval chi2', nonnegative=True)
+                    if not np.isclose(value - base, _finite(row.get('delta_chi2'), f'{name} interval delta'), rtol=1e-9, atol=1e-9):
+                        raise ValueError(f'Inconsistent profile interval delta chi2 for {name}')
+        del threshold
     bootstrap = info.get('bootstrap', {})
     if not isinstance(bootstrap, dict):
         raise ValueError('Invalid saved bootstrap summary')
@@ -337,7 +365,7 @@ def _report_summary(info, rows, result_path, predictions_path):
                ('method', 'chi2', 'dof', 'n_points', 'n_parameters', 'kex', 'pB',
                 'derived_se', 'parameters', 'parameter_order', 'covariance_note',
                 'jacobian_rank', 'scaled_condition', 'at_bounds', 'warnings',
-                'multistart', 'profiles', 'bootstrap', 'provenance') if key in info}
+                'multistart', 'profiles', 'profile_intervals', 'bootstrap', 'provenance') if key in info}
     summary.update(schema_version=1,
                    interpretation='Saved-fit report; no optimization performed. Residuals are (observed - predicted) / supplied sigma.',
                    inputs={label: {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
@@ -392,6 +420,18 @@ def _summary_lines(summary):
         for row in curve:
             lines.append(f'{number(row["target"])}: success={row["success"]}, chi2={number(row.get("chi2"))}, '
                          f'delta={number(row.get("delta_chi2"))}, status={row.get("status")}; {row.get("message", "")}')
+    intervals = summary.get('profile_intervals', {})
+    for name, result in intervals.items():
+        if name in ('confidence', 'threshold_delta_chi2', 'warnings', 'parameter_names', 'interpretation', 'base_chi2'):
+            continue
+        lines.extend(['', f'Profile interval {name}: {100 * intervals.get("confidence", 0):g}% likelihood-ratio '
+                      f'(delta chi2 threshold {number(intervals.get("threshold_delta_chi2"))})',
+                      f'estimate {number(result.get("estimate"))}, interval [{number(result.get("lower"))}, {number(result.get("upper"))}], '
+                      f'local SE {number(result.get("local_se"))}, evaluations {result.get("evaluations")}, success={result.get("success")}; {result.get("message", "")}'])
+        for row in result.get('points', []):
+            lines.append(f'  {number(row["target"])}: success={row["success"]}, delta={number(row.get("delta_chi2"))}; {row.get("message", "")}')
+    if intervals:
+        lines.append(intervals.get('interpretation', 'Within-model likelihood-ratio intervals.'))
     bootstrap = summary.get('bootstrap', {})
     if bootstrap:
         lines.extend(['', f'Parametric bootstrap: {bootstrap.get("successful")} / {bootstrap.get("replicates")} successful, '
@@ -404,7 +444,8 @@ def _summary_lines(summary):
         lines.append('All bootstrap replicates:')
         for row in bootstrap.get('samples', []):
             lines.append(f'#{row.get("index")}: success={row["success"]}, chi2={number(row.get("chi2"))}; {row.get("message", "")}')
-    warnings = list(summary.get('warnings', [])) + bootstrap.get('warnings', []) + summary.get('profiles', {}).get('warnings', [])
+    warnings = (list(summary.get('warnings', [])) + bootstrap.get('warnings', [])
+                + summary.get('profiles', {}).get('warnings', []) + intervals.get('warnings', []))
     if warnings:
         lines.extend(['', 'Warnings:', *dict.fromkeys(warnings)])
     return lines
@@ -495,6 +536,29 @@ def _summary_pdf_pages(pdf, summary):
         ax.grid(alpha=.25)
         fig.text(.5, .018, 'Within-model likelihood differences; no automatic confidence interval.',
                  ha='center', fontsize=8)
+        pdf.savefig(fig)
+        plt.close(fig)
+    intervals = summary.get('profile_intervals', {})
+    for name, result in intervals.items():
+        if name in ('confidence', 'threshold_delta_chi2', 'warnings', 'parameter_names', 'interpretation', 'base_chi2'):
+            continue
+        points = sorted((row for row in result.get('points', []) if row['success']), key=lambda row: row['target'])
+        if not points:
+            continue
+        fig, ax = plt.subplots(figsize=(8.5, 6))
+        fig.subplots_adjust(left=.12, right=.97, bottom=.18, top=.89)
+        ax.plot([row['target'] for row in points], [row['delta_chi2'] for row in points], 'o-', label='evaluated profile points')
+        ax.axhline(intervals.get('threshold_delta_chi2', 0.), color='red', linewidth=.8, linestyle='--',
+                   label=f'{100 * intervals.get("confidence", 0):g}% threshold')
+        ax.axvline(result['estimate'], color='black', linewidth=.7, label='estimate')
+        for side in ('lower', 'upper'):
+            if result.get(side) is not None:
+                ax.axvline(result[side], color='gray', linewidth=.7, linestyle=':')
+        ax.axhline(0, color='black', linewidth=.5)
+        ax.set(xlabel=name, ylabel='Delta chi-squared', title=f'Profile interval: {name}')
+        ax.grid(alpha=.25)
+        ax.legend(fontsize=8)
+        fig.text(.5, .018, 'Likelihood-ratio interval under the model with supplied absolute sigma.', ha='center', fontsize=8)
         pdf.savefig(fig)
         plt.close(fig)
 

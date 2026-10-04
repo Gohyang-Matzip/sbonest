@@ -46,6 +46,9 @@ jobs:
       - run: python test_sb_workflow.py
       - run: python test_uncertainty_validation.py
       - run: python test_sb_parallel.py
+      - run: python test_profile_interval.py
+      - run: python test_sb_design.py
+      - run: python test_sb_compare.py
 
   workflow:
     name: full fit, demo and dummy guide (Python 3.12)
