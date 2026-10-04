@@ -7,6 +7,60 @@ import re
 import numpy as np
 
 
+_NUMBER = r"([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)"
+_SCALAR_RE = re.compile(rf"^\s*{_NUMBER}\s*(?:#.*)?$")
+_RF_RE = re.compile(rf"^\s*{_NUMBER}\s+{_NUMBER}\s*(?:#.*)?$")
+_DATA_RE = re.compile(rf"^\s*{_NUMBER}\s+{_NUMBER}\s+{_NUMBER}\s*(?:#.*)?$")
+_RESIDUE_SIMPLE_RE = re.compile(r"^#\s*(\w+\d+)\s*(?:#.*)?$")
+_RESIDUE_FULL_RE = re.compile(
+    rf"^#\s*(\w+\d+)\s+R2a:\s*{_NUMBER}\s+R2b:\s*{_NUMBER}\s+dw:\s*{_NUMBER}\s*(?:#.*)?$"
+)
+
+
+def _read_conditions(stream, file_name):
+    """Read field, saturation time, RF amplitude, and RF uncertainty in order."""
+    values = []
+    for pattern, label, error_label in (
+        (_SCALAR_RE, "B0 field", "Field"),
+        (_SCALAR_RE, "T", "T"),
+        (_RF_RE, "V1", "V1"),
+    ):
+        line = stream.readline()
+        if not line:
+            raise ValueError(f"Unexpected EOF at {label} line in {file_name}")
+        match = pattern.match(line)
+        if not match:
+            raise ValueError(f"{error_label} line parse error: '{line.strip()}'")
+        values.extend(map(float, match.groups()))
+    return values
+
+
+def _read_points(stream, spectrum, label, file_name, add_error):
+    """Fill one spectrum and return the next comment/header, or an empty EOF."""
+    for line in stream:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            break
+        match = _DATA_RE.match(line)
+        if not match:
+            raise ValueError(
+                f"Malformed data line in {file_name} under residue {label}: {stripped}"
+            )
+        offset, intensity, std = map(float, match.groups())
+        if add_error:
+            intensity += std * np.random.randn()
+        spectrum.offset.append(offset)
+        spectrum.int.append(intensity)
+        spectrum.intstd.append(std)
+    else:
+        line = ""
+    if not spectrum.offset:
+        raise ValueError(f"No data points for residue {label}")
+    return line
+
+
 class EstSpec:
     def __init__(self):
         self.field = 0.0
@@ -49,215 +103,80 @@ class EstDataSet:
         self.v1errs = []
         self.initR2 = False
 
-    def _parse_and_check(
-        self, line, regex_pattern, expected_groups, error_message_prefix
-    ):
-        # Attempt to strip comments first for lines that might have them universally
-        # For V1_RE, the comment handling is now part of the regex itself.
-        # For other lines, if they can also have comments, this would need adjustment.
-        line_to_parse = (
-            line  # For FIELD_RE and T_RE, comments are not expected by original parser.
-        )
-
-        match = regex_pattern.match(line_to_parse)
-        if not match or len(match.groups()) != expected_groups:
-            # For debugging, show what the regex captured vs expected
-            # captured_groups = match.groups() if match else "No match"
-            # print(f"Debug: Line='{line.strip()}', Regex='{regex_pattern.pattern}', ExpectedGroups={expected_groups}, Captured={captured_groups}")
-            raise ValueError(f"{error_message_prefix}: '{line.strip()}'")
-        return match.groups()
-
     def addData(self, fileName, add_error_to_intensity=False, add_error_to_v1=False):
-        FIELD_RE = re.compile(
-            r"^\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:#.*)?$"
-        )  # Allow comment
-        T_RE = re.compile(
-            r"^\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:#.*)?$"
-        )  # Allow comment
-        # Regex for V1 line, allowing for an optional comment at the end
-        V1_RE = re.compile(
-            r"^\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s+([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:#.*)?$"
-        )
-        RESIDUE_SIMPLE_RE = re.compile(r"^#\s*(\w+\d+)\s*(?:#.*)?$")  # Allow comment
-        RESIDUE_FULL_RE = re.compile(
-            r"^#\s*(\w+\d+)\s+R2a:\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s+R2b:\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s+dw:\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:#.*)?$"
-        )  # Allow comment
-        DATA_LINE_RE = re.compile(
-            r"^\s*([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s+([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s+([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)\s*(?:#.*)?$"
-        )  # Allow comment for data lines too
-
+        """Append ONEST spectra, retaining residue and per-file acquisition order."""
         try:
-            with open(fileName, "r") as inFile:
-                # Read B0 field
-                line1 = inFile.readline()
-                if not line1:
-                    raise ValueError(f"Unexpected EOF at B0 field line in {fileName}")
-                currentField = float(
-                    self._parse_and_check(line1, FIELD_RE, 1, "Field line parse error")[
-                        0
-                    ]
-                )
-
-                # Read T
-                line2 = inFile.readline()
-                if not line2:
-                    raise ValueError(f"Unexpected EOF at T line in {fileName}")
-                currentT_val = float(
-                    self._parse_and_check(line2, T_RE, 1, "T line parse error")[0]
-                )
-
-                # Read v1
-                line3 = inFile.readline()
-                if not line3:
-                    raise ValueError(f"Unexpected EOF at V1 line in {fileName}")
-                v1_groups = self._parse_and_check(
-                    line3, V1_RE, 2, "V1 line parse error"
-                )
-                currentV1_val = float(v1_groups[0])
-                currentV1err_val = float(v1_groups[1])
-
+            with open(fileName, "r") as stream:
+                field, duration, v1, v1err = _read_conditions(stream, fileName)
                 if add_error_to_v1:
-                    currentV1_val += currentV1err_val * np.random.randn()
+                    v1 += v1err * np.random.randn()
+                self.fields.append(field)
+                self.Ts.append(duration)
+                self.v1s.append(v1)
+                self.v1errs.append(v1err)
 
-                self.fields.append(currentField)
-                self.Ts.append(currentT_val)
-                self.v1s.append(currentV1_val)
-                self.v1errs.append(currentV1err_val)
-
-                # Skip the fourth line (usually a header/comment like "#offset(ppm) Intensity error")
-                line4 = inFile.readline()
-                if not line4:
+                header = stream.readline()
+                if not header:
                     raise ValueError(
                         f"Unexpected EOF after V1 line (expected header) in {fileName}"
                     )
-
-                current_file_has_initR2_info = None
-
-                line = inFile.readline()
-                while line:
-                    line_stripped = (
-                        line.strip()
-                    )  # Use stripped line for checks, original line for parsing
-                    if not line_stripped:  # Skip blank lines
-                        line = inFile.readline()
-                        continue
-
-                    resLabel, initR2a, initR2b, initDW = None, None, None, None
-                    is_residue_line = False
-
-                    if line_stripped.startswith(
-                        "#"
-                    ):  # All residue lines must start with #
-                        match_full = RESIDUE_FULL_RE.match(
-                            line
-                        )  # Try full format first
-                        if match_full:
-                            if current_file_has_initR2_info is None:
-                                current_file_has_initR2_info = True
-                            if not current_file_has_initR2_info:
-                                raise ValueError(
-                                    f"Inconsistent residue format in {fileName} (expected R2a/b). Line: {line_stripped}"
-                                )
-                            resLabel, r2a_str, r2b_str, dw_str = match_full.groups()[
-                                :4
-                            ]  # Regex has 4 groups before optional comment
-                            initR2a, initR2b, initDW = (
-                                float(r2a_str),
-                                float(r2b_str),
-                                float(dw_str),
-                            )
-                            is_residue_line = True
-                        else:
-                            match_simple = RESIDUE_SIMPLE_RE.match(
-                                line
-                            )  # Try simple format
-                            if match_simple:
-                                if current_file_has_initR2_info is None:
-                                    current_file_has_initR2_info = False
-                                if current_file_has_initR2_info:
-                                    raise ValueError(
-                                        f"Inconsistent residue format in {fileName} (no R2a/b expected). Line: {line_stripped}"
-                                    )
-                                resLabel = match_simple.group(1)
-                                is_residue_line = True
-                            else:  # Not a recognized residue line, could be general comment. Skip.
-                                line = inFile.readline()
-                                continue
-
-                    if (
-                        not is_residue_line
-                    ):  # Should be data or error if not residue line
-                        # This path might be taken if a non-comment, non-data line appears where data is expected.
-                        # Based on syn10.txt, data lines do not start with #.
-                        # If it's not a residue line here, it means we are past a residue block or file is malformed.
-                        # For now, if it's not a data line, it's an issue.
-                        data_match_check = DATA_LINE_RE.match(line)
-                        if not data_match_check:
-                            # print(f"Warning in {fileName}: Unexpected line, skipping: {line_stripped}")
-                            line = inFile.readline()
-                            continue
-                        # If it was data, it would have been consumed by the inner loop of the previous residue.
-                        # This implies an issue with file structure or previous loop termination.
-                        # Safest to assume an error or try to find next residue block.
-                        # For now, skip. This can happen if there are blank lines between data blocks.
-                        line = inFile.readline()
-                        continue
-
-                    resid_obj = next((r for r in self.res if r.label == resLabel), None)
-                    if resid_obj is None:
-                        resid_obj = Residue()
-                        resid_obj.label = resLabel
-                        self.res.append(resid_obj)
-
-                    ep = EstSpec()
-                    ep.field, ep.T, ep.v1, ep.v1err = (
-                        currentField,
-                        currentT_val,
-                        currentV1_val,
-                        currentV1err_val,
+                if (
+                    _RESIDUE_SIMPLE_RE.match(header.strip())
+                    or _RESIDUE_FULL_RE.match(header.strip())
+                    or _DATA_RE.match(header)
+                ):
+                    raise ValueError(
+                        "Missing column-header line after V1; found a residue or data row"
                     )
-                    if current_file_has_initR2_info:
-                        ep.initr2a, ep.initr2b, ep.initdw = initR2a, initR2b, initDW
 
-                    # Read data points for this residue
-                    line = (
-                        inFile.readline()
-                    )  # Read next line, which should be first data line or new residue
-                    while line:
-                        line_stripped_data = line.strip()
-                        if not line_stripped_data:  # Skip blank lines within data block
-                            line = inFile.readline()
-                            continue
-                        if line_stripped_data.startswith(
-                            "#"
-                        ):  # End of data or new residue
-                            break
+                file_has_initial = None
+                line = stream.readline()
+                while line:
+                    stripped = line.strip()
+                    match = _RESIDUE_FULL_RE.match(line)
+                    has_initial = match is not None
+                    if match is None:
+                        match = _RESIDUE_SIMPLE_RE.match(line)
+                    if not stripped or (stripped.startswith("#") and match is None):
+                        line = stream.readline()
+                        continue
+                    if match is None:
+                        raise ValueError(
+                            "Data or unexpected text outside a residue block; "
+                            "check residue headers and comments inside data blocks: "
+                            f"{stripped}"
+                        )
+                    if file_has_initial is None:
+                        file_has_initial = has_initial
+                    elif file_has_initial != has_initial:
+                        expected = "expected R2a/b" if has_initial else "no R2a/b expected"
+                        raise ValueError(
+                            f"Inconsistent residue format in {fileName} ({expected}). Line: {stripped}"
+                        )
 
-                        data_match = DATA_LINE_RE.match(line)
-                        if data_match:
-                            offset, intensity_val, std_val = map(
-                                float, data_match.groups()[:3]
-                            )  # Regex has 3 groups before comment
-                            if add_error_to_intensity:
-                                intensity_val += std_val * np.random.randn()
-                            ep.offset.append(offset)
-                            ep.int.append(intensity_val)
-                            ep.intstd.append(std_val)
-                        else:
-                            raise ValueError(
-                                f"Malformed data line in {fileName} under residue {resLabel}: {line_stripped_data}"
-                            )
-                        line = (
-                            inFile.readline()
-                        )  # Read next data line or next residue/EOF
+                    label = match.group(1)
+                    residue = next((r for r in self.res if r.label == label), None)
+                    if residue is None:
+                        residue = Residue()
+                        residue.label = label
+                        self.res.append(residue)
+                    spectrum = EstSpec()
+                    spectrum.field, spectrum.T, spectrum.v1, spectrum.v1err = (
+                        field, duration, v1, v1err
+                    )
+                    if has_initial:
+                        spectrum.initr2a, spectrum.initr2b, spectrum.initdw = map(
+                            float, match.groups()[1:]
+                        )
+                    line = _read_points(
+                        stream, spectrum, label, fileName, add_error_to_intensity
+                    )
+                    residue.estSpecs.append(spectrum)
 
-                    if ep.offset:
-                        resid_obj.estSpecs.append(ep)
-                    # 'line' now holds the next residue header, a comment, a blank line, or is None (EOF)
-
-                if self.initR2 is False and current_file_has_initR2_info is True:
+                if file_has_initial is None:
+                    raise ValueError("No residue data found")
+                if self.initR2 is False and file_has_initial is True:
                     self.initR2 = True
-
         except ValueError as e:
             raise ValueError(f"Error processing file {fileName}: {e}") from e
 

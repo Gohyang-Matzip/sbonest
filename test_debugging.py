@@ -84,6 +84,98 @@ def check_loader_errors():
         assert result.get(timeout=10) is None
 
 
+def check_loader_structure():
+    """Never silently discard observations from an incomplete data block."""
+    from est_data import EstDataSet
+
+    folder = Path(tempfile.mkdtemp(prefix="onest-loader-check-"))
+    header = "120\n0.4\n25 0\n# offset intensity error\n"
+    first = "# A1\n119 0.8 0.01\n120 0.7 0.01\n"
+    second = "# A2\n121 0.9 0.02\n"
+    path = folder / "valid.txt"
+    path.write_text(header + "# file comment\n" + first + "\n# separator\n" + second)
+    data = EstDataSet()
+    data.addData(str(path))
+    assert [r.label for r in data.res] == ["A1", "A2"]
+    assert data.res[0].estSpecs[0].offset == [119.0, 120.0]
+    assert data.res[0].estSpecs[0].int == [0.8, 0.7]
+    assert data.res[1].estSpecs[0].intstd == [0.02]
+
+    invalid = {
+        "comment_in_block": header + first + "# note\n121 0.9 0.01\n",
+        "missing_column_header": "120\n0.4\n25 0\n" + first + second,
+        "data_as_column_header": "120\n0.4\n25 0\n119 0.8 0.01\n" + second,
+        "malformed_residue": header + first + "# A2 R2a: bad R2b: 15 dw: 3\n121 0.9 0.01\n",
+        "orphan_data": header + "119 0.8 0.01\n" + second,
+        "unexpected_text": header + "invalid input\n" + first,
+        "empty_dataset": header,
+        "empty_residue": header + first + "# A2\n",
+    }
+    accepted = []
+    for name, contents in invalid.items():
+        path = folder / f"{name}.txt"
+        path.write_text(contents)
+        try:
+            EstDataSet().addData(str(path))
+        except ValueError as exc:
+            assert str(path) in str(exc), exc
+        else:
+            accepted.append(name)
+    assert not accepted, f"Loader silently accepted incomplete inputs: {accepted}"
+
+
+def check_loader_formats_and_noise():
+    """Preserve header defaults, file ordering, and Monte Carlo random draws."""
+    from est_data import EstDataSet
+
+    folder = Path(tempfile.mkdtemp(prefix="onest-loader-formats-"))
+    full = folder / "full.txt"
+    full.write_text(
+        "1.2e2 # MHz\n4e-1 # seconds\n2.5e1 2 # Hz\n# columns\n"
+        "# A1 R2a: 12 R2b: 18 dw: -3 # initial values\n"
+        "119 0.8 0.01 # point\n\n120 0.7 0.02\n"
+        "# between residues\n# G2 R2a: 14 R2b: 20 dw: 2\n"
+        "121 0.9 0.03\n# end\n"
+    )
+    simple = folder / "simple.txt"
+    simple.write_text(
+        "80\n0.3\n50 0\n# columns\n# G2\n121 0.6 0.01\n"
+        "# A1\n120 0.5 0.01\n"
+    )
+    state = np.random.get_state()
+    try:
+        np.random.seed(4321)
+        expected = np.random.randn(5)
+        np.random.seed(4321)
+        data = EstDataSet()
+        data.addData(str(full), add_error_to_intensity=True, add_error_to_v1=True)
+        assert np.random.randn() == expected[4]
+    finally:
+        np.random.set_state(state)
+    data.addData(str(simple))
+    assert [r.label for r in data.res] == ["A1", "G2"]
+    assert data.fields == [120.0, 80.0] and data.Ts == [0.4, 0.3]
+    assert data.v1s == [25 + 2 * expected[0], 50.0]
+    assert data.v1errs == [2.0, 0.0] and data.initR2 is True
+    a, g = [r.estSpecs[0] for r in data.res]
+    assert (a.initr2a, a.initr2b, a.initdw) == (12.0, 18.0, -3.0)
+    assert (g.initr2a, g.initr2b, g.initdw) == (14.0, 20.0, 2.0)
+    assert a.v1 == g.v1 == data.v1s[0]
+    np.testing.assert_array_equal(a.int, [0.8 + 0.01 * expected[1], 0.7 + 0.02 * expected[2]])
+    assert g.int == [0.9 + 0.03 * expected[3]]
+    for residue, intensity in zip(data.res, (0.5, 0.6)):
+        spec = residue.estSpecs[1]
+        assert spec.int == [intensity]
+        assert (spec.initr2a, spec.initr2b, spec.initdw) == (10.0, 100.0, 0.1)
+    for body in (
+        "# A1\n119 0.8 0.01\n# G2 R2a: 14 R2b: 20 dw: 2\n121 0.9 0.01\n",
+        "# A1 R2a: 12 R2b: 18 dw: -3\n119 0.8 0.01\n# G2\n121 0.9 0.01\n",
+    ):
+        invalid = folder / "mixed.txt"
+        invalid.write_text("120\n0.4\n25 0\n# columns\n" + body)
+        expect_error(lambda: EstDataSet().addData(str(invalid)), (ValueError,))
+
+
 def check_config_and_benchmark():
     folder = Path(tempfile.mkdtemp(prefix="onest-config-check-"))
     (folder / "sample.txt").write_bytes((ROOT / "example/syn10.txt").read_bytes())
@@ -251,6 +343,8 @@ if __name__ == "__main__":
         check_fit_failures,
         check_noisy_initialization_and_stats,
         check_loader_errors,
+        check_loader_structure,
+        check_loader_formats_and_noise,
         check_config_and_benchmark,
         check_web_inputs,
         check_web_roundtrip,

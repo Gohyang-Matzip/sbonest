@@ -106,7 +106,11 @@ followed by its rows. Use each residue once per file. Labels such as `A1` or
 within a file. A short header such as `# A1` is accepted, but defaults to
 `R2a=10`, `R2b=100`, and `dw=0.1`; explicit starting values are preferable.
 Avoid inserting standalone comments inside a residue's data block: a line
-starting with `#` ends that block.
+starting with `#` ends that block. Data rows after such a comment need a new
+residue header; otherwise loading fails instead of silently dropping points.
+The loader also rejects empty datasets, residue headers without observations,
+and a residue header or data row in place of the required fourth column-header
+line. Comments between complete residue blocks and blank lines remain allowed.
 
 The fitted model reports `Nz(A,T)/pA`, initialized with `(pA Nz, pB Nz)`.
 It has no equilibrium-recovery source term. Far from saturation, the signal
@@ -542,8 +546,9 @@ the decoupling model must be tested with the planned experiment.
 | File not found | Resolve dataset paths from the JSON directory; output paths use the working directory |
 | Comparison cannot find `results/600/full.json` or `results/800/full.json` | Use the explicit bundled `--source` path in section 7.1 |
 | Missing residue or missing ¹H shift | Match labels exactly and explicitly turn unwanted residues off |
-| First residue disappears | Keep the fourth header line; do not place the first residue header there |
-| Unexpectedly few points | Check residue headers and comments inside data blocks; inspect JSON `n_points` |
+| `Missing column-header line` | Keep the fourth column-header line; place the first residue header after it |
+| `outside a residue block` | Check residue headers and remove standalone comments interrupting data rows |
+| `No residue data found` or `No data points for residue` | Supply observations for each residue block and at least one block per file |
 | Invalid `v1n` initial/bounds | Match mode and array length; clear scale settings when switching to `fixed` |
 | Parameter name error | Use names in section 6; use `kab`/`kba`, not `kex`/`pB`, in `vary` or bounds |
 | Initial values outside bounds | Check header `dw`/R2 values and explicit overrides against all limits |
