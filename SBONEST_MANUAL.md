@@ -3,7 +3,7 @@
 [한국어](SBONEST_MANUAL.ko.md) · [Step-by-step dummy guide](DUMMY_GUIDE.md) ·
 [README](README.md) · [Technical notes](SIDEBAND.md)
 
-This manual covers the command-line `Sideband` model in this checkout, checked on
+This manual covers the command-line `Sideband` model in this checkout, updated on
 2026-10-04. It fits two-state ¹⁵N CEST profiles, including ¹H decoupling sidebands,
 using NH spin operators from OC. The main example uses repeated
 90°x–240°y–90°x decoupling and a complete 30 ppm offset window at 1.2 GHz.
@@ -21,7 +21,7 @@ The inherited [ONEST manual](MANUAL.md) describes other models. Its web interfac
 
 Use Python 3.12 (the CI target). Install the dependencies in a new checkout:
 
-For a first run with input copies, automatically fresh output paths, and result
+For a first run with input copies, a new output directory, and result
 checks, use the [dummy-data guide](DUMMY_GUIDE.md). The shorter commands below
 use the example's fixed output prefix and are intended for its first execution.
 
@@ -31,12 +31,20 @@ cd sbonest
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
+.venv/bin/python run.py example/sideband_auto_H/two_RF.json --check
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
 
 OC is installed as `optimalcontrol-nmr`; no neighboring OC checkout is needed.
-Reuse a working environment when one already exists. Add `--no-pdf` to the last
-command if only numerical outputs are needed.
+Reuse a working environment when one already exists. Add `--no-pdf` to both the
+check and fit commands if only numerical outputs are needed.
+
+`--check` prints a JSON summary with resolved dataset/waveform paths, point counts,
+fields/RF, free/fixed parameters, initial values, bounds and output conflicts.
+It exits nonzero for invalid settings or conflicts. It writes no files and does
+not run an optimizer, although an initialization grid may evaluate the model.
+Optional analyses are validated before fitting. This checks preparation, not
+convergence or identifiability; do it before creating a new run's outputs.
 
 This example fits three peaks at 25 and 100 Hz nitrogen RF, each sampled at
 147 uniformly spaced offsets from 105 to 135 ppm. The spacing is approximately
@@ -468,6 +476,7 @@ For `Project Name = results/my_sideband_fit`, the files are:
 | `results/my_sideband_fit_result.txt` | Human-readable fit report and observed/calculated intensity tables |
 | `results/my_sideband_fit.pdf` | Profile and standardized-residual panels, one page per active residue |
 | `results/my_sideband_fit_data.pdf` | Data-only profile plots |
+| `results/my_sideband_fit_checkpoint/` | Run identity and completed fitting/analysis records (section 8.3) |
 
 The PDF covers the full supplied offset range. Calculated lines join values
 at the measured offsets; they are not an independently dense simulation and
@@ -524,13 +533,14 @@ results may lack the new fields; preserve them and run a fresh fit if needed.
 fitting, a canonical config hash, Python/package versions, platform, thread
 settings, Git state and elapsed seconds. Hashes do not replace preserved inputs.
 `constraints-sideband.txt` records the tested Python 3.12 dependency combination.
-Optional profile likelihood is described below; bootstrap is not implemented.
+Optional profile likelihood and parametric bootstrap are described in sections
+8.1–8.2; neither removes model or fixed-input uncertainty.
 
 ## 8.1. Restarts, profile likelihood and performance checks
 
 These optional settings belong inside `init`; omitting them retains a single fit.
 The following is a fragment to merge into the existing `init`, not a standalone
-configuration. [Dummy-guide step 6](DUMMY_GUIDE.md#6-optional-try-another-start-and-scan-kex)
+configuration. [Dummy-guide step 6](DUMMY_GUIDE.md#6-optional-restarts-a-kex-scan-and-bootstrap)
 creates and runs a complete configuration without hand-editing JSON.
 
 ```json
@@ -572,15 +582,17 @@ selected baseline, so successful local convergence does not prove the constraine
 global minimum. No confidence interval is automatically inferred from a grid:
 boundaries, weak identifiability, grid extent and model adequacy require assessment.
 These are within-model absolute-sigma likelihood diagnostics, not experimental
-validation or uncertainty in fixed inputs. Bootstrap is not implemented.
+validation or uncertainty in fixed inputs. See section 8.2 for parametric bootstrap.
 
 The top-level `success` describes the selected fit, not every requested scan
 point. Read each `profiles.<name>` entry's `success` and `message`, and the
 profile warnings, before interpreting the scan. `parameter_order` indexes
 multistart vectors; `profiles.parameter_names` indexes profile vectors.
 
-Grouped finite differences also apply to arbitrary `init.vary` subsets and orders,
-with feasible inward steps at bounds. The benchmark now accepts both Sideband and
+Grouped finite differences apply to the baseline and constrained profile refits,
+including arbitrary `init.vary` subsets/orders and feasible inward steps at bounds.
+Only residue-independent coordinates are grouped; exchange constraints retain
+their coupled effect. The benchmark now accepts both Sideband and
 ONEST configs and times a single fit (optional analysis settings are not run):
 
 ```bash
@@ -596,6 +608,100 @@ that path is unused. Profiles can be inspected with Python's `pstats` module.
 Benchmarking does not write the usual fit JSON/CSV/PDF files or overwrite them.
 The reported profiled timing includes profiler/reporting overhead and is not
 directly comparable with an uninstrumented fit.
+
+## 8.2. Parametric bootstrap and synthetic uncertainty checks
+
+Add this fragment inside `init` in a new configuration with a fresh output prefix:
+
+```json
+"bootstrap": {"replicates": 5, "seed": 20261004, "confidence": 0.95}
+```
+
+`replicates` must be a positive integer, `seed` an explicit nonnegative integer,
+and `confidence` between 0 and 1 (default 0.95). For each replicate, SBONEST draws
+independent Gaussian noise around the selected baseline predictions using the
+supplied absolute sigma. Offsets, fields, RF and fixed inputs stay unchanged.
+Each synthetic dataset is fitted from the selected baseline; optional restarts
+and profile scans are not repeated inside each replicate. Original observations
+and the selected fit are restored afterward.
+
+`bootstrap.samples` preserves each index, status, message, fitted vector, local
+SE, χ² and boundary flags, including failed fits. `parameter_names` gives the
+vector order. `bootstrap.intervals` reports lower/median/upper percentiles over
+successful fits, with `n_success` and `fixed` flags for each model parameter and
+derived kex/pB. Fixed intervals express assumptions. `successful`, `replicates`
+and `warnings` expose failures; failures can bias the retained distribution.
+Fewer than 100 successful replicates trigger a warning because tail estimates are
+unstable; five are only a workflow demonstration. Even a larger count does not
+guarantee nominal confidence-interval coverage. Intervals are conditional on the
+chosen model, supplied absolute sigma and fixed inputs, and exclude model mismatch.
+
+For a separate repeated-data study, use `.venv/bin/python validate_uncertainty.py --config PATH
+--truth PATH --replicates N --seed N --confidence 0.95 --out NEW_DIRECTORY` with
+your synthetic configuration and known generating truth. The truth JSON must be
+a map from **every** model parameter name to a finite value, or `{"truth": {...}}`,
+with no extra names. Values must satisfy configured bounds, and fixed parameters
+must match their configured initial values. Use `--check` to inspect parameter
+names; a fitted estimate is not independent known truth.
+
+The study draws fresh Gaussian observations at that truth and fits from the truth
+for each replicate. `coverage.json` measures **local normal-SE interval coverage**,
+not bootstrap-percentile interval coverage. For each varying quantity it reports
+the eligible count, coverage fraction, binomial SE, Wilson 95% interval, unavailable
+or zero SE counts, and boundary frequency; failures are reported separately.
+Coverage denominators exclude failed fits and nonpositive/unavailable SEs, so
+inspect those exclusions. Fixed quantities have no coverage claim. The output
+also preserves `study.json`, config/truth copies, `samples.json` and individual
+`samples/` records. Small studies have large sampling uncertainty and establish
+neither experimental validity nor universal coverage.
+
+## 8.3. Checkpoints, resume and saved-result reports
+
+A normal fit creates `PROJECT_checkpoint/` by default. It preserves an immutable
+`manifest.json` identity, `provenance.json`, and a completed `baseline.json`
+snapshot. Optional analyses add `attempt-0.json`, `profile-kex-0.json`,
+`bootstrap-0.json` and subsequent numbered records. Failed fits retain diagnostics
+in `failure.json` and the failure result JSON when available. Export staging
+folders (`export-*`), `exports.json` and `complete.json` track output publication.
+Files appear as their stages complete; keep the entire directory with the results.
+Checkpoint records are checksum-validated. Do not edit them; changed records are
+rejected on resume.
+
+After an interruption of the section 1 example:
+
+```bash
+.venv/bin/python run.py example/sideband_auto_H/two_RF.json --resume
+```
+
+Resume skips completed baseline, restart, profile and bootstrap work. Work left
+unfinished by an interruption (including Ctrl-C) runs again. A fit that already
+finished with failure, including all-failed multistart, restores its failure JSON
+and exits nonzero without retrying. Inspect the failure, correct the settings and
+use a fresh `Project Name` for another attempt. Resume requires matching
+configuration, resolved input/waveform
+paths and hashes, executed-source hashes, Python/package versions, platform,
+thread settings and `--no-pdf` mode. Add `--no-pdf` if it was used initially.
+`--check` and `--resume` cannot be combined; a check of an existing run reports
+its protected paths as conflicts. Changed settings, source or environment require
+a fresh prefix. Resume does not overwrite unrelated or changed output files.
+Ordinary reruns also reject an existing checkpoint, including one from a failed
+run. Preserve failure records before changing settings and starting a new run.
+
+Regenerate a report from an existing successful result and its predictions CSV:
+
+```bash
+.venv/bin/python sb_workflow.py report results/auto_H_two_RF_result.json \
+  --out results/auto_H_two_RF_report_01
+```
+
+This writes `_summary.json`, `_summary.txt` and `.pdf` using only saved JSON/CSV,
+without optimization or the original data files. It checks their consistency,
+including point counts and χ², and adds residual statistics by residue/dataset,
+fit diagnostics and any saved restarts, profiles or bootstrap records. Failed
+profile points and negative Δχ² remain visible. With renamed files, use
+`--predictions PATH` to select the CSV explicitly. A failure-only JSON has no
+predictions to report. The command preserves existing files; choose a new report
+prefix for each export. This also creates a PDF after an original `--no-pdf` fit.
 
 ## 9. Experimental fitting workflow and limits
 
@@ -636,7 +742,8 @@ the decoupling model must be tested with the planned experiment.
 | Symptom | Check or action |
 |---|---|
 | `No module named optimalcontrol` | Use `.venv/bin/python`; install `requirements-sideband.txt` or the local OC checkout |
-| `Output already exists` | Choose a new `Project Name` or run in a fresh directory |
+| `Output already exists` | Use a fresh `Project Name`, or `--resume` for the unchanged interrupted run |
+| Checkpoint identity mismatch | Restore the original configuration/environment to resume, or preserve it and use a new prefix |
 | File not found | Resolve dataset paths from the JSON directory; output paths use the working directory |
 | Comparison cannot find `results/600/full.json` or `results/800/full.json` | Use the explicit bundled `--source` path in section 7.1 |
 | Missing residue or missing ¹H shift | Match labels exactly and explicitly turn unwanted residues off |
@@ -689,4 +796,7 @@ segments increase computation time. `cestdec.Scheme` JSON is a different format
 and cannot be passed directly as an OC waveform.
 
 Implementation references: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
-[run.py](run.py), and [est_data.py](est_data.py).
+[run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),
+[sb_checkpoint.py](sb_checkpoint.py), [sb_workflow.py](sb_workflow.py),
+[sb_report.py](sb_report.py), [sb_bootstrap.py](sb_bootstrap.py), and
+[validate_uncertainty.py](validate_uncertainty.py).

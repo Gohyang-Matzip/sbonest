@@ -3,8 +3,7 @@
 [English](SBONEST_MANUAL.md) · [Step-by-step dummy 가이드](DUMMY_GUIDE.ko.md) ·
 [README](README.md) · [기술 설명](SIDEBAND.md)
 
-이 매뉴얼은 현재 코드의 CLI `Sideband` 모델을 설명하며, 2026-10-04에
-실행을 확인했다. OC의 NH spin operator를 사용해 ¹H decoupling sideband를
+이 매뉴얼은 2026-10-04 기준 현재 코드의 CLI `Sideband` 모델을 설명한다. OC의 NH spin operator를 사용해 ¹H decoupling sideband를
 포함한 두 상태 ¹⁵N CEST profile을 fitting한다. 주 예제는
 90°x–240°y–90°x 반복 decoupling, 1.2 GHz 장비, 전체 30 ppm offset 범위다.
 제공된 예제 데이터는 모두 **합성 데이터이며 실제 측정 데이터가 아니다.**
@@ -32,12 +31,20 @@ cd sbonest
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
+.venv/bin/python run.py example/sideband_auto_H/two_RF.json --check
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
 
 OC는 `optimalcontrol-nmr` 패키지로 설치되므로 인접한 OC 폴더가 필요 없다.
-이미 작동하는 환경은 그대로 사용한다. 수치 결과만 필요하면 마지막 명령에
-`--no-pdf`를 추가한다.
+이미 작동하는 환경은 그대로 사용한다. 수치 결과만 필요하면 검사와 fitting
+명령 모두에 `--no-pdf`를 추가한다.
+
+`--check`는 실제 데이터·waveform 경로, 관측점 수, 자기장·RF, 자유·고정
+파라미터, 초기값, bounds와 출력 충돌을 JSON으로 표시한다. 잘못된 설정이나
+충돌이 있으면 실패 종료한다. 파일을 쓰거나 optimizer를 실행하지 않지만
+초기값 격자는 모델을 평가할 수 있다. 선택적 분석 설정도 fitting 전에 검사한다.
+이는 준비 상태를 확인하며 수렴·식별성을 보장하지 않는다. 새 실행의 출력을
+만들기 전에 사용한다.
 
 이 예제는 25/100 Hz nitrogen RF에서 3개 peak를 fitting한다. 각 peak·RF마다
 105–135 ppm에 균일한 offset 147개가 있으며 실제 간격은 약 24.985 Hz다.
@@ -460,6 +467,7 @@ profile과 표준화 residual을 확인할 수 있다. 새 실행은 fitting·�
 | `results/my_sideband_fit_result.txt` | 사람이 읽는 결과와 관측/계산 intensity 표 |
 | `results/my_sideband_fit.pdf` | 활성 잔기당 profile 및 표준화 잔차 패널 |
 | `results/my_sideband_fit_data.pdf` | 데이터만 그린 profile |
+| `results/my_sideband_fit_checkpoint/` | 실행 식별 정보와 완료된 fitting·분석 기록(8.3절) |
 
 PDF는 입력된 전체 offset 범위를 보여준다. 계산선은 측정 offset에서 계산한
 값을 연결한 것이며, 별도의 촘촘한 simulation이 아니다. 측정점 사이의 좁은
@@ -515,7 +523,8 @@ waveform·실행 소스의 SHA-256, canonical config 해시, Python/package 버�
 population은 %, SE는 percentage point로 보고한다. 이전 보존 결과에는 새
 필드가 없을 수 있다. 원본은 유지하고 필요하면 현재 코드로 새 fitting을 수행한다.
 `constraints-sideband.txt`는 검증한 Python 3.12 의존성 조합이다.
-선택적 profile likelihood는 아래와 같이 지원하며 bootstrap은 제공하지 않는다.
+선택적 profile likelihood와 parametric bootstrap은 8.1–8.2절에서 설명한다.
+두 방법 모두 모델·고정 입력의 불확실성을 제거하지 않는다.
 
 ## 8.1. 다중 초기값, profile likelihood 및 성능 검사
 
@@ -561,16 +570,17 @@ null χ²를 남긴다. `profiles`에는 기준 χ², 각 결과 벡터, nuisanc
 보장하지 않는다. 경계·약한 식별성·격자 범위·모델 적합성을 검토해야 하므로
 격자만으로 confidence interval을 자동 산출하지 않는다. 이는 절대 σ를
 사용하는 모델 내 likelihood 진단이며 실험 검증이나 고정 입력의 불확도는
-포함하지 않는다. Bootstrap은 제공하지 않는다.
+포함하지 않는다. Parametric bootstrap은 8.2절을 참고한다.
 
 최상위 `success`는 선택된 fitting의 성공 여부이며 모든 scan 점의 성공을
 뜻하지 않는다. `profiles.<name>`의 각 항목에 있는 `success`, `message`와
 profile 경고를 읽는다. Multistart 벡터의 순서는 `parameter_order`, profile
 벡터의 순서는 `profiles.parameter_names`에 기록된다.
 
-임의의 `init.vary` 부분집합·순서에도 묶음 수치미분을 사용하며 bounds에서는
-가능한 안쪽 방향으로 미분한다. 벤치마크는 Sideband·ONEST config를 모두 받아
-단일 fitting 시간을 측정한다(선택적 추가 분석은 실행하지 않는다).
+기본 fitting과 제약 profile fitting은 임의의 `init.vary` 부분집합·순서에
+묶음 수치미분을 사용하며 bounds에서는 가능한 안쪽 방향으로 미분한다. 잔기별로
+독립인 좌표만 묶으며 교환 제약의 결합된 영향은 유지한다. 벤치마크는
+Sideband·ONEST config를 모두 받아 단일 fitting 시간을 측정한다(선택적 추가 분석은 실행하지 않는다).
 
 ```bash
 .venv/bin/python benchmark.py example/sideband_auto_H/two_RF.json
@@ -585,6 +595,94 @@ mkdir -p session_artifacts
 벤치마크는 일반 fitting의 JSON/CSV/PDF를 생성하거나 덮어쓰지 않는다.
 Profiling 시간에는 profiler와 보고 출력의 비용이 포함되므로 일반 fitting
 시간과 직접 비교하지 않는다.
+
+## 8.2. Parametric bootstrap과 합성 불확실성 검사
+
+새 출력 접두사를 지정한 설정 파일의 `init` 안에 다음 부분을 추가한다.
+
+```json
+"bootstrap": {"replicates": 5, "seed": 20261004, "confidence": 0.95}
+```
+
+`replicates`는 양의 정수, `seed`는 명시적인 0 이상의 정수, `confidence`는
+0과 1 사이 값이어야 한다(기본 0.95). 각 반복에서 선택된 기본 해의 예측값에
+입력한 절대 sigma를 사용한 독립 Gaussian 잡음을 더한다. Offset·자기장·RF와
+고정 입력은 유지한다. 각 합성 데이터를 선택된 기본 해에서 다시 fitting하며
+반복 안에서 restart나 profile scan을 추가로 실행하지 않는다. 이후 원래 관측값과
+선택된 fitting 상태를 복원한다.
+
+`bootstrap.samples`는 실패까지 포함해 각 index·상태·메시지·fitting 벡터·
+국소 SE·χ²·경계 정보를 보존한다. 벡터 순서는 `parameter_names`다.
+`bootstrap.intervals`는 성공한 반복의 lower/median/upper percentile과
+`n_success`·`fixed`를 각 모델 파라미터와 파생 kex/pB에 대해 기록한다.
+고정 구간은 가정을 나타낸다. `successful`, `replicates`, `warnings`로 실패를
+확인하며, 실패를 제외하면 분포에 편향이 생길 수 있다. 성공한 반복이 100회
+미만이면 꼬리 추정이 불안정하다는 경고가 나온다. 5회는 실행 절차의 시연이다.
+반복 횟수가 많아도 명목 신뢰수준의 coverage를 보장하지 않는다. 구간은 선택
+모델·입력한 절대 sigma·고정 입력에 조건부이며 모델 불일치를 포함하지 않는다.
+
+별도의 반복 데이터 연구에는 `.venv/bin/python validate_uncertainty.py --config PATH --truth PATH
+--replicates N --seed N --confidence 0.95 --out NEW_DIRECTORY`와 직접 준비한
+합성 설정·알려진 생성값을 사용한다. Truth JSON은 **모든** 모델 파라미터 이름을
+유한한 값에 대응한 map 또는 `{"truth": {...}}` 형식이어야 하며 추가 이름은
+허용하지 않는다. 값은 설정 bounds 안에 있어야 하며 고정 파라미터는 설정된
+초기값과 일치해야 한다. `--check`로 파라미터 이름을 확인할 수 있다. Fitting
+추정값은 독립적으로 알려진 생성값이 아니다.
+
+연구는 생성값에서 새 Gaussian 관측값을 만들고 매번 생성값을 시작점으로
+fitting한다. `coverage.json`은 **국소 normal-SE 구간의 coverage**를 측정하며
+bootstrap percentile 구간의 coverage를 측정하지 않는다. 자유 변수별로 유효
+횟수·coverage 비율·binomial SE·Wilson 95% 구간·산출 불가/0인 SE 횟수·경계
+빈도를 보고하며 실패도 별도로 기록한다. Coverage 분모에서 실패와 양수가
+아니거나 산출 불가인 SE를 제외하므로 제외 내역을 확인한다. 고정 변수에는
+coverage를 주장하지 않는다. 출력에는 `study.json`, config/truth 사본,
+`samples.json`, 개별 `samples/` 기록도 보존한다. 작은 연구는 표본 불확실성이
+크며 실험 타당성이나 보편적인 coverage를 입증하지 않는다.
+
+## 8.3. Checkpoint, 재개, 저장 결과 보고서
+
+일반 fitting은 기본적으로 `PROJECT_checkpoint/`를 만든다. 변경하지 않는
+실행 식별 정보 `manifest.json`, `provenance.json`, 완료된 기본 fitting의
+`baseline.json` snapshot을 보존한다. 선택적 분석은 `attempt-0.json`,
+`profile-kex-0.json`, `bootstrap-0.json`과 이후 번호의 기록을 추가한다.
+실패한 fitting은 가능한 경우 `failure.json`과 실패 결과 JSON에 진단을 남긴다.
+출력 준비 폴더(`export-*`), `exports.json`, `complete.json`은 출력 파일의
+저장을 추적한다. 각 단계가 완료될 때 파일이 생기므로 폴더 전체를 결과와
+함께 보관한다. Checkpoint 기록은 checksum으로 검증하므로 편집하지 않는다.
+변경된 기록으로는 재개할 수 없다.
+
+1절의 예제를 중단했다면 다음처럼 재개한다.
+
+```bash
+.venv/bin/python run.py example/sideband_auto_H/two_RF.json --resume
+```
+
+완료된 기본 fitting·restart·profile·bootstrap 작업은 재사용하고 Ctrl-C 등으로
+중단된 미완료 작업을 실행한다. 모든 초기값이 실패한 multistart를 포함해 이미
+실패로 끝난 fitting은 실패 JSON을 복원하고 재시도 없이 실패 종료한다. 실패를
+확인하고 설정을 수정한 뒤 새 `Project Name`으로 다시 시도한다. 재개하려면
+설정, 실제 입력·waveform 경로와 해시, 실행 소스 해시,
+Python·package 버전, 플랫폼, thread 설정, `--no-pdf` 모드가 일치해야 한다.
+처음 `--no-pdf`를 사용했다면 재개할 때도 붙인다. `--check`와 `--resume`는
+함께 사용할 수 없으며 기존 실행을 검사하면 보호된 경로가 충돌로 표시된다.
+설정·소스·실행환경을 바꾸려면 새 접두사가 필요하다. 재개는 관계없거나 변경된
+출력을 덮어쓰지 않는다. 일반 재실행도 실패한 실행을 포함해 기존 checkpoint가
+있으면 거부한다. 설정을 바꿔 새로 시작하기 전에 실패 기록을 보존한다.
+
+성공한 저장 결과와 predictions CSV에서 보고서를 다시 만든다.
+
+```bash
+.venv/bin/python sb_workflow.py report results/auto_H_two_RF_result.json \
+  --out results/auto_H_two_RF_report_01
+```
+
+이 명령은 저장 JSON/CSV만으로 `_summary.json`, `_summary.txt`, `.pdf`를
+만들며 최적화나 원래 데이터 파일을 요구하지 않는다. 관측점 수·χ² 등의
+일치 여부를 검사하고 잔기·dataset별 잔차 통계, fitting 진단, 저장된 restart·
+profile·bootstrap 기록을 담는다. 실패한 profile 점과 음수 Δχ²도 유지한다.
+파일명을 바꿨다면 `--predictions PATH`로 CSV를 지정한다. 실패 기록만 있는
+JSON에는 보고할 predictions가 없다. 기존 파일은 보호하므로 매번 새 보고서
+접두사를 사용한다. 원래 fitting을 `--no-pdf`로 실행했어도 PDF를 만들 수 있다.
 
 ## 9. 실험 fitting 순서와 모델 한계
 
@@ -625,7 +723,8 @@ CSA–DD cross-correlation, 시간에 따른 RF drift는 포함하지 않는다.
 | 증상 | 확인 및 조치 |
 |---|---|
 | `No module named optimalcontrol` | `.venv/bin/python` 사용 여부와 `requirements-sideband.txt` 또는 로컬 OC 설치 확인 |
-| `Output already exists` | 새 `Project Name`을 지정하거나 새 폴더에서 실행 |
+| `Output already exists` | 새 `Project Name` 사용. 변경하지 않은 중단 실행은 `--resume` |
+| Checkpoint identity mismatch | 원래 설정·실행환경을 복원해 재개하거나 기존 실행을 보존하고 새 접두사 사용 |
 | 파일을 찾지 못함 | 데이터 경로는 JSON 폴더, 출력 경로는 실행 작업 폴더 기준인지 확인 |
 | 비교 실행에서 `results/600/full.json` 또는 `results/800/full.json` 누락 | 7.1절의 배포 입력 `--source` 경로를 명시 |
 | 잔기 또는 ¹H shift 누락 | 잔기명 정확히 일치시키고 제외할 잔기는 명시적으로 off |
@@ -679,4 +778,7 @@ OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
 입력할 수 없다.
 
 구현 근거: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
-[run.py](run.py), [est_data.py](est_data.py).
+[run.py](run.py), [est_data.py](est_data.py), [sb_analysis.py](sb_analysis.py),
+[sb_checkpoint.py](sb_checkpoint.py), [sb_workflow.py](sb_workflow.py),
+[sb_report.py](sb_report.py), [sb_bootstrap.py](sb_bootstrap.py),
+[validate_uncertainty.py](validate_uncertainty.py).

@@ -34,5 +34,17 @@ jobs:
       - run: python test_benchmark.py
       - run: python test_sb_analysis.py
       - run: python test_sb_output.py
+      - run: python test_sb_check.py
+      - run: python test_sb_checkpoint.py
+      - run: python test_profile_jacobian.py
+      - run: python test_sb_bootstrap.py
+      - run: python test_sb_workflow.py
+      - run: python test_uncertainty_validation.py
       - run: python demo_sideband.py --out session_artifacts/ci_sideband_demo
-      - run: python run.py example/sideband_auto_H/two_RF.json --no-pdf
+      - name: Run the dummy-guide workflow
+        run: |
+          python sb_workflow.py init-demo --out session_artifacts/ci_guide
+          python run.py session_artifacts/ci_guide/fit.json --check --no-pdf
+          python run.py session_artifacts/ci_guide/fit.json --no-pdf
+          python run.py session_artifacts/ci_guide/fit.json --no-pdf --resume
+          python sb_workflow.py report session_artifacts/ci_guide/fit_result.json --out session_artifacts/ci_guide/report

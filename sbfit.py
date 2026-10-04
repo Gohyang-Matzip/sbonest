@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 import time
+import tempfile
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -18,12 +19,71 @@ from fit import _block_jacobian, generate_initial_parameters
 from run import load_config, set_residue_flags
 from sideband import composite_segments, profile, waveform_segments
 from sb_report import derived_errors, fit_pdf, prediction_rows, provenance, write_predictions
-from sb_analysis import MultiStartError, fit_multistart, profile_likelihood
+from sb_analysis import (
+    MultiStartError, _multistart_settings, _number, _profile_settings,
+    fit_multistart, profile_likelihood, snapshot_fit, restore_fit, _json_safe,
+)
 
 
 def _known(config, keys, label):
     if not isinstance(config, dict) or set(config) - set(keys):
         raise ValueError(f"Invalid {label} keys; allowed: {', '.join(keys)}")
+
+
+def _validate_fit_config(model, cfg):
+    """Validate settings before the initial grid or an optimizer can run."""
+    _known(cfg, ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev",
+                 "multistart", "profile", "bootstrap"), "init")
+    model.selMethod(cfg)
+    for name in ("kex", "pB"):
+        if name not in cfg:
+            continue
+        grid = cfg[name]
+        _known(grid, ("min", "max", "nsteps"), f"init.{name}")
+        lo, hi, steps = grid.get("min"), grid.get("max"), grid.get("nsteps", 6)
+        if (not _number(lo) or not _number(hi) or lo > hi
+                or isinstance(steps, bool) or not isinstance(steps, int) or steps <= 0
+                or (name == "kex" and lo <= 0)
+                or (name == "pB" and (lo < 0 or hi > 1))):
+            raise ValueError(f"Invalid init.{name} grid limits or nsteps")
+    initial = cfg.get("initial", {})
+    _known(initial, model.parameter_names, "init.initial")
+    if not all(_number(value) for value in initial.values()):
+        raise ValueError("init.initial values must be finite numbers")
+    bounds = cfg.get("bounds", {})
+    _known(bounds, model.parameter_names, "init.bounds")
+    for name, limits in bounds.items():
+        if (not isinstance(limits, (list, tuple)) or len(limits) != 2
+                or any(not _number(value) and value not in (-np.inf, np.inf)
+                       for value in limits)
+                or any(isinstance(value, (bool, np.bool_)) for value in limits)
+                or limits[0] >= limits[1]):
+            raise ValueError(f"Bounds for {name} must be two strictly ordered numbers")
+        i = model.parameter_names.index(name)
+        physical = ((0., np.inf) if name == "kab" else
+                    (1e-8, np.inf) if name == "kba" else
+                    model.rf_bounds[i - 2] if name in model.rf_names else
+                    (-np.inf, np.inf) if name.endswith((".peak_ppm", ".dw_ppm")) else
+                    (0., np.inf))
+        if limits[0] < physical[0] or limits[1] > physical[1]:
+            raise ValueError(f"bounds for {name} must stay inside physical/v1n bounds")
+    vary = cfg.get("vary", model.parameter_names)
+    if (not isinstance(vary, list) or not vary
+            or not all(isinstance(name, str) for name in vary)
+            or len(set(vary)) != len(vary)
+            or any(name not in model.parameter_names for name in vary)):
+        raise ValueError("init.vary must be a nonempty list of unique known parameter names")
+    budget = cfg.get("max_nfev", 500)
+    if isinstance(budget, bool) or not isinstance(budget, int) or budget <= 0:
+        raise ValueError("init.max_nfev must be a positive integer")
+    if "multistart" in cfg:
+        _multistart_settings(model, cfg["multistart"])
+    if "profile" in cfg:
+        _profile_settings(cfg["profile"], model.parameter_names)
+    if "bootstrap" in cfg:
+        from sb_bootstrap import validate_bootstrap
+
+        validate_bootstrap(cfg["bootstrap"])
 
 
 class SidebandModel(est_model):
@@ -280,15 +340,22 @@ class SidebandModel(est_model):
             )
         return out if np.ndim(dRF) else float(out)
 
-    def fit(self, p0=None, fitting_config=None):
+    def prepare_fit(self, p0=None, fitting_config=None):
+        """Prepare current data, vectors and bounds without running an optimizer.
+
+        Return a full starting vector. Publish its bounds before checking whether
+        it lies inside them, so explicit multistart attempts can repair a rejected
+        baseline. Each call clears stale fit state and releases the data cache.
+        """
+        self.result = None
+        self._fit_data = None
+        self._initializing = False
+        for name in ("initial_parameters", "lower", "upper", "rank", "condition"):
+            self.__dict__.pop(name, None)
+        self.free = np.arange(len(self.parameter_names))
+        self.chi2, self.nvar, self.npar, self.dof = 0.0, 0, 0, 0
         cfg = fitting_config or self.config["init"]
-        _known(
-            cfg,
-            ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev",
-             "multistart", "profile"),
-            "init",
-        )
-        self.selMethod(cfg)
+        _validate_fit_config(self, cfg)
         self._fit_data = self._prepare_data()
         try:
             if p0 is None:
@@ -355,6 +422,17 @@ class SidebandModel(est_model):
                     or np.any(p0 < lower) or np.any(p0 > upper)):
                 raise ValueError("Initial parameters must be finite and inside valid bounds")
 
+            return p0.copy()
+        finally:
+            self._fit_data = None
+
+    def fit(self, p0=None, fitting_config=None):
+        cfg = fitting_config or self.config["init"]
+        p0 = self.prepare_fit(p0, fitting_config)
+        lower, upper = self.lower, self.upper
+        nr, nlocal = len(self.rf_names), len(self.local_keys)
+        self._fit_data = self._prepare_data()
+        try:
             def expand(q):
                 p = p0.copy()
                 p[self.free] = q
@@ -583,8 +661,7 @@ class SidebandModel(est_model):
         }
 
 
-def run_config(config, config_dir=".", no_pdf=False):
-    model = SidebandModel(config, config_dir)
+def _output_paths(config, no_pdf=False):
     project = Path(config["Project Name"])
     outputs = [
         Path(str(project) + suffix)
@@ -592,51 +669,208 @@ def run_config(config, config_dir=".", no_pdf=False):
     ]
     if not no_pdf:
         outputs += [Path(str(project) + ".pdf"), Path(str(project) + "_data.pdf")]
-    if any(path.exists() or path.is_symlink() for path in outputs):
-        raise FileExistsError(
-            "Output already exists; choose a new Project Name to preserve previous fits"
+    return outputs
+
+
+def check_config(config, config_dir=".", *, no_pdf=False):
+    """Return a JSON-safe preflight summary without optimization or file writes.
+
+    The existing initialization grid is evaluated to check the actual baseline.
+    Invalid settings and output conflicts are reported in ``errors``. An invalid
+    baseline is reported even when later multistart attempts could recover it.
+    """
+    summary = {"valid": False, "method": "Sideband", "errors": [], "warnings": [],
+               "datasets": [], "waveforms": [], "outputs": [], "output_conflicts": []}
+    try:
+        if (not isinstance(config, dict)
+                or not isinstance(config.get("Project Name"), str)
+                or not config["Project Name"].strip()
+                or not isinstance(config.get("datasets"), list) or not config["datasets"]
+                or not all(isinstance(path, str) and path for path in config["datasets"])
+                or not isinstance(config.get("residues"), list)
+                or not isinstance(config.get("init"), dict)):
+            raise ValueError("Invalid config value types or missing required sections")
+        outputs = _output_paths(config, no_pdf)
+        outputs.append(Path(config["Project Name"] + "_checkpoint"))
+        summary["project"] = str(Path(config["Project Name"]).absolute())
+        summary["outputs"] = [str(path.absolute()) for path in outputs]
+        summary["output_conflicts"] = [str(path.absolute()) for path in outputs
+                                       if path.exists() or path.is_symlink()]
+        if summary["output_conflicts"]:
+            summary["errors"].append("Output already exists; choose a new Project Name")
+        for parent in outputs[0].parents:
+            if parent.exists() and not parent.is_dir():
+                summary["errors"].append(f"Output parent is not a directory: {parent.absolute()}")
+                break
+        model = SidebandModel(config, config_dir)
+        _validate_fit_config(model, config["init"])
+        data = model._prepare_data()
+        for i, path in enumerate(config["datasets"]):
+            spectra = [item for item in data if item[1].dataset_index == i]
+            summary["datasets"].append({
+                "index": i, "path": str((Path(config_dir) / path).resolve()),
+                "n_points": sum(len(item[2]) for item in spectra),
+                "n_spectra": len(spectra),
+                "residues": [model.dataset.res[item[0]].label for item in spectra],
+                "nitrogen_fields_mhz": sorted({float(item[1].field) for item in spectra}),
+                "proton_field_mhz": float(model.decoupling[i]["h_larmor_mhz"]),
+                "nominal_v1n_hz": float(model.dataset.v1s[i]),
+            })
+        summary["waveforms"] = sorted({str((Path(config_dir) / d["waveform_json"]).resolve())
+                                       for d in model.decoupling if "waveform_json" in d})
+        vary = config["init"].get("vary", model.parameter_names)
+        summary.update(
+            n_points=sum(len(item[2]) for item in data),
+            n_residues=sum(r.active for r in model.dataset.res),
+            n_parameters=len(vary), parameter_order=list(model.parameter_names),
+            free_parameters=list(vary),
+            fixed_parameters=[name for name in model.parameter_names if name not in vary],
+            rf_mode=model.rf_mode, proton_relaxation_mode=model.proton_mode,
+            analyses=[name for name in ("multistart", "profile", "bootstrap")
+                      if name in config["init"]],
         )
-    project.parent.mkdir(parents=True, exist_ok=True)
+        initial = model.prepare_fit()
+        summary["initial_parameters"] = dict(zip(model.parameter_names, initial.tolist()))
+        summary["bounds"] = {
+            name: [float(value) if np.isfinite(value) else None
+                   for value in (model.lower[i], model.upper[i])]
+            for i, name in enumerate(model.parameter_names)
+        }
+        summary["bounds_note"] = "null bounds denote unbounded directions"
+        summary["warnings"].append(
+            "Preflight validates configuration and initialization; convergence and identifiability require fitting."
+        )
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError, IndexError) as exc:
+        summary["errors"].append(f"{type(exc).__name__}: {exc}")
+    summary["valid"] = not summary["errors"]
+    return summary
+
+
+def run_config(config, config_dir=".", no_pdf=False, *, resume=False):
+    from sb_bootstrap import bootstrap_fit
+    from sb_checkpoint import Checkpoint, execution_identity, output_plan, publish_outputs
+
+    model = SidebandModel(config, config_dir)
+    _validate_fit_config(model, config["init"])
+    project = Path(config["Project Name"])
+    outputs = _output_paths(config, no_pdf)
+    if not resume and any(path.exists() or path.is_symlink() for path in outputs):
+        raise FileExistsError("Output already exists; choose a new Project Name to preserve previous fits")
     metadata = provenance(config, config_dir)
     began = time.monotonic()
+    checkpoint = Path(str(project) + "_checkpoint")
+    with Checkpoint(checkpoint, execution_identity(metadata, no_pdf=no_pdf), resume=resume) as journal:
+        if not resume:
+            journal.save("provenance", metadata)
+        metadata = journal.read("provenance")
+        if not isinstance(metadata, dict):
+            raise ValueError("Missing checkpoint provenance")
 
-    def save_info(info):
-        metadata["elapsed_s"] = time.monotonic() - began
+        def completed(prefix):
+            rows = []
+            while (row := journal.read(f"{prefix}-{len(rows)}")) is not None:
+                rows.append(row)
+            # A hole is corruption, never permission to silently redo/drop work.
+            if len(list(checkpoint.glob(prefix + "-*.json"))) != len(rows):
+                raise ValueError(f"Checkpoint records are not an ordered prefix: {prefix}")
+            return rows
+
+        def publish_failure():
+            plan = journal.read("failure-exports")
+            if plan is None:
+                stage = Path(tempfile.mkdtemp(prefix="failure-export-", dir=checkpoint)) / outputs[1].name
+                stage.write_text(json.dumps(journal.read("failure"), indent=2, allow_nan=False) + "\n",
+                                 encoding="utf-8")
+                plan = output_plan(journal, [stage], [outputs[1]])
+                journal.save("failure-exports", plan)
+            publish_outputs(journal, plan, [outputs[1]])
+
+        def save_failure(exc):
+            info = {"schema_version": 2, "success": False, "method": "Sideband",
+                    "config": config, "parameter_order": model.parameter_names,
+                    "message": f"{type(exc).__name__}: {exc}",
+                    "provenance": {**metadata, "elapsed_s": time.monotonic() - began}}
+            if isinstance(exc, MultiStartError):
+                info["multistart"] = exc.attempts
+            if model.result is not None:
+                info["optimizer"] = _json_safe(dict(model.result))
+            record = journal.read("failure")
+            if record is None:
+                journal.save("failure", info)
+            publish_failure()
+
+        model.verbose = True
+        baseline = journal.read("baseline")
+        prior_failure = journal.read("failure")
+        if baseline is None and prior_failure is not None:
+            publish_failure()
+            raise RuntimeError("This checkpoint records a completed failed fit; inspect its result and use a fresh Project Name after correcting settings")
+        if baseline is None:
+            try:
+                attempts = None
+                if "multistart" in config["init"]:
+                    p, covariance, attempts = fit_multistart(
+                        model, config["init"]["multistart"], completed=completed("attempt"),
+                        on_complete=lambda row: journal.save(f"attempt-{row['index']}", row))
+                    fitted = p, covariance
+                else:
+                    fitted = model.fit(fitting_config=config["init"])
+            except (ValueError, RuntimeError) as exc:
+                save_failure(exc)
+                raise
+            baseline = {"snapshot": snapshot_fit(model, *fitted), "multistart": attempts}
+            journal.save("baseline", baseline)
+        else:
+            fitted = restore_fit(model, baseline["snapshot"])
+        if journal.read("exports") is not None:
+            publish_outputs(journal, journal.read("exports"), outputs)
+            journal.save("complete", {"success": True})
+            print(f"Resumed completed outputs for {project}")
+            return fitted
+        info = model.diagnostics(*fitted)
+        info["success"] = True
+        if baseline["multistart"] is not None:
+            info["multistart"] = [
+                {key: value for key, value in row.items() if key not in ("initialization", "fit_snapshot")}
+                for row in baseline["multistart"]
+            ]
+        if "profile" in config["init"]:
+            existing = {name: completed(f"profile-{name}") for name in config["init"]["profile"]}
+            counts = {name: len(rows) for name, rows in existing.items()}
+
+            def save_point(name, row):
+                journal.save(f"profile-{name}-{counts[name]}", row)
+                counts[name] += 1
+
+            info["profiles"] = profile_likelihood(model, fitted[0], config["init"]["profile"],
+                                                  completed=existing, on_complete=save_point)
+            info["warnings"].extend(info["profiles"]["warnings"])
+        if "bootstrap" in config["init"]:
+            info["bootstrap"] = bootstrap_fit(
+                model, fitted[0], config["init"]["bootstrap"], completed=completed("bootstrap"),
+                on_complete=lambda row: journal.save(f"bootstrap-{row['index']}", row))
+            info["warnings"].extend(info["bootstrap"]["warnings"])
+        metadata = {**metadata, "elapsed_s": time.monotonic() - began,
+                    "elapsed_note": "Seconds in the final invocation; excludes earlier interrupted invocations.",
+                    "resumed": bool(resume)}
         info["provenance"] = metadata
-        with outputs[1].open("x", encoding="utf-8") as stream:
-            stream.write(json.dumps(info, indent=2, allow_nan=False) + "\n")
-
-    model.verbose = True
-    attempts = None
-    if "multistart" in config["init"]:
-        try:
-            p, covariance, attempts = fit_multistart(model, config["init"]["multistart"])
-            fitted = p, covariance
-        except MultiStartError as exc:
-            save_info({"schema_version": 2, "success": False, "method": "Sideband",
-                       "config": config, "parameter_order": model.parameter_names,
-                       "multistart": exc.attempts, "message": str(exc)})
-            raise
-    else:
-        fitted = model.fit(fitting_config=config["init"])
-    info = model.diagnostics(*fitted)
-    info["success"] = True
-    if attempts is not None:
-        info["multistart"] = attempts
-    if "profile" in config["init"]:
-        info["profiles"] = profile_likelihood(model, fitted[0], config["init"]["profile"])
-        info["warnings"].extend(info["profiles"]["warnings"])
-    rows = prediction_rows(model, fitted[0])
-    with outputs[0].open("x", encoding="utf-8") as stream:
-        stream.write(model.getLogBuffer(fitted))
-    save_info(info)
-    write_predictions(outputs[2], rows)
-    if not no_pdf:
-        fit_pdf(str(project) + ".pdf", rows)
-        model.datapdf(str(project) + "_data.pdf")
+        info["checkpoint"] = str(checkpoint.absolute())
+        rows = prediction_rows(model, fitted[0])
+        stage = Path(tempfile.mkdtemp(prefix="export-", dir=checkpoint))
+        staged = [stage / path.name for path in outputs]
+        staged[0].write_text(model.getLogBuffer(fitted), encoding="utf-8")
+        staged[1].write_text(json.dumps(info, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+        write_predictions(staged[2], rows)
+        if not no_pdf:
+            fit_pdf(staged[3], rows)
+            model.datapdf(str(staged[4]))
+        plan = output_plan(journal, staged, outputs)
+        journal.save("exports", plan)
+        publish_outputs(journal, plan, outputs)
+        journal.save("complete", {"success": True})
     for warning in info["warnings"]:
         print(f"Warning: {warning}")
-    print(f"Saved {outputs[0]} and {outputs[1]}")
+    print(f"Saved {outputs[0]} and {outputs[1]}; checkpoint: {checkpoint}")
     return fitted
 
 
@@ -644,12 +878,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config_file")
     parser.add_argument("--no-pdf", action="store_true")
+    parser.add_argument("--check", action="store_true", help="Validate without fitting or writing outputs")
+    parser.add_argument("--resume", action="store_true", help="Resume a matching Sideband checkpoint")
     args = parser.parse_args()
+    if args.check and args.resume:
+        parser.error("--check and --resume cannot be combined")
     try:
+        config = load_config(args.config_file)
+        config_dir = Path(args.config_file).resolve().parent
+        if args.check:
+            summary = check_config(config, config_dir, no_pdf=args.no_pdf)
+            print(json.dumps(summary, indent=2, allow_nan=False))
+            parser.exit(0 if summary["valid"] else 1)
         run_config(
-            load_config(args.config_file),
-            Path(args.config_file).resolve().parent,
+            config,
+            config_dir,
             args.no_pdf,
+            resume=args.resume,
         )
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
         parser.exit(1, f"Error: {exc}\n")

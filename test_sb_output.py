@@ -114,14 +114,14 @@ def check_cli_outputs():
                         float(row['residual_sigma']), rtol=1e-12, atol=1e-12)
     for name in ('fit.pdf', 'fit_data.pdf'):
         assert (folder / name).read_bytes().startswith(b'%PDF')
-    before = {p.name: p.read_bytes() for p in folder.iterdir()}
+    before = {str(p.relative_to(folder)): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
     try:
         run_config(cfg, no_pdf=True)
     except FileExistsError:
         pass
     else:
         raise AssertionError('Existing result was overwritten')
-    assert before == {p.name: p.read_bytes() for p in folder.iterdir()}
+    assert before == {str(p.relative_to(folder)): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
     blocked = copy.deepcopy(cfg)
     blocked['Project Name'] = str(folder / 'reserved')
     (folder / 'reserved_predictions.csv').write_text('preserve me')

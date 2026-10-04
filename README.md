@@ -15,8 +15,8 @@ states A/B for the same peak. Current automatic mode supports one proton field.
 [Development handoff](HANDOFF.md)
 
 **First time here?** Follow the [step-by-step dummy-data guide](DUMMY_GUIDE.md)
-or [한국어 따라하기](DUMMY_GUIDE.ko.md): install, copy synthetic inputs into a
-fresh folder, fit, inspect PDFs/CSV/uncertainty, and try optional restarts and scans.
+or [한국어 따라하기](DUMMY_GUIDE.ko.md): install, prepare synthetic inputs with
+`init-demo`, check and fit, inspect saved reports, and try restarts, scans or bootstrap.
 
 ## Install and run
 
@@ -28,11 +28,14 @@ cd sbonest
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
+.venv/bin/python run.py example/sideband_auto_H/two_RF.json --check
 .venv/bin/python run.py example/sideband_auto_H/two_RF.json
 ```
 
 OC is installed as `optimalcontrol-nmr`; a neighboring OC checkout is not
-required. Add `--no-pdf` to skip figures while keeping numerical outputs.
+required. Add `--no-pdf` to both check and fit to skip figures while keeping numerical
+outputs. `--check` prints a JSON summary of inputs, parameters and output conflicts
+without optimization or file writes; an initialization grid may evaluate the model.
 
 The first example fits three peaks at **1.2 GHz, 25/100 Hz nitrogen RF,
 105–135 ppm**, with 147 equally spaced offsets per peak and RF
@@ -42,10 +45,31 @@ are used; all 24 model parameters are fitted. No R1H/R2H inputs are present.
 Outputs are `results/auto_H_two_RF_result.json`,
 `results/auto_H_two_RF_result.txt`, `results/auto_H_two_RF_predictions.csv`,
 `results/auto_H_two_RF.pdf`, and
-`results/auto_H_two_RF_data.pdf`. Existing outputs are protected: change
+`results/auto_H_two_RF_data.pdf`, plus the run-owned
+`results/auto_H_two_RF_checkpoint/` directory. Existing outputs are protected: change
 `Project Name` to a new output prefix before rerunning. Dataset paths are
 relative to the configuration file; output prefixes are relative to the
 working directory.
+
+For a fresh practice folder, saved-result report, or interrupted run:
+
+```bash
+.venv/bin/python sb_workflow.py init-demo --out session_artifacts/dummy_01
+.venv/bin/python sb_workflow.py report results/auto_H_two_RF_result.json \
+  --out results/auto_H_two_RF_report_01
+.venv/bin/python run.py example/sideband_auto_H/two_RF.json --resume
+```
+
+`init-demo` requires a new directory and creates `fit.json` plus `data/` input
+copies. `report` uses only the saved JSON and its matching predictions CSV to
+write `_summary.json`, `_summary.txt` and `.pdf` without refitting; use a new report
+prefix each time. Resume reuses completed baseline/restart/profile/bootstrap
+records. It requires unchanged config, inputs/waveforms, executed source,
+Python/packages, platform, thread settings and `--no-pdf` mode. Preserve the
+checkpoint without editing its checksum-validated records. Interrupted work can
+continue, but a completed failed fit is restored and exits nonzero without retrying.
+Corrected settings require a fresh `Project Name`. See manual section 8.3 for
+checkpoint contents and recovery limits.
 
 For three RF amplitudes (25/50/100 Hz), run:
 
@@ -81,7 +105,17 @@ The JSON includes the full `covariance` matrix ordered by `parameter_order`,
 `derived_se` for kex/pB accounting for rate covariance, and calculation-time input/source hashes and environment
 versions in `provenance`. The CSV preserves full precision; the fit PDF includes
 standardized residuals. Optional `init.multistart` and `init.profile` provide
-reproducible restarts and constrained nuisance refits; see section 8.1 of either manual.
+reproducible restarts and constrained nuisance refits. Optional `init.bootstrap`
+requires `replicates` and an explicit `seed` (with `confidence`, default 0.95);
+results retain every replicate and successful-sample percentile intervals. Fewer
+than 100 successful replicates trigger a warning. These intervals are conditional
+on the selected model, fixed inputs and supplied absolute sigma, with no guarantee
+of nominal coverage. `validate_uncertainty.py` separately measures synthetic
+**local normal-SE interval coverage**, including failures and Wilson sampling
+intervals; it does not measure bootstrap-interval coverage. See manual sections
+8.1–8.3 and [workflow sources](sb_workflow.py), [checkpoint sources](sb_checkpoint.py),
+[report sources](sb_report.py), [bootstrap sources](sb_bootstrap.py) and
+[coverage-study sources](validate_uncertainty.py).
 
 [Preview of the new residual report](docs/diagnostics-preview.png)
 (A1 from the same synthetic two-RF example).
@@ -129,6 +163,11 @@ After setting the thread variables above:
 .venv/bin/python test_benchmark.py
 .venv/bin/python test_sb_analysis.py
 .venv/bin/python test_sb_output.py
+.venv/bin/python test_sb_check.py
+.venv/bin/python test_sb_checkpoint.py
+.venv/bin/python test_sb_workflow.py
+.venv/bin/python test_profile_jacobian.py
+.venv/bin/python test_sb_bootstrap.py
 .venv/bin/python demo_sideband.py --out session_artifacts/sideband_demo
 ```
 

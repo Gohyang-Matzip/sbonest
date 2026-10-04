@@ -9,7 +9,9 @@ import copy
 import numbers
 
 import numpy as np
-from scipy.optimize import least_squares
+from scipy.optimize import OptimizeResult, least_squares
+
+from fit import _block_jacobian
 
 
 class MultiStartError(RuntimeError):
@@ -32,6 +34,155 @@ def _state(model):
 def _restore(model, state):
     for name, value in state.items():
         setattr(model, name, value)
+
+
+def _json_safe(value):
+    if isinstance(value, np.ndarray):
+        return _json_safe(value.tolist())
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    return value
+
+
+def _initialization(model):
+    names = ("initial_parameters", "free", "lower", "upper")
+    return (_json_safe({name: getattr(model, name) for name in names})
+            if all(hasattr(model, name) for name in names) else None)
+
+
+def _read_initialization(values, size):
+    if (not isinstance(values, dict)
+            or not {"initial_parameters", "free", "lower", "upper"} <= set(values)):
+        raise ValueError("Missing completed fit initialization")
+    try:
+        initial = np.asarray(values["initial_parameters"], dtype=float)
+        free_values = values["free"]
+        if (not isinstance(free_values, list) or not free_values
+                or any(isinstance(i, bool) or not isinstance(i, int) for i in free_values)):
+            raise ValueError("Invalid completed free parameter indices")
+        free = np.asarray(free_values, dtype=int)
+        lower = np.array([-np.inf if x is None else x for x in values["lower"]], dtype=float)
+        upper = np.array([np.inf if x is None else x for x in values["upper"]], dtype=float)
+    except (KeyError, TypeError, OverflowError) as exc:
+        raise ValueError("Malformed completed fit initialization") from exc
+    if (initial.shape != (size,) or not np.isfinite(initial).all()
+            or lower.shape != initial.shape or upper.shape != initial.shape
+            or np.isnan(lower).any() or np.isnan(upper).any() or np.any(lower >= upper)
+            or len(set(free)) != len(free) or np.any(free < 0) or np.any(free >= size)):
+        raise ValueError("Invalid completed fit initialization")
+    return dict(initial_parameters=initial, free=free, lower=lower, upper=upper)
+
+
+def snapshot_fit(model, p, covariance):
+    """Return JSON-safe fit state, including the original start and uncertainty.
+
+    Null covariance entries represent unavailable uncertainty; null lower/upper
+    bounds represent negative/positive infinity, respectively.
+    """
+    return _json_safe({"schema_version": 1, "parameter_names": list(model.parameter_names),
+                       "parameters": np.asarray(p), "covariance": np.asarray(covariance),
+                       "state": _state(model)})
+
+
+def _read_snapshot(model, snapshot):
+    size = len(model.parameter_names)
+    if (not isinstance(snapshot, dict) or snapshot.get("schema_version") != 1
+            or snapshot.get("parameter_names") != list(model.parameter_names)):
+        raise ValueError("Completed fit parameter names or snapshot version do not match")
+    try:
+        p = np.asarray(snapshot["parameters"], dtype=float)
+        covariance = np.asarray(snapshot["covariance"], dtype=float)
+        if p.shape != (size,) or not np.isfinite(p).all() or covariance.shape != (size, size):
+            raise ValueError("Invalid completed fit parameters or covariance")
+        state = copy.deepcopy(snapshot["state"])
+        if not isinstance(state, dict) or set(state) != set(_STATE):
+            raise ValueError("Completed fit statistics are missing or unknown")
+        state.update(_read_initialization(state, size))
+        vary = model.config["init"].get("vary", model.parameter_names)
+        configured_free = [model.parameter_names.index(name) for name in vary]
+        if not np.array_equal(state["free"], configured_free):
+            raise ValueError("Completed fit free parameters do not match configured vary order")
+        result = state["result"]
+        if (not isinstance(result, dict) or result.get("success") is not True
+                or not {"x", "fun", "jac", "grad", "active_mask", "nfev", "status", "message"} <= set(result)):
+            raise ValueError("Completed fit has no converged optimizer result")
+        for key in ("x", "fun", "jac", "grad", "active_mask"):
+            if key in result:
+                result[key] = np.asarray(result[key], dtype=int if key == "active_mask" else float)
+        if (result["x"].shape != (len(state["free"]),)
+                or result["fun"].ndim != 1
+                or result["jac"].shape != (len(result["fun"]), len(state["free"]))
+                or result["grad"].shape != result["x"].shape
+                or result["active_mask"].shape != result["x"].shape
+                or not all(np.isfinite(result[key]).all() for key in ("x", "fun", "jac"))):
+            raise ValueError("Completed optimizer result has invalid dimensions or values")
+        if (not np.array_equal(p[state["free"]], result["x"])
+                or not _number(state["chi2"]) or state["chi2"] < 0
+                or state["npar"] != len(state["free"])
+                or state["nvar"] != len(result["fun"])
+                or state["dof"] != state["nvar"] - state["npar"]
+                or not isinstance(state["rank"], int)
+                or not 0 <= state["rank"] <= len(state["free"])):
+            raise ValueError("Completed fit statistics do not match its optimizer result")
+        state["result"] = OptimizeResult(result)
+        if state.get("condition") is None and "condition" in state:
+            state["condition"] = np.inf
+    except (KeyError, TypeError, OverflowError) as exc:
+        raise ValueError("Malformed completed fit snapshot") from exc
+    if (p.shape != (size,) or not np.isfinite(p).all() or covariance.shape != (size, size)
+            or np.isinf(covariance).any() or np.any(p < state["lower"])
+            or np.any(p > state["upper"])):
+        raise ValueError("Invalid completed fit parameters or covariance")
+    return p, covariance, state
+
+
+def restore_fit(model, snapshot):
+    """Restore predictions, optimizer statistics and uncertainty without fitting."""
+    p, covariance, state = _read_snapshot(model, snapshot)
+    original = _state(model)
+    cache_names = ("_fit_data", "_initializing")
+    caches = {name: getattr(model, name) for name in cache_names if hasattr(model, name)}
+    accepted = False
+    try:
+        # Derive Sideband bounds from the actual configuration without a grid
+        # search, initial overrides or optimization. Generic prepared models
+        # expose their current bounds directly.
+        if hasattr(model, "prepare_fit"):
+            cfg = {key: value for key, value in model.config["init"].items()
+                   if key not in ("initial", "multistart", "profile", "bootstrap")}
+            model.prepare_fit(p0=p, fitting_config=cfg)
+        for name in ("lower", "upper"):
+            if not hasattr(model, name) or not np.array_equal(state[name], getattr(model, name)):
+                raise ValueError("Completed fit bounds do not match current model configuration")
+        residual = np.asarray(model.errFunc(p), dtype=float)
+        value = float(np.sum(residual**2))
+        if (residual.ndim != 1 or not np.isfinite(residual).all()
+                or not np.array_equal(residual, state["result"].fun)
+                or state["nvar"] != len(residual)
+                or state["npar"] != len(state["free"])
+                or state["dof"] != len(residual)-len(state["free"])
+                or not np.isclose(value, state["chi2"], rtol=1e-12, atol=1e-12)):
+            raise ValueError("Completed fit residuals or statistics disagree with current data")
+        _restore(model, state)
+        accepted = True
+    finally:
+        if not accepted:
+            for name in _STATE:
+                if name not in original and hasattr(model, name):
+                    delattr(model, name)
+            _restore(model, original)
+        for name in cache_names:
+            if name in caches:
+                setattr(model, name, caches[name])
+            elif hasattr(model, name):
+                delattr(model, name)
+    return p, covariance
 
 
 def _chi2(model, p):
@@ -96,23 +247,59 @@ def _random_start(model, base, rng):
     return start
 
 
-def fit_multistart(model, settings):
+def fit_multistart(model, settings, *, completed=None, on_complete=None):
     """Fit the configured baseline plus starts; restore and return the best fit.
 
     ``model.fit`` must expose full ``initial_parameters``, ``lower``, and
     ``upper`` arrays before optimization. Arrays in result rows follow
     ``model.parameter_names``. All failed runs raise MultiStartError with the
-    complete attempt list, allowing callers to save failure evidence.
+    complete attempt list, allowing callers to save failure evidence. ``completed``
+    is an ordered prefix of prior rows. ``on_complete(row)`` runs after each new
+    attempt; persistence errors and interrupts propagate to the caller.
     """
     starts, count, seed = _multistart_settings(model, settings)
-    cfg = {k: v for k, v in model.config["init"].items() if k not in ("multistart", "profile")}
+    cfg = {k: v for k, v in model.config["init"].items()
+           if k not in ("multistart", "profile", "bootstrap")}
+    completed = [] if completed is None else copy.deepcopy(completed)
+    sources = ["initial"] + ["explicit"] * len(starts) + ["random"] * count
+    if not isinstance(completed, list) or len(completed) > len(sources):
+        raise ValueError("Completed multistart attempts must be a valid prefix")
+    for index, row in enumerate(completed):
+        if (not isinstance(row, dict) or row.get("index") != index
+                or isinstance(row["index"], bool) or row.get("source") != sources[index]
+                or not isinstance(row.get("success"), bool)
+                or not isinstance(row.get("message"), str)
+                or not {"nfev", "status", "parameters", "selected", "chi2", "fit_snapshot"} <= set(row)):
+            raise ValueError("Completed multistart attempt does not match its configured index")
+        initial = _read_initialization(row.get("initialization"), len(model.parameter_names))
+        if row.get("start") != initial["initial_parameters"].tolist():
+            raise ValueError("Completed multistart start does not match its initialization")
+        if row["success"]:
+            restored_p, _, restored_state = _read_snapshot(model, row["fit_snapshot"])
+            if (not _number(row.get("chi2")) or row.get("parameters") != restored_p.tolist()
+                    or not np.isclose(row["chi2"], restored_state["chi2"], rtol=1e-12, atol=0.)
+                    or row["initialization"] != {key: row["fit_snapshot"]["state"][key]
+                                                  for key in ("initial_parameters", "free", "lower", "upper")}):
+                raise ValueError("Completed multistart row disagrees with its fit snapshot")
     attempts, best = [], None
 
     def attempt(start, source):
         nonlocal best
+        index = len(attempts)
+        if index < len(completed):
+            row = completed[index]
+            if start is not None and row["start"] != start.tolist():
+                raise ValueError("Completed multistart starting vector does not match configuration")
+            row["selected"] = False
+            _restore(model, _read_initialization(row["initialization"], len(model.parameter_names)))
+            if row["success"] and (best is None or row["chi2"] < best[0]):
+                best = row["chi2"], row["fit_snapshot"], index
+            attempts.append(row)
+            return
         row = {"index": len(attempts), "source": source, "start": None,
                "parameters": None, "success": False, "chi2": None,
-               "nfev": None, "status": None, "message": "", "selected": False}
+               "nfev": None, "status": None, "message": "", "selected": False,
+               "initialization": None, "fit_snapshot": None}
         model.result = None
         prior_initial = getattr(model, "initial_parameters", None)
         if start is not None:
@@ -126,8 +313,9 @@ def fit_multistart(model, settings):
             value = _chi2(model, p)
             _restore(model, fit_state)
             row.update(success=True, chi2=value, parameters=np.asarray(p).tolist())
+            row["fit_snapshot"] = snapshot_fit(model, p, covariance)
             if best is None or value < best[0]:
-                best = (value, np.asarray(p).copy(), np.asarray(covariance).copy(), fit_state, row["index"])
+                best = value, row["fit_snapshot"], row["index"]
         except Exception as exc:
             row["message"] = f"{type(exc).__name__}: {exc}"
         if (row["start"] is None and hasattr(model, "initial_parameters")
@@ -148,7 +336,11 @@ def fit_multistart(model, settings):
                 value = float(np.sum(np.asarray(result.fun)**2))
                 if np.isfinite(value):
                     row["chi2"] = value
+        if row["start"] is not None:
+            row["initialization"] = _initialization(model)
         attempts.append(row)
+        if on_complete is not None:
+            on_complete(copy.deepcopy(row))
 
     attempt(None, "initial")
     if attempts[0]["start"] is None or not all(hasattr(model, key) for key in ("initial_parameters", "lower", "upper")):
@@ -164,9 +356,8 @@ def fit_multistart(model, settings):
         attempt(_random_start(model, base, rng), "random")
     if best is None:
         raise MultiStartError(attempts)
-    _, p, covariance, state, selected = best
-    model.errFunc(p)
-    _restore(model, state)
+    _, snapshot, selected = best
+    p, covariance = restore_fit(model, snapshot)
     attempts[selected]["selected"] = True
     return p, covariance, attempts
 
@@ -291,21 +482,71 @@ def _constrained_coordinates(model, p, name, target):
                 out[i] = np.clip(out[i], lower[i], upper[i])
         return out
 
-    return np.asarray(q0), np.asarray(lo), np.asarray(hi), expand, labels
+    # A constrained exchange coordinate remains global even when its label and
+    # position differ from either original rate. Locals keep full-vector indices.
+    full_indices = [names.index("kab") if i is None else i for i in coordinates]
+    return np.asarray(q0), np.asarray(lo), np.asarray(hi), expand, labels, full_indices
 
 
-def profile_likelihood(model, p, settings):
+def _profile_jacobian(model, residual, full_indices, lower, upper):
+    """Group only Sideband's verified global/residue parameter and row layout."""
+    from sbfit import SidebandModel
+
+    if type(model) is not SidebandModel:
+        return "3-point"
+    active = [(i, r) for i, r in enumerate(model.dataset.res) if r.active]
+    names = ["kab", "kba", *model.rf_names]
+    names.extend(f"{r.label}.{key}" for _, r in active for key in model.local_keys)
+    if list(model.parameter_names) != names:
+        return "3-point"
+    data = model._fit_data if model._fit_data is not None else model._prepare_data()
+    sizes = [sum(len(row[2]) for row in data if row[0] == i) for i, _ in active]
+    row_order = [row[0] for row in data]
+    expected_order = [i for i, _ in active for row in data if row[0] == i]
+    if row_order != expected_order or not all(sizes):
+        return "3-point"
+    grouped = _block_jacobian(residual, sizes, 2 + len(model.rf_names), len(model.local_keys),
+                              relative_step=1e-5, free=full_indices,
+                              bounds=(lower, upper), method="3-point")
+    # SciPy's dense 3-point result is column-major. Matching that layout keeps
+    # column norms and gradient reductions identical even for weak H rates.
+    return lambda q: np.asfortranarray(grouped(q))
+
+
+def profile_likelihood(model, p, settings, *, completed=None, on_complete=None):
     """Nuisance-refit each requested target, preserving the original fitted state.
 
     Failed targets have null chi2/delta_chi2; negative successful differences
     remain negative and flag a base fit that this scan has improved upon.
     Every grid point starts from the supplied base fit after making its exact
     constraint feasible. No warm start or automatic confidence interval is used.
+    ``completed`` maps profile names to row prefixes; ``on_complete(name, row)``
+    runs after each new point. Callback exceptions propagate after state restore.
     """
     _profile_settings(settings, model.parameter_names)
     p = np.asarray(p, dtype=float).copy()
     if p.shape != (len(model.parameter_names),) or not np.isfinite(p).all():
         raise ValueError("Invalid base profile parameter vector")
+    completed = {} if completed is None else copy.deepcopy(completed)
+    if not isinstance(completed, dict) or set(completed) - set(settings):
+        raise ValueError("Completed profiles contain unconfigured names")
+    for name, rows in completed.items():
+        if not isinstance(rows, list) or len(rows) > len(settings[name]):
+            raise ValueError("Completed profile rows must be a configured prefix")
+        for target, row in zip(settings[name], rows):
+            if (not isinstance(row, dict) or not _number(row.get("target"))
+                    or row["target"] != target or not isinstance(row.get("success"), bool)
+                    or not isinstance(row.get("message"), str)
+                    or not isinstance(row.get("below_base_minimum"), bool)
+                    or not isinstance(row.get("optimization_performed"), bool)
+                    or not isinstance(row.get("nuisance_parameters"), list)
+                    or not {"start", "parameters", "chi2", "delta_chi2", "nfev", "status"} <= set(row)):
+                raise ValueError("Completed profile target does not match its grid")
+            if row["success"]:
+                parameters = np.asarray(row.get("parameters"), dtype=float)
+                if (parameters.shape != p.shape or not np.isfinite(parameters).all()
+                        or not _number(row.get("chi2")) or not _number(row.get("delta_chi2"))):
+                    raise ValueError("Invalid completed successful profile row")
     state = _state(model)
     old_data = getattr(model, "_fit_data", None)
     out = {"parameter_names": list(model.parameter_names), "warnings": [],
@@ -317,14 +558,22 @@ def profile_likelihood(model, p, settings):
         out["base_chi2"] = baseline
         for name, values in settings.items():
             rows = out[name] = []
-            for target in values:
+            for index, target in enumerate(values):
+                if index < len(completed.get(name, [])):
+                    row = completed[name][index]
+                    rows.append(row)
+                    if not row["success"]:
+                        out["warnings"].append(f"Profile {name}={target:g} failed: {row['message']}")
+                    elif row["below_base_minimum"]:
+                        out["warnings"].append(f"{name}={target:g} improves on the base chi2; the base fit is not the best solution found.")
+                    continue
                 row = {"target": float(target), "start": None, "parameters": None,
                        "success": False, "chi2": None, "delta_chi2": None,
                        "below_base_minimum": False, "nuisance_parameters": [],
                        "optimization_performed": False, "nfev": None,
                        "status": None, "message": ""}
                 try:
-                    q0, lower, upper, expand, labels = _constrained_coordinates(model, p, name, float(target))
+                    q0, lower, upper, expand, labels, full_indices = _constrained_coordinates(model, p, name, float(target))
                     row["start"] = expand(q0).tolist()
                     row["nuisance_parameters"] = labels
                     if len(q0):
@@ -335,8 +584,9 @@ def profile_likelihood(model, p, settings):
                             return r
 
                         row["optimization_performed"] = True
+                        jacobian = _profile_jacobian(model, residual, full_indices, lower, upper)
                         fit = least_squares(residual, q0, bounds=(lower, upper),
-                                            jac="3-point", diff_step=1e-5, x_scale="jac",
+                                            jac=jacobian, diff_step=1e-5, x_scale="jac",
                                             ftol=1e-9, xtol=1e-9, gtol=1e-9,
                                             max_nfev=model.config["init"].get("max_nfev", 500))
                         row.update(nfev=int(fit.nfev), status=int(fit.status), message=str(fit.message))
@@ -357,6 +607,8 @@ def profile_likelihood(model, p, settings):
                     row["message"] = f"{type(exc).__name__}: {exc}"
                     out["warnings"].append(f"Profile {name}={target:g} failed: {row['message']}")
                 rows.append(row)
+                if on_complete is not None:
+                    on_complete(name, copy.deepcopy(row))
     finally:
         try:
             model.errFunc(p)
