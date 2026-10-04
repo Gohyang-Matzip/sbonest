@@ -214,3 +214,151 @@ def comparison_pdf(path, summary):
         fig.text(.05, .95, '\n'.join(comparison_lines(summary)), va='top', family='monospace', fontsize=7.5, linespacing=1.5)
         pdf.savefig(fig)
         plt.close(fig)
+
+
+THREE_STATE_METHODS = ("Sideband_3st_Linear", "Sideband_3st_Triangle")
+
+
+def three_state_config(config, method, *, h_ppm_c=None, starts=None):
+    """Derive a three-state configuration from a fitted two-state configuration.
+
+    State C gets ``h_ppm_c`` (per residue; default: the state-B proton shift) and
+    explicit multistart starts for the extra rates and shift built from the
+    configured initial kab/kba; ``starts`` may override the (kbc, kcb, dwC ratio)
+    triples. The two-state analyses are not carried over.
+    """
+    if method not in THREE_STATE_METHODS:
+        raise ValueError(f"method must be one of {THREE_STATE_METHODS}")
+    cfg = copy.deepcopy(config)
+    init = cfg['init']
+    init['Method'] = method
+    for key in ('multistart', 'profile', 'bootstrap', 'profile_interval', 'kex', 'pB'):
+        init.pop(key, None)
+    initial = init.setdefault('initial', {})
+    kab, kba = float(initial.get('kab', 15.)), float(initial.get('kba', 285.))
+    kex = kab + kba
+    initial.update(kab=kab, kba=kba, kbc=kex / 3., kcb=kex)
+    if method == 'Sideband_3st_Triangle':
+        initial.update(kca=0.1 * kex, kac=0.01 * kex)
+    labels = [entry['name'] for entry in cfg['residues'] if entry.get('flag') == 'on']
+    residues = cfg['sideband']['residues']
+    for label in labels:
+        shift = residues[label]
+        shift['h_ppm_c'] = float((h_ppm_c or {}).get(label, shift['h_ppm_b']))
+        dw = float(initial.get(f'{label}.dw_ppm', 1.0))
+        initial.setdefault(f'{label}.dwC_ppm', -dw)
+        initial.setdefault(f'{label}.R2c', float(initial.get(f'{label}.R2b', 20.)))
+    if 'vary' in init:
+        extra = ['kbc', 'kcb'] + (['kca', 'kac'] if method == 'Sideband_3st_Triangle' else [])
+        init['vary'] = list(init['vary']) + extra + [f'{label}.{key}' for label in labels for key in ('dwC_ppm', 'R2c')]
+    for name in ('kbc', 'kcb', 'kca', 'kac'):
+        init.get('bounds', {}).pop(name, None)
+    triples = starts or [(kex / 3., kex, -1.), (kex, kex / 3., -1.), (kex / 3., kex, 2.), (kex, kex / 3., 2.),
+                         (kex, kex, 0.5)]
+    explicit = []
+    for kbc, kcb, ratio in triples:
+        start = {'kbc': float(kbc), 'kcb': float(kcb)}
+        for label in labels:
+            start[f'{label}.dwC_ppm'] = float(ratio) * float(initial.get(f'{label}.dw_ppm', 1.0))
+        explicit.append(start)
+    init['multistart'] = {'starts': explicit}
+    return cfg
+
+
+def compare_models(config, config_dir, out, *, models=('Sideband', 'Sideband_3st_Linear'), h_ppm_c=None,
+                   no_pdf=True, workers=1):
+    """Fit the same data with several Sideband models and compare AICc/BIC."""
+    out = Path(out).expanduser().absolute()
+    if out.exists() or out.is_symlink():
+        raise FileExistsError(f'Comparison output already exists: {out}')
+    if len(models) < 2 or len(set(models)) != len(models):
+        raise ValueError('compare --models needs at least two distinct models')
+    for method in models:
+        if method != 'Sideband' and method not in THREE_STATE_METHODS:
+            raise ValueError(f'Unknown model {method}')
+    if config['init'].get('Method', 'Sideband') != 'Sideband':
+        raise ValueError('compare --models starts from a two-state (Sideband) configuration')
+    out.mkdir(parents=True)
+    fits = {}
+    for method in models:
+        cfg = copy.deepcopy(config) if method == 'Sideband' else three_state_config(config, method, h_ppm_c=h_ppm_c)
+        for key in ('profile', 'bootstrap', 'profile_interval'):
+            cfg['init'].pop(key, None)
+        cfg['Project Name'] = str(out / method / 'fit')
+        (out / method).mkdir()
+        (out / method / 'config.json').write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')
+        fits[method] = _fit(cfg, config_dir, no_pdf, workers)
+    summary = {'schema_version': 1, 'models': list(models), 'fits': {}, 'comparison': None, 'warnings': [],
+               'h_ppm_c': h_ppm_c or 'state-B proton shift reused for state C',
+               'interpretation': ('The same data fitted with two- and three-state Sideband models. AICc/BIC use '
+                                  'the supplied absolute sigma; three-state starts come from a small multistart '
+                                  'around the two-state exchange rates. A lower AICc does not prove an extra '
+                                  'state: check the populations, the shift of state C, boundary flags and the '
+                                  'residual diagnostics.')}
+    n = None
+    for method, row in fits.items():
+        if not row['success']:
+            summary['fits'][method] = {'success': False, 'message': row['message'] or row.get('result', {}).get('message', '')}
+            summary['warnings'].append(f'{method} fit failed: {summary["fits"][method]["message"]}')
+            continue
+        r = row['result']
+        n = r['n_points']
+        entry = {'success': True, 'chi2': r['chi2'], 'n_points': n, 'n_parameters': r['n_parameters'], 'dof': r['dof'],
+                 **information_criteria(r['chi2'], r['n_parameters'], n), 'kex': r['kex'], 'pB': r['pB'],
+                 'exchange': r.get('exchange'), 'at_bounds': r.get('at_bounds', []), 'warnings': r.get('warnings', []),
+                 'reduced_chi2': r['residual_diagnostics']['reduced_chi2'] if 'residual_diagnostics' in r else r['chi2'] / r['dof'],
+                 'multistart_success': [a['success'] for a in r.get('multistart', [])] or None,
+                 'result_json': row['result_json']}
+        summary['fits'][method] = entry
+    done = {m: e for m, e in summary['fits'].items() if e.get('success')}
+    if len(done) >= 2:
+        ranked = sorted(done, key=lambda m: done[m]['aicc'])
+        reference = done['Sideband'] if 'Sideband' in done else done[ranked[0]]
+        summary['comparison'] = {
+            'preferred_by_aicc': ranked[0], 'preferred_by_bic': min(done, key=lambda m: done[m]['bic']),
+            'delta_aicc_vs_two_state': {m: e['aicc'] - reference['aicc'] for m, e in done.items()},
+            'delta_bic_vs_two_state': {m: e['bic'] - reference['bic'] for m, e in done.items()},
+            'delta_chi2_vs_two_state': {m: reference['chi2'] - e['chi2'] for m, e in done.items()},
+            'extra_parameters_vs_two_state': {m: e['n_parameters'] - reference['n_parameters'] for m, e in done.items()},
+            'note': ('Three-state models reduce to two states only at the boundary of their parameter space, '
+                     'so no F-test is reported; AICc/BIC differences and the fitted populations are the evidence.'),
+        }
+        for m, e in done.items():
+            if m != 'Sideband' and e['exchange'] and min(e['exchange']['populations'].values()) < 0.005:
+                summary['warnings'].append(f'{m}: a state population is below 0.5%; the extra state is not supported by the data.')
+            if m != 'Sideband' and e['at_bounds']:
+                absorbing = [name for name in e['at_bounds'] if name in ('kba', 'kcb')]
+                summary['warnings'].append(f'{m}: parameters at bounds ({", ".join(e["at_bounds"])}); inspect identifiability.'
+                                           + (' A return rate at its lower bound makes a state absorbing, so the '
+                                              'reported populations are meaningless and the model is degenerate.' if absorbing else ''))
+    (out / 'comparison.json').write_text(json.dumps(summary, indent=2, allow_nan=False) + '\n', encoding='utf-8')
+    (out / 'comparison.txt').write_text('\n'.join(models_lines(summary)) + '\n', encoding='utf-8')
+    return {'comparison_json': str(out / 'comparison.json'), 'comparison_txt': str(out / 'comparison.txt')}
+
+
+def models_lines(summary):
+    def number(value, digits=8):
+        return 'unavailable' if value is None else f'{value:.{digits}g}'
+
+    lines = ['Sideband model comparison: two-state versus three-state exchange', summary['interpretation'],
+             f'h_ppm_c: {summary["h_ppm_c"]}', '']
+    for method, entry in summary['fits'].items():
+        if not entry.get('success'):
+            lines.append(f'{method}: failed; {entry.get("message", "")}')
+            continue
+        populations = entry['exchange']['populations'] if entry.get('exchange') else {}
+        lines.append(f'{method}: chi2 {number(entry["chi2"])}, k {entry["n_parameters"]}, n {entry["n_points"]}, '
+                     f'reduced chi2 {number(entry["reduced_chi2"], 5)}, AICc {number(entry["aicc"])}, BIC {number(entry["bic"])}; '
+                     + 'populations ' + ', '.join(f'{s} {v:.4f}' for s, v in populations.items())
+                     + (f'; at bounds: {", ".join(entry["at_bounds"])}' if entry['at_bounds'] else ''))
+        if entry.get('exchange'):
+            lines.append('  rates: ' + ', '.join(f'{k} {v:.5g}' for k, v in entry['exchange']['rates'].items()))
+    c = summary['comparison']
+    if c:
+        lines.extend(['', f'Preferred by AICc: {c["preferred_by_aicc"]}; by BIC: {c["preferred_by_bic"]}',
+                      'delta AICc vs two-state: ' + ', '.join(f'{m} {v:+.3f}' for m, v in c['delta_aicc_vs_two_state'].items()),
+                      'delta chi2 (two-state minus model): ' + ', '.join(f'{m} {v:+.4g}' for m, v in c['delta_chi2_vs_two_state'].items()),
+                      c['note']])
+    if summary['warnings']:
+        lines.extend(['', 'Warnings:', *summary['warnings']])
+    return lines

@@ -1,0 +1,368 @@
+{
+  "scope": "Joint 600 + 800 MHz fits of the archived synthetic 30 ppm benchmark (one noise draw per field, sigma 0.001).",
+  "truth": {
+    "kab": 15.0,
+    "kba": 285.0,
+    "v1n_scale": 1.08,
+    "peak_ppm": 120.0,
+    "dw_ppm": 3.0,
+    "R1": 1.5,
+    "R2a": 12.0,
+    "R2b": 15.0,
+    "R1H": 2.0,
+    "R2H": 25.0
+  },
+  "proton_bounds": [
+    50.0,
+    500.0
+  ],
+  "variants": {
+    "fixed_H_shared_N": {
+      "settings": {
+        "proton": "fixed",
+        "nitrogen": "shared",
+        "proton_bounds": false
+      },
+      "n_points": 522,
+      "n_parameters": 8,
+      "chi2": 533.0305172677511,
+      "reduced_chi2": 1.0370243526609944,
+      "aic": 549.0305172677511,
+      "aicc": 549.311219022137,
+      "bic": 583.0918579708122,
+      "kex": 298.9236445486317,
+      "kex_se": 0.9401300652321796,
+      "pB": 0.05010580758200568,
+      "pB_se": 0.0002090241117874794,
+      "v1n_scale": 1.078634535154156,
+      "kex_bias_truth_se": -1.1449005740524312,
+      "parameters": {
+        "kab": 14.977810615465604,
+        "kba": 283.9458339331661,
+        "v1n_scale": 1.078634535154156,
+        "A1.peak_ppm": 119.99737258667872,
+        "A1.dw_ppm": 3.0031948341105363,
+        "A1.R1": 1.4999873492735398,
+        "A1.R2a": 11.987160527186415,
+        "A1.R2b": 15.674632354445727
+      },
+      "stderr": {
+        "kab": 0.06511462664730353,
+        "kba": 0.914929086196246,
+        "v1n_scale": 0.002535222788783339,
+        "A1.peak_ppm": 0.0011341725623111212,
+        "A1.dw_ppm": 0.0014655937746496453,
+        "A1.R1": 0.00031823254220733724,
+        "A1.R2a": 0.06352249281707913,
+        "A1.R2b": 0.35125428826795946
+      },
+      "field_groups": [
+        {
+          "index": 0,
+          "h_larmor_mhz": 600.0,
+          "datasets": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "index": 1,
+          "h_larmor_mhz": 800.0,
+          "datasets": [
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "warnings": [
+        "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 0, A1/dataset 2; inspect model adequacy.",
+        "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+      ],
+      "jacobian_rank": 8,
+      "reduced_chi2_diagnostic": 1.0370243526609941,
+      "elapsed_s": 2.1790610419993754,
+      "result_json": "results/field_comparison_joint_20261004/fixed_H_shared_N/fit_result.json"
+    },
+    "auto_H_unbounded": {
+      "settings": {
+        "proton": "fit",
+        "nitrogen": "shared",
+        "proton_bounds": false
+      },
+      "n_points": 522,
+      "n_parameters": 12,
+      "chi2": 532.4618177910335,
+      "reduced_chi2": 1.0440427799824186,
+      "aic": 556.4618177910335,
+      "aicc": 557.0747843922122,
+      "bic": 607.5538288456252,
+      "kex": 298.91889497041205,
+      "kex_se": 1.0145860004850802,
+      "pB": 0.05009146656547028,
+      "pB_se": 0.00020937766793465272,
+      "v1n_scale": 1.0787212576239533,
+      "kex_bias_truth_se": -1.0655627310755935,
+      "parameters": {
+        "kab": 14.973285833197718,
+        "kba": 283.9456091372143,
+        "v1n_scale": 1.0787212576239533,
+        "A1.peak_ppm": 119.99757453992792,
+        "A1.dw_ppm": 3.0031484853835355,
+        "A1.R1": 1.499970039632029,
+        "A1.R2a": 11.975636912083408,
+        "A1.R2b": 15.649210659540925,
+        "A1.R1H[0]": 1.7596695078452627e-10,
+        "A1.R2H[0]": 68.73036268087615,
+        "A1.R1H[1]": 6.894303175145469e-08,
+        "A1.R2H[1]": 37.01814000106024
+      },
+      "stderr": {
+        "kab": 0.06763507594206539,
+        "kba": 0.984516279883425,
+        "v1n_scale": 0.002536704083304033,
+        "A1.peak_ppm": 0.001289854521008614,
+        "A1.dw_ppm": 0.0015576413011922253,
+        "A1.R1": 0.0003500306953913547,
+        "A1.R2a": 0.07050585337429374,
+        "A1.R2b": 0.3594649088149045,
+        "A1.R1H[0]": 870.393505904632,
+        "A1.R2H[0]": 333.345914592153,
+        "A1.R1H[1]": 446.2211976879081,
+        "A1.R2H[1]": 222.98879102906966
+      },
+      "field_groups": [
+        {
+          "index": 0,
+          "h_larmor_mhz": 600.0,
+          "datasets": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "index": 1,
+          "h_larmor_mhz": 800.0,
+          "datasets": [
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "warnings": [
+        "Weakly constrained proton nuisance parameters: A1.R1H[0], A1.R2H[0], A1.R1H[1], A1.R2H[1]",
+        "Strong peakwise R1H/R2H correlation; individual H rates are poorly separated",
+        "Parameters at bounds: A1.R1H[0]",
+        "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 0, A1/dataset 2; inspect model adequacy.",
+        "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+      ],
+      "jacobian_rank": 12,
+      "reduced_chi2_diagnostic": 1.0440427799824188,
+      "elapsed_s": 7.137455415999284,
+      "result_json": "results/field_comparison_joint_20261004/auto_H_unbounded/fit_result.json"
+    },
+    "auto_H_shared_N": {
+      "settings": {
+        "proton": "fit",
+        "nitrogen": "shared",
+        "proton_bounds": true
+      },
+      "n_points": 522,
+      "n_parameters": 12,
+      "chi2": 532.4618179898907,
+      "reduced_chi2": 1.0440427803723347,
+      "aic": 556.4618179898907,
+      "aicc": 557.0747845910695,
+      "bic": 607.5538290444824,
+      "kex": 298.9189406909168,
+      "kex_se": 1.0144856510888351,
+      "pB": 0.05009146696183622,
+      "pB_se": 0.00020936643385000066,
+      "v1n_scale": 1.0787212650613063,
+      "kex_bias_truth_se": -1.065623065168921,
+      "parameters": {
+        "kab": 14.973288241886141,
+        "kba": 283.94565244903066,
+        "v1n_scale": 1.0787212650613063,
+        "A1.peak_ppm": 119.99757443265054,
+        "A1.dw_ppm": 3.0031485473726067,
+        "A1.R1": 1.4999700518920478,
+        "A1.R2a": 11.97563804402982,
+        "A1.R2b": 15.649210550602042,
+        "A1.R1H[0]": 2.7030725794807322e-08,
+        "A1.R2H[0]": 68.71933646886181,
+        "A1.R1H[1]": 1.8799782724114967e-08,
+        "A1.R2H[1]": 37.01556378259862
+      },
+      "stderr": {
+        "kab": 0.06761466917093888,
+        "kba": 0.9844403792959463,
+        "v1n_scale": 0.002536560425475509,
+        "A1.peak_ppm": 0.00128931168226621,
+        "A1.dw_ppm": 0.0015578944032895686,
+        "A1.R1": 0.00034977045823083143,
+        "A1.R2a": 0.0704535952894153,
+        "A1.R2b": 0.35959746165339357,
+        "A1.R1H[0]": 865.326515268811,
+        "A1.R2H[0]": 331.56119446745083,
+        "A1.R1H[1]": 444.1957041824579,
+        "A1.R2H[1]": 221.9963909921276
+      },
+      "field_groups": [
+        {
+          "index": 0,
+          "h_larmor_mhz": 600.0,
+          "datasets": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "index": 1,
+          "h_larmor_mhz": 800.0,
+          "datasets": [
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "warnings": [
+        "Weakly constrained proton nuisance parameters: A1.R1H[0], A1.R2H[0], A1.R1H[1], A1.R2H[1]",
+        "Strong peakwise R1H/R2H correlation; individual H rates are poorly separated",
+        "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 0, A1/dataset 2; inspect model adequacy.",
+        "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+      ],
+      "jacobian_rank": 12,
+      "reduced_chi2_diagnostic": 1.0440427803723347,
+      "elapsed_s": 3.061016000021482,
+      "result_json": "results/field_comparison_joint_20261004/auto_H_shared_N/fit_result.json"
+    },
+    "auto_H_per_field_N": {
+      "settings": {
+        "proton": "fit",
+        "nitrogen": "per_field",
+        "proton_bounds": true
+      },
+      "n_points": 522,
+      "n_parameters": 15,
+      "chi2": 530.8401203280278,
+      "reduced_chi2": 1.0470219335858535,
+      "aic": 560.8401203280278,
+      "aicc": 561.7887369288183,
+      "bic": 624.7051341462674,
+      "kex": 298.9131793161089,
+      "kex_se": 1.0221000103864137,
+      "pB": 0.050088145064709017,
+      "pB_se": 0.0002127987848220507,
+      "v1n_scale": 1.0787371959152736,
+      "kex_bias_truth_se": -1.0633212727199144,
+      "parameters": {
+        "kab": 14.97200668733864,
+        "kba": 283.94117262877023,
+        "v1n_scale": 1.0787371959152736,
+        "A1.peak_ppm": 119.99763968118734,
+        "A1.dw_ppm": 3.0031278255903544,
+        "A1.R1[0]": 1.5003373178974038,
+        "A1.R2a[0]": 11.995744717040838,
+        "A1.R2b[0]": 15.677629310964198,
+        "A1.R1[1]": 1.4997760981819037,
+        "A1.R2a[1]": 11.974978643056545,
+        "A1.R2b[1]": 15.638285623046949,
+        "A1.R1H[0]": 1.0697853803320013e-10,
+        "A1.R2H[0]": 2.2872873005680464e-13,
+        "A1.R1H[1]": 2.3292407874627873e-08,
+        "A1.R2H[1]": 40.9591512259893
+      },
+      "stderr": {
+        "kab": 0.0680647464685433,
+        "kba": 0.9926125458292919,
+        "v1n_scale": 0.002579864092661929,
+        "A1.peak_ppm": 0.001312443371530961,
+        "A1.dw_ppm": 0.0015811003288943085,
+        "A1.R1[0]": 0.0005253783298553654,
+        "A1.R2a[0]": 1.0762637285616918,
+        "A1.R2b[0]": 1.1767854440531604,
+        "A1.R1[1]": 0.00044690822738422244,
+        "A1.R2a[1]": 0.07410982106020021,
+        "A1.R2b[1]": 0.4413640634913353,
+        "A1.R1H[0]": 8899.87683902349,
+        "A1.R2H[0]": 5707.679844846262,
+        "A1.R1H[1]": 472.86706819632644,
+        "A1.R2H[1]": 237.6475159137799
+      },
+      "field_groups": [
+        {
+          "index": 0,
+          "h_larmor_mhz": 600.0,
+          "datasets": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "index": 1,
+          "h_larmor_mhz": 800.0,
+          "datasets": [
+            3,
+            4,
+            5
+          ]
+        }
+      ],
+      "warnings": [
+        "Weakly constrained proton nuisance parameters: A1.R1H[0], A1.R2H[0], A1.R1H[1], A1.R2H[1]",
+        "Strong peakwise R1H/R2H correlation; individual H rates are poorly separated",
+        "Parameters at bounds: A1.R1H[0], A1.R2H[0]",
+        "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 2; inspect model adequacy.",
+        "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+      ],
+      "jacobian_rank": 15,
+      "reduced_chi2_diagnostic": 1.0470219335858533,
+      "elapsed_s": 3.8778908330132253,
+      "result_json": "results/field_comparison_joint_20261004/auto_H_per_field_N/fit_result.json"
+    }
+  },
+  "separate_field_reference": {
+    "600": {
+      "kex": 297.89170433293856,
+      "kex_se": 1.6313940060445271,
+      "pB": 0.050286759503445244,
+      "pB_se": 0.0002987637906412771,
+      "reduced_chi2": 1.0580375865957758
+    },
+    "800": {
+      "kex": 299.85013154522255,
+      "kex_se": 1.230332671657703,
+      "pB": 0.04999432270385059,
+      "pB_se": 0.0003132097241779131,
+      "reduced_chi2": 1.034727980705695
+    }
+  },
+  "comparison": "All variants share kab/kba, the RF scale and the nitrogen shifts across fields and are fitted jointly through run_config with checkpoints; AICc/BIC use the supplied absolute sigma.",
+  "note": "The synthetic truth has the same relaxation at both fields and the fixed proton rates are the generating values, so field-specific parameters cannot improve the description; the comparison measures the cost of the extra freedom, not a benefit.",
+  "preferred_by_aicc": "fixed_H_shared_N",
+  "delta_aicc_vs_fixed_H_shared_N": {
+    "fixed_H_shared_N": 0.0,
+    "auto_H_unbounded": 7.7635653700751845,
+    "auto_H_shared_N": 7.763565568932449,
+    "auto_H_per_field_N": 12.477517906681214
+  },
+  "source_sha256": {
+    "compare_joint_fields.py": "69f1544e8dc3cbab2c5c4ee59171fc79dcf9ee1f9d27d65f6790da9744b081ee",
+    "results/field_comparison_joint_20261004/inputs/600/full.json": "0d530cc97caa412c53ca81e978de7cb0647f201431ac73881475da1372fe9901",
+    "results/field_comparison_joint_20261004/inputs/600/full_25.txt": "a28136f6d2d45c875f1201f8687e6a9f77594ddbb35fe81bf2c5135cc9c95b9a",
+    "results/field_comparison_joint_20261004/inputs/600/full_50.txt": "c0aa6294d7277808b6cc8d8e3c9c07cea3b64ba3cf0986a18809d7cf0622c37c",
+    "results/field_comparison_joint_20261004/inputs/600/full_100.txt": "a332dd5e76ebf1afd16da87555fc5ee6257d9c0ea990ad74b983e4e915b8f32d",
+    "results/field_comparison_joint_20261004/inputs/800/full.json": "e67bc3cf2f474e1b20b180f5863e4cb2ed401d232c01735f8d1c839d03be0283",
+    "results/field_comparison_joint_20261004/inputs/800/full_25.txt": "29f7e8a9899c3822fba26ee00e70fcf06424ad55dc9248fec70d9fd54dc71bc3",
+    "results/field_comparison_joint_20261004/inputs/800/full_50.txt": "404769ecadf9975720258db70595a4ea31a3eb4abd3cbf7618c6652200579546",
+    "results/field_comparison_joint_20261004/inputs/800/full_100.txt": "9e4fe23e4da5cd185963136ce61576ad09fa580507373b295a10fd15a233981a",
+    "results/field_comparison_600_800_20261003_02/summary.json": "351e3bd2705e2f0cc5b787756fdfd074cc6356b12cc33686f1718e975e2ef27f"
+  }
+}

@@ -1,0 +1,773 @@
+{
+  "schema_version": 2,
+  "method": "Sideband",
+  "model": "Sideband",
+  "states": 2,
+  "rf_mode": "scale",
+  "proton_relaxation_mode": "fit",
+  "nitrogen_relaxation_mode": "shared",
+  "field_groups": [
+    {
+      "index": 0,
+      "h_larmor_mhz": 600.0,
+      "datasets": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "index": 1,
+      "h_larmor_mhz": 800.0,
+      "datasets": [
+        3,
+        4,
+        5
+      ]
+    }
+  ],
+  "proton_correlations": [
+    {
+      "parameters": [
+        "A1.R1H[0]",
+        "A1.R2H[0]"
+      ],
+      "correlation": -0.9615562949325623
+    },
+    {
+      "parameters": [
+        "A1.R1H[1]",
+        "A1.R2H[1]"
+      ],
+      "correlation": -0.9939005889416278
+    }
+  ],
+  "config": {
+    "Project Name": "results/field_comparison_joint_20261004/auto_H_shared_N/fit",
+    "datasets": [
+      "600/full_25.txt",
+      "600/full_50.txt",
+      "600/full_100.txt",
+      "800/full_25.txt",
+      "800/full_50.txt",
+      "800/full_100.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2
+      },
+      "bounds": {
+        "A1.R1H": [
+          0.0,
+          50.0
+        ],
+        "A1.R2H": [
+          0.0,
+          500.0
+        ]
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      },
+      "proton_relaxation": {
+        "mode": "fit"
+      },
+      "datasets": [
+        {
+          "h_larmor_mhz": 600.0
+        },
+        {
+          "h_larmor_mhz": 600.0
+        },
+        {
+          "h_larmor_mhz": 600.0
+        },
+        {
+          "h_larmor_mhz": 800.0
+        },
+        {
+          "h_larmor_mhz": 800.0
+        },
+        {
+          "h_larmor_mhz": 800.0
+        }
+      ],
+      "nitrogen_relaxation": {
+        "mode": "shared"
+      }
+    }
+  },
+  "v1n_hz": [
+    26.968031626532657,
+    53.93606325306531,
+    107.87212650613063,
+    26.968031626532657,
+    53.93606325306531,
+    107.87212650613063
+  ],
+  "chi2": 532.4618179898907,
+  "dof": 510,
+  "n_points": 522,
+  "n_parameters": 12,
+  "kex": 298.9189406909168,
+  "pB": 0.05009146696183622,
+  "exchange": {
+    "rates": {
+      "kab": 14.973288241886141,
+      "kba": 283.94565244903066
+    },
+    "populations": {
+      "A": 0.9499085330381638,
+      "B": 0.05009146696183625
+    },
+    "kex_AB": 298.9189406909168,
+    "note": "kex and pB summarize the two-state model; for three sites the populations follow from all rates and kex/pB are null."
+  },
+  "parameter_order": [
+    "kab",
+    "kba",
+    "v1n_scale",
+    "A1.peak_ppm",
+    "A1.dw_ppm",
+    "A1.R1",
+    "A1.R2a",
+    "A1.R2b",
+    "A1.R1H[0]",
+    "A1.R2H[0]",
+    "A1.R1H[1]",
+    "A1.R2H[1]"
+  ],
+  "covariance": [
+    [
+      0.004571743487095512,
+      0.027743266194847804,
+      -0.00013142039416869414,
+      -1.0105951224010405e-05,
+      -9.597377150244805e-06,
+      4.402263626112907e-06,
+      0.0031211953496472823,
+      -0.003672969509053141,
+      12.898581167785395,
+      -5.015947843621881,
+      4.054963591421609,
+      -2.346478534442456
+    ],
+    [
+      0.027743266194847804,
+      0.9691228603883466,
+      0.00032468507822612123,
+      4.8675163957622954e-05,
+      0.0004357591505167972,
+      2.0680682882522887e-05,
+      -0.0030374529103151535,
+      -0.20455379507241833,
+      216.8739677458905,
+      -80.10144196274504,
+      96.43599181499708,
+      -52.36058161664261
+    ],
+    [
+      -0.00013142039416869412,
+      0.00032468507822612123,
+      6.434138792088497e-06,
+      -8.849246649755304e-08,
+      7.74876839977832e-07,
+      -1.6596854131600586e-07,
+      -0.00014857245776606204,
+      -0.00011451190258144746,
+      -0.016155029104054437,
+      0.006355854158145262,
+      0.06742284249420362,
+      -0.03373828471512043
+    ],
+    [
+      -1.0105951224010406e-05,
+      4.8675163957622954e-05,
+      -8.849246649755306e-08,
+      1.6623246140281243e-06,
+      -9.161504693458282e-07,
+      -1.3120132028740429e-08,
+      1.0284671473341299e-05,
+      -0.00017029122235029907,
+      -0.29067082888276874,
+      0.12560056776820439,
+      -0.12658866492591425,
+      0.07563091477834226
+    ],
+    [
+      -9.597377150244805e-06,
+      0.0004357591505167972,
+      7.748768399778321e-07,
+      -9.161504693458282e-07,
+      2.4270349718009613e-06,
+      -1.4581800051699392e-09,
+      -1.430658357843516e-05,
+      -0.00017022072348963407,
+      0.3312479760582922,
+      -0.12684061602038726,
+      0.14095764853404832,
+      -0.07756078480029971
+    ],
+    [
+      4.402263626112907e-06,
+      2.0680682882522893e-05,
+      -1.6596854131600586e-07,
+      -1.3120132028740427e-08,
+      -1.458180005169944e-09,
+      1.2233937345100581e-07,
+      -1.8959331314485509e-06,
+      -1.4494324731498082e-05,
+      -0.09380485674503557,
+      0.03813525602871901,
+      -0.05372484137145541,
+      0.025987002711660444
+    ],
+    [
+      0.0031211953496472823,
+      -0.003037452910315154,
+      -0.00014857245776606206,
+      1.0284671473341304e-05,
+      -1.4306583578435162e-05,
+      -1.89593313144855e-06,
+      0.004963709089204722,
+      -0.0012435624371360489,
+      14.57715815854205,
+      -7.718287496001605,
+      9.813592906305011,
+      -5.108288282811611
+    ],
+    [
+      -0.003672969509053141,
+      -0.20455379507241833,
+      -0.00011451190258144746,
+      -0.00017029122235029907,
+      -0.00017022072348963407,
+      -1.4494324731498082e-05,
+      -0.0012435624371360489,
+      0.12931033442756384,
+      -39.79866078525886,
+      10.890539014870319,
+      -10.302321850802915,
+      5.305566038975194
+    ],
+    [
+      12.898581167785395,
+      216.8739677458905,
+      -0.016155029104054437,
+      -0.2906708288827687,
+      0.3312479760582922,
+      -0.09380485674503557,
+      14.57715815854205,
+      -39.79866078525886,
+      748789.9780272639,
+      -275878.8598316432,
+      169666.76203592418,
+      -89928.523855385
+    ],
+    [
+      -5.0159478436218805,
+      -80.10144196274504,
+      0.006355854158145262,
+      0.12560056776820436,
+      -0.12684061602038726,
+      0.03813525602871901,
+      -7.718287496001605,
+      10.890539014870319,
+      -275878.8598316432,
+      109932.82567668274,
+      -84240.56008547028,
+      44676.60660284293
+    ],
+    [
+      4.05496359142161,
+      96.43599181499708,
+      0.06742284249420362,
+      -0.12658866492591425,
+      0.14095764853404835,
+      -0.053724841371455404,
+      9.813592906305011,
+      -10.302321850802917,
+      169666.76203592418,
+      -84240.56008547028,
+      197309.82361414967,
+      -98008.38125449541
+    ],
+    [
+      -2.346478534442456,
+      -52.36058161664261,
+      -0.03373828471512043,
+      0.07563091477834226,
+      -0.07756078480029971,
+      0.025987002711660444,
+      -5.108288282811611,
+      5.305566038975195,
+      -89928.52385538502,
+      44676.606602842934,
+      -98008.38125449541,
+      49282.39761352959
+    ]
+  ],
+  "derived_se": {
+    "kex": 1.0144856510888351,
+    "pB": 0.00020936643385000066
+  },
+  "parameters": {
+    "kab": {
+      "value": 14.973288241886141,
+      "stderr": 0.06761466917093888,
+      "vary": true,
+      "stderr_rescaled": 0.06908759498937787
+    },
+    "kba": {
+      "value": 283.94565244903066,
+      "stderr": 0.9844403792959463,
+      "vary": true,
+      "stderr_rescaled": 1.0058855430327247
+    },
+    "v1n_scale": {
+      "value": 1.0787212650613063,
+      "stderr": 0.002536560425475509,
+      "vary": true,
+      "stderr_rescaled": 0.002591817152847316
+    },
+    "A1.peak_ppm": {
+      "value": 119.99757443265054,
+      "stderr": 0.00128931168226621,
+      "vary": true,
+      "stderr_rescaled": 0.0013173981979307894
+    },
+    "A1.dw_ppm": {
+      "value": 3.0031485473726067,
+      "stderr": 0.0015578944032895686,
+      "vary": true,
+      "stderr_rescaled": 0.001591831756191579
+    },
+    "A1.R1": {
+      "value": 1.4999700518920478,
+      "stderr": 0.00034977045823083143,
+      "vary": true,
+      "stderr_rescaled": 0.00035738989857968495
+    },
+    "A1.R2a": {
+      "value": 11.97563804402982,
+      "stderr": 0.0704535952894153,
+      "vary": true,
+      "stderr_rescaled": 0.07198836460465488
+    },
+    "A1.R2b": {
+      "value": 15.649210550602042,
+      "stderr": 0.35959746165339357,
+      "vary": true,
+      "stderr_rescaled": 0.367430974587922
+    },
+    "A1.R1H[0]": {
+      "value": 2.7030725794807322e-08,
+      "stderr": 865.326515268811,
+      "vary": true,
+      "stderr_rescaled": 884.1768887358027
+    },
+    "A1.R2H[0]": {
+      "value": 68.71933646886181,
+      "stderr": 331.56119446745083,
+      "vary": true,
+      "stderr_rescaled": 338.78396209630563
+    },
+    "A1.R1H[1]": {
+      "value": 1.8799782724114967e-08,
+      "stderr": 444.1957041824579,
+      "vary": true,
+      "stderr_rescaled": 453.87211507305864
+    },
+    "A1.R2H[1]": {
+      "value": 37.01556378259862,
+      "stderr": 221.9963909921276,
+      "vary": true,
+      "stderr_rescaled": 226.83238619704272
+    }
+  },
+  "jacobian_rank": 12,
+  "scaled_condition": 48.68299676682266,
+  "v1n_correlations": [
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a"
+      ],
+      "correlation": -0.8313615503997953
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kab"
+      ],
+      "correlation": -0.7662608297175717
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.dw_ppm"
+      ],
+      "correlation": 0.196087292971259
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1"
+      ],
+      "correlation": -0.18706711073466029
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kba"
+      ],
+      "correlation": 0.1300252502736081
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b"
+      ],
+      "correlation": -0.12554192987469642
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2H[1]"
+      ],
+      "correlation": -0.059914490741565594
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1H[1]"
+      ],
+      "correlation": 0.059839435986575124
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.peak_ppm"
+      ],
+      "correlation": -0.027058465873313346
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2H[0]"
+      ],
+      "correlation": 0.007557271334461588
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1H[0]"
+      ],
+      "correlation": -0.007360079760290125
+    }
+  ],
+  "at_bounds": [],
+  "warnings": [
+    "Weakly constrained proton nuisance parameters: A1.R1H[0], A1.R2H[0], A1.R1H[1], A1.R2H[1]",
+    "Strong peakwise R1H/R2H correlation; individual H rates are poorly separated",
+    "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 0, A1/dataset 2; inspect model adequacy.",
+    "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+  ],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 16,
+  "message": "`ftol` termination condition is satisfied.",
+  "success": true,
+  "residual_diagnostics": {
+    "n_points": 522,
+    "n_parameters": 12,
+    "dof": 510,
+    "chi2": 532.4618179898907,
+    "reduced_chi2": 1.0440427803723347,
+    "reduced_chi2_expected_sd": 0.06262242910851495,
+    "sigma_scale_estimate": 1.0217841163241552,
+    "residual_mean": -0.001310994850469286,
+    "residual_sd": 1.0109391320183527,
+    "outliers_beyond_3sigma": 1,
+    "expected_outliers_beyond_3sigma": 1.409293545021828,
+    "overall_runs_test": {
+      "runs": 290,
+      "n_positive": 261,
+      "n_negative": 261,
+      "expected_runs": 262.0,
+      "z": 2.4534090635295893,
+      "p_value": 0.014150931391822219
+    },
+    "by_residue": {
+      "A1": {
+        "n_points": 522,
+        "reduced_chi2": 1.0200417969154996
+      }
+    },
+    "by_dataset": {
+      "0": {
+        "n_points": 75,
+        "reduced_chi2": 1.0000455728492026
+      },
+      "1": {
+        "n_points": 75,
+        "reduced_chi2": 1.0811033885362455
+      },
+      "2": {
+        "n_points": 75,
+        "reduced_chi2": 1.0168499476435886
+      },
+      "3": {
+        "n_points": 99,
+        "reduced_chi2": 0.8394074365201025
+      },
+      "4": {
+        "n_points": 99,
+        "reduced_chi2": 1.2068336547757008
+      },
+      "5": {
+        "n_points": 99,
+        "reduced_chi2": 0.9851922401457418
+      }
+    },
+    "blocks": [
+      {
+        "residue": "A1",
+        "dataset_index": 0,
+        "n_points": 75,
+        "chi2": 75.0034179636902,
+        "reduced_chi2": 1.0000455728492026,
+        "residual_mean": -0.026182635238808854,
+        "runs_test": {
+          "runs": 52,
+          "n_positive": 37,
+          "n_negative": 38,
+          "expected_runs": 38.49333333333333,
+          "z": 3.14108904644064,
+          "p_value": 0.001683208468887809
+        },
+        "lag1_autocorrelation": -0.3194746844545984,
+        "lag1_threshold": 0.23094010767585027,
+        "max_abs_residual": 2.6454056872606824
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 1,
+        "n_points": 75,
+        "chi2": 81.08275414021841,
+        "reduced_chi2": 1.0811033885362455,
+        "residual_mean": -0.24028899982446716,
+        "runs_test": {
+          "runs": 33,
+          "n_positive": 33,
+          "n_negative": 42,
+          "expected_runs": 37.96,
+          "z": -1.1703660453471418,
+          "p_value": 0.2418536938223379
+        },
+        "lag1_autocorrelation": -0.008408203140272423,
+        "lag1_threshold": 0.23094010767585027,
+        "max_abs_residual": 2.4383332721943374
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 2,
+        "n_points": 75,
+        "chi2": 76.26374607326915,
+        "reduced_chi2": 1.0168499476435886,
+        "residual_mean": 0.13964559085794345,
+        "runs_test": {
+          "runs": 50,
+          "n_positive": 42,
+          "n_negative": 33,
+          "expected_runs": 37.96,
+          "z": 2.8409691907216907,
+          "p_value": 0.004497665733015133
+        },
+        "lag1_autocorrelation": -0.25501802474007756,
+        "lag1_threshold": 0.23094010767585027,
+        "max_abs_residual": 3.0258913530269993
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 3,
+        "n_points": 99,
+        "chi2": 83.10133621549015,
+        "reduced_chi2": 0.8394074365201025,
+        "residual_mean": -0.06837376579498193,
+        "runs_test": {
+          "runs": 46,
+          "n_positive": 47,
+          "n_negative": 52,
+          "expected_runs": 50.37373737373738,
+          "z": -0.8859575572909963,
+          "p_value": 0.3756403985447738
+        },
+        "lag1_autocorrelation": 0.008792657713890624,
+        "lag1_threshold": 0.20100756305184242,
+        "max_abs_residual": 2.2491995141754595
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 4,
+        "n_points": 99,
+        "chi2": 119.47653182279439,
+        "reduced_chi2": 1.2068336547757008,
+        "residual_mean": 0.006583625620917824,
+        "runs_test": {
+          "runs": 58,
+          "n_positive": 49,
+          "n_negative": 50,
+          "expected_runs": 50.494949494949495,
+          "z": 1.5164844401706645,
+          "p_value": 0.129396901845656
+        },
+        "lag1_autocorrelation": -0.09671068653463892,
+        "lag1_threshold": 0.20100756305184242,
+        "max_abs_residual": 2.9039578475600347
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 5,
+        "n_points": 99,
+        "chi2": 97.53403177442844,
+        "reduced_chi2": 0.9851922401457418,
+        "residual_mean": 0.15095795839078105,
+        "runs_test": {
+          "runs": 52,
+          "n_positive": 53,
+          "n_negative": 46,
+          "expected_runs": 50.25252525252525,
+          "z": 0.3548539728691325,
+          "p_value": 0.7226989916271278
+        },
+        "lag1_autocorrelation": -0.015473988642282636,
+        "lag1_threshold": 0.20100756305184242,
+        "max_abs_residual": 2.6321702145463144
+      }
+    ],
+    "warnings": [
+      "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 0, A1/dataset 2; inspect model adequacy.",
+      "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+    ],
+    "interpretation": "Reduced chi2 near 1 (within a few expected spreads) is consistent with the supplied absolute sigma; runs tests and autocorrelation detect ordered structure that a correct model should not leave. Rescaled errors multiply the local covariance by chi2/dof and assume a correct model with uniformly mis-estimated sigma.",
+    "rescaled_stderr": [
+      0.06908759498937787,
+      1.0058855430327247,
+      0.002591817152847316,
+      0.0013173981979307894,
+      0.001591831756191579,
+      0.00035738989857968495,
+      0.07198836460465488,
+      0.367430974587922,
+      884.1768887358027,
+      338.78396209630563,
+      453.87211507305864,
+      226.83238619704272
+    ],
+    "rescale_factor": 1.0440427803723347
+  },
+  "provenance": {
+    "config_sha256": "8b3ea4dfcfa7a36e01eb4cce23df76cae2cc09bee75eb2c3dda63a2c1683f5c5",
+    "datasets": [
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/600/full_25.txt",
+        "sha256": "a28136f6d2d45c875f1201f8687e6a9f77594ddbb35fe81bf2c5135cc9c95b9a"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/600/full_50.txt",
+        "sha256": "c0aa6294d7277808b6cc8d8e3c9c07cea3b64ba3cf0986a18809d7cf0622c37c"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/600/full_100.txt",
+        "sha256": "a332dd5e76ebf1afd16da87555fc5ee6257d9c0ea990ad74b983e4e915b8f32d"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/800/full_25.txt",
+        "sha256": "29f7e8a9899c3822fba26ee00e70fcf06424ad55dc9248fec70d9fd54dc71bc3"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/800/full_50.txt",
+        "sha256": "404769ecadf9975720258db70595a4ea31a3eb4abd3cbf7618c6652200579546"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/800/full_100.txt",
+        "sha256": "9e4fe23e4da5cd185963136ce61576ad09fa580507373b295a10fd15a233981a"
+      }
+    ],
+    "git": {
+      "commit": "d3f188e8111d5e54fe58a93da40cea4a5897f6d0",
+      "dirty": true
+    },
+    "packages": {
+      "matplotlib": "3.11.2",
+      "numpy": "2.5.3",
+      "optimalcontrol-nmr": "0.5.0",
+      "scipy": "1.18.1"
+    },
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.12.14 (main, Aug 12 2026, 13:57:54) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "source_sha256": {
+      "est_data.py": "131152cd937b1b8db977cd66c3baadaeb5ed2263f8ea119af56f658d66429d83",
+      "estmodel.py": "16dc43b1f7cfe165ab5b11583aabda52a7763bea75685fef9964d328f348ad8b",
+      "fit.py": "eabf35f2acd4d21792facac9d47f02928675dba5e46c37c0f59ed837cd91bddc",
+      "run.py": "b43bf925b31731f5c12252e32a673055fe8edcb870270e87ea5c14d725d0bcb6",
+      "sb_analysis.py": "9466ce1157e87e541352058240655a0078ac89a35a21ba694306f85c37396ae0",
+      "sb_bootstrap.py": "d011a61a50775795dc0008ac769763238344bd53a8eb110a080b1c674d32aa28",
+      "sb_checkpoint.py": "2d1e199c95df35a6a5a707c1f6cd42cf78432b2966483e01ecd0b41e6b844681",
+      "sb_report.py": "3c240a8950860b09ac7b4006a78b13e315c7d815784c0818a4f2222e4f51261a",
+      "sb_workflow.py": "4ebd807b37ba090e8ede9ca4fdc3ac9150132adde936149f4fc64b2349238977",
+      "sbfit.py": "d177fa37fd9d041fec2a7772e8a66f478e38f543ccba68a433b9f2209a194b1d",
+      "sideband.py": "bb37750d9284bcbf1efc8022e1cfabd19cb4455741cbd7f7031bbdb24618925f"
+    },
+    "started_utc": "2026-10-04T07:56:23.745938+00:00",
+    "threads": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "VECLIB_MAXIMUM_THREADS": "1"
+    },
+    "waveforms": [],
+    "elapsed_s": 2.867307000007713,
+    "elapsed_note": "Seconds in the final invocation; excludes earlier interrupted invocations.",
+    "resumed": false,
+    "workers": 8
+  },
+  "checkpoint": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/auto_H_shared_N/fit_checkpoint"
+}

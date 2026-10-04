@@ -45,3 +45,6 @@ session_artifacts/
 /results/auto_H_refit/source_before/
 /results/auto_H_refit/legacy_demo/
 /results/auto_H_refit/*_sample.txt
+# Joint field comparison: keep summaries, configs and results; omit checkpoints and input copies.
+/results/field_comparison_joint_*/inputs/
+/results/field_comparison_joint_*/*/fit_checkpoint/

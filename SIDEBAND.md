@@ -266,6 +266,12 @@ chi²/dof로 재스케일한 표준오차를 제공한다(매뉴얼 8.8절). 설
 안에서 kex·pB·D 기준을 최적화한다(8.6절). worker pool은 모든 worker를 미리
 시작하고 optimizer의 잔차 계산을 블록으로 분산한다(882점 fit 8 worker 10초).
 
+`validate_uncertainty.py`는 `--profile-interval`·`--inner-bootstrap`으로 profile·
+bootstrap 구간 coverage까지 측정한다(8.2절). `compare_joint_fields.py`는 600/800 MHz
+벤치마크를 자기장 그룹 모델로 공동 fitting한다(7.1절; 양성자 이완은 그 자기장에서
+결정되지 않아 bounds가 필요하고 kex·pB는 변하지 않는다). `compare --models`는
+같은 데이터에서 2상태와 3상태 모델을 AICc/BIC로 비교한다(8.7절).
+
 `init.bootstrap`은 `replicates`, 명시적 `seed`, 선택적 `confidence`(기본 0.95)를
 받는다. 선택된 fit의 예측값에 입력 absolute sigma의 독립 Gaussian 잡음을 더해
 재fitting한다. 실패 시도와 경계 진단을 보존하며 성공한 반복의 percentile을

@@ -1,0 +1,909 @@
+{
+  "schema_version": 2,
+  "method": "Sideband",
+  "model": "Sideband",
+  "states": 2,
+  "rf_mode": "scale",
+  "proton_relaxation_mode": "fit",
+  "nitrogen_relaxation_mode": "per_field",
+  "field_groups": [
+    {
+      "index": 0,
+      "h_larmor_mhz": 600.0,
+      "datasets": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "index": 1,
+      "h_larmor_mhz": 800.0,
+      "datasets": [
+        3,
+        4,
+        5
+      ]
+    }
+  ],
+  "proton_correlations": [
+    {
+      "parameters": [
+        "A1.R1H[0]",
+        "A1.R2H[0]"
+      ],
+      "correlation": -0.9997746901363065
+    },
+    {
+      "parameters": [
+        "A1.R1H[1]",
+        "A1.R2H[1]"
+      ],
+      "correlation": -0.9937028966261202
+    }
+  ],
+  "config": {
+    "Project Name": "results/field_comparison_joint_20261004/auto_H_per_field_N/fit",
+    "datasets": [
+      "600/full_25.txt",
+      "600/full_50.txt",
+      "600/full_100.txt",
+      "800/full_25.txt",
+      "800/full_50.txt",
+      "800/full_100.txt"
+    ],
+    "residues": [
+      {
+        "name": "A1",
+        "flag": "on"
+      }
+    ],
+    "init": {
+      "Method": "Sideband",
+      "kex": {
+        "min": 200.0,
+        "max": 400.0,
+        "nsteps": 3
+      },
+      "pB": {
+        "min": 0.03,
+        "max": 0.07,
+        "nsteps": 3
+      },
+      "initial": {
+        "A1.peak_ppm": 120.05,
+        "A1.R1": 1.2
+      },
+      "bounds": {
+        "A1.R1H": [
+          0.0,
+          50.0
+        ],
+        "A1.R2H": [
+          0.0,
+          500.0
+        ]
+      }
+    },
+    "sideband": {
+      "decoupling": {
+        "h_carrier_ppm": 8.5,
+        "p90_s": 7e-05,
+        "cycle": "RR",
+        "b1_scale": 1.0,
+        "J_hz": 92.0
+      },
+      "residues": {
+        "A1": {
+          "h_ppm_a": 6.2,
+          "h_ppm_b": 6.5
+        }
+      },
+      "v1n": {
+        "mode": "scale",
+        "initial": 1.0,
+        "bounds": [
+          0.8,
+          1.2
+        ]
+      },
+      "proton_relaxation": {
+        "mode": "fit"
+      },
+      "datasets": [
+        {
+          "h_larmor_mhz": 600.0
+        },
+        {
+          "h_larmor_mhz": 600.0
+        },
+        {
+          "h_larmor_mhz": 600.0
+        },
+        {
+          "h_larmor_mhz": 800.0
+        },
+        {
+          "h_larmor_mhz": 800.0
+        },
+        {
+          "h_larmor_mhz": 800.0
+        }
+      ],
+      "nitrogen_relaxation": {
+        "mode": "per_field"
+      }
+    }
+  },
+  "v1n_hz": [
+    26.96842989788184,
+    53.93685979576368,
+    107.87371959152736,
+    26.96842989788184,
+    53.93685979576368,
+    107.87371959152736
+  ],
+  "chi2": 530.8401203280278,
+  "dof": 507,
+  "n_points": 522,
+  "n_parameters": 15,
+  "kex": 298.9131793161089,
+  "pB": 0.050088145064709017,
+  "exchange": {
+    "rates": {
+      "kab": 14.97200668733864,
+      "kba": 283.94117262877023
+    },
+    "populations": {
+      "A": 0.9499118549352911,
+      "B": 0.05008814506470903
+    },
+    "kex_AB": 298.9131793161089,
+    "note": "kex and pB summarize the two-state model; for three sites the populations follow from all rates and kex/pB are null."
+  },
+  "parameter_order": [
+    "kab",
+    "kba",
+    "v1n_scale",
+    "A1.peak_ppm",
+    "A1.dw_ppm",
+    "A1.R1[0]",
+    "A1.R2a[0]",
+    "A1.R2b[0]",
+    "A1.R1[1]",
+    "A1.R2a[1]",
+    "A1.R2b[1]",
+    "A1.R1H[0]",
+    "A1.R2H[0]",
+    "A1.R1H[1]",
+    "A1.R2H[1]"
+  ],
+  "covariance": [
+    [
+      0.004632809711827078,
+      0.02738797769118592,
+      -0.00013423400789379963,
+      -1.0585594133790146e-05,
+      -9.812920289691865e-06,
+      6.639623848920967e-06,
+      0.013008123237693186,
+      0.007898392044671583,
+      4.203462406148998e-06,
+      0.0032711131124976956,
+      -0.004240844703988076,
+      83.63965209849957,
+      -54.15590166996412,
+      4.4976182073522075,
+      -2.6058511689562667
+    ],
+    [
+      0.02738797769118592,
+      0.9852796661377082,
+      0.0003690665866234107,
+      3.3889565263052505e-05,
+      0.00046417179972820666,
+      3.650497584385714e-05,
+      0.19066302933516863,
+      0.04123048946917043,
+      2.7153490817837032e-05,
+      -0.0015623623265759252,
+      -0.24276006775817563,
+      1671.4112764065308,
+      -1072.1664288583838,
+      106.33203569047188,
+      -58.46946046985216
+    ],
+    [
+      -0.00013423400789379963,
+      0.0003690665866234107,
+      6.655698736606359e-06,
+      -1.3784588341626301e-07,
+      8.639663286289598e-07,
+      -2.0842312536476051e-07,
+      -8.558377019451283e-05,
+      -1.8834240408018237e-05,
+      -1.4803436467543343e-07,
+      -0.0001524825949015099,
+      -0.00015592412744927782,
+      0.5694251842948177,
+      -0.365134361088757,
+      0.07475430798226756,
+      -0.03878137542427263
+    ],
+    [
+      -1.0585594133790151e-05,
+      3.3889565263052484e-05,
+      -1.3784588341626301e-07,
+      1.7225076034755567e-06,
+      -9.668597819683377e-07,
+      -4.1386790910055935e-08,
+      -0.00026436574072225195,
+      -0.00048345692784123483,
+      -1.4128939285616898e-08,
+      9.580404561714158e-06,
+      -0.00015373784650113485,
+      -2.347511496724426,
+      1.5252907943061993,
+      -0.1427022281848898,
+      0.0856079548255965
+    ],
+    [
+      -9.812920289691865e-06,
+      0.00046417179972820666,
+      8.639663286289597e-07,
+      -9.66859781968338e-07,
+      2.4998782500296903e-06,
+      2.5207371286916725e-08,
+      0.00028545931807048814,
+      0.0002110792489186182,
+      1.2980150547401017e-08,
+      -1.272435032048092e-05,
+      -0.00023172735218180532,
+      2.5502909862963903,
+      -1.6537368717797165,
+      0.15869835356317671,
+      -0.08855006839904526
+    ],
+    [
+      6.639623848920967e-06,
+      3.650497584385714e-05,
+      -2.084231253647605e-07,
+      -4.1386790910055935e-08,
+      2.5207371286916725e-08,
+      2.760223894816132e-07,
+      -0.00014872001127498453,
+      -0.00018594413638328594,
+      6.799517856546896e-09,
+      5.029875295141506e-06,
+      -4.966000788587446e-06,
+      -1.2590981001822565,
+      0.7969751104747858,
+      0.007945696422480813,
+      -0.004637179808946288
+    ],
+    [
+      0.013008123237693188,
+      0.19066302933516865,
+      -8.558377019451285e-05,
+      -0.00026436574072225195,
+      0.00028545931807048814,
+      -0.00014872001127498453,
+      1.158343613417515,
+      1.1865705917483067,
+      1.1294305069285432e-05,
+      0.0030797326743581994,
+      -0.04117665083514637,
+      9552.96604490664,
+      -6130.238716982427,
+      51.64218429761727,
+      -29.48474134987184
+    ],
+    [
+      0.007898392044671585,
+      0.04123048946917039,
+      -1.8834240408018237e-05,
+      -0.0004834569278412349,
+      0.0002110792489186182,
+      -0.00018594413638328594,
+      1.1865705917483065,
+      1.3848239813353937,
+      6.528772095663631e-06,
+      -0.0011596783909265454,
+      0.03528982299432346,
+      9848.742309197698,
+      -6321.494793210074,
+      47.7693201134366,
+      -28.417851937665475
+    ],
+    [
+      4.203462406148998e-06,
+      2.715349081783703e-05,
+      -1.480343646754334e-07,
+      -1.4128939285616912e-08,
+      1.2980150547401012e-08,
+      6.799517856546908e-09,
+      1.129430506928543e-05,
+      6.5287720956636285e-06,
+      1.9972696370370785e-07,
+      -5.925605461297015e-06,
+      -2.9210455483068163e-05,
+      0.06743878755829835,
+      -0.043338563072920354,
+      -0.08969384163752236,
+      0.043471187859069775
+    ],
+    [
+      0.003271113112497695,
+      -0.0015623623265759233,
+      -0.0001524825949015099,
+      9.580404561714158e-06,
+      -1.2724350320480922e-05,
+      5.029875295141507e-06,
+      0.0030797326743581994,
+      -0.0011596783909265458,
+      -5.925605461297015e-06,
+      0.005492265577574895,
+      -0.003599301472533009,
+      -4.539458322744263,
+      2.873975364278749,
+      12.869167926928093,
+      -6.708117280501837
+    ],
+    [
+      -0.004240844703988076,
+      -0.24276006775817563,
+      -0.00015592412744927782,
+      -0.00015373784650113485,
+      -0.00023172735218180532,
+      -4.966000788587446e-06,
+      -0.041176650835146364,
+      0.03528982299432346,
+      -2.9210455483068156e-05,
+      -0.003599301472533009,
+      0.19480223654158346,
+      -353.0790944386252,
+      227.7026526112644,
+      -22.53828052736489,
+      12.657234967422234
+    ],
+    [
+      83.63965209849957,
+      1671.4112764065305,
+      0.5694251842948176,
+      -2.347511496724426,
+      2.5502909862963903,
+      -1.2590981001822563,
+      9552.966044906638,
+      9848.742309197698,
+      0.06743878755829835,
+      -4.539458322744262,
+      -353.0790944386252,
+      79207807.74978676,
+      -50786202.44463918,
+      451933.38789247663,
+      -257735.77478087525
+    ],
+    [
+      -54.15590166996413,
+      -1072.1664288583838,
+      -0.365134361088757,
+      1.5252907943061995,
+      -1.6537368717797165,
+      0.7969751104747859,
+      -6130.238716982427,
+      -6321.494793210075,
+      -0.04333856307292036,
+      2.873975364278749,
+      227.7026526112644,
+      -50786202.44463919,
+      32577609.211264256,
+      -292943.04757800663,
+      167068.13662631938
+    ],
+    [
+      4.497618207352207,
+      106.33203569047188,
+      0.07475430798226756,
+      -0.1427022281848898,
+      0.15869835356317671,
+      0.007945696422480811,
+      51.64218429761726,
+      47.76932011343659,
+      -0.08969384163752236,
+      12.86916792692809,
+      -22.53828052736489,
+      451933.38789247663,
+      -292943.0475780066,
+      223603.26418458926,
+      -111668.04281471079
+    ],
+    [
+      -2.6058511689562667,
+      -58.469460469852166,
+      -0.038781375424272624,
+      0.08560795482559651,
+      -0.08855006839904526,
+      -0.004637179808946288,
+      -29.48474134987184,
+      -28.417851937665475,
+      0.04347118785906978,
+      -6.708117280501837,
+      12.657234967422234,
+      -257735.77478087525,
+      167068.13662631938,
+      -111668.04281471079,
+      56476.341819990266
+    ]
+  ],
+  "derived_se": {
+    "kex": 1.0221000103864137,
+    "pB": 0.0002127987848220507
+  },
+  "parameters": {
+    "kab": {
+      "value": 14.97200668733864,
+      "stderr": 0.0680647464685433,
+      "vary": true,
+      "stderr_rescaled": 0.06964663224027783
+    },
+    "kba": {
+      "value": 283.94117262877023,
+      "stderr": 0.9926125458292919,
+      "vary": true,
+      "stderr_rescaled": 1.0156817519096852
+    },
+    "v1n_scale": {
+      "value": 1.0787371959152736,
+      "stderr": 0.002579864092661929,
+      "vary": true,
+      "stderr_rescaled": 0.0026398224486822047
+    },
+    "A1.peak_ppm": {
+      "value": 119.99763968118734,
+      "stderr": 0.001312443371530961,
+      "vary": true,
+      "stderr_rescaled": 0.0013429457329346228
+    },
+    "A1.dw_ppm": {
+      "value": 3.0031278255903544,
+      "stderr": 0.0015811003288943085,
+      "vary": true,
+      "stderr_rescaled": 0.0016178465190107823
+    },
+    "A1.R1[0]": {
+      "value": 1.5003373178974038,
+      "stderr": 0.0005253783298553654,
+      "vary": true,
+      "stderr_rescaled": 0.0005375885935806545
+    },
+    "A1.R2a[0]": {
+      "value": 11.995744717040838,
+      "stderr": 1.0762637285616918,
+      "vary": true,
+      "stderr_rescaled": 1.1012770631758524
+    },
+    "A1.R2b[0]": {
+      "value": 15.677629310964198,
+      "stderr": 1.1767854440531604,
+      "vary": true,
+      "stderr_rescaled": 1.2041349935176884
+    },
+    "A1.R1[1]": {
+      "value": 1.4997760981819037,
+      "stderr": 0.00044690822738422244,
+      "vary": true,
+      "stderr_rescaled": 0.00045729477552918505
+    },
+    "A1.R2a[1]": {
+      "value": 11.974978643056545,
+      "stderr": 0.07410982106020021,
+      "vary": true,
+      "stderr_rescaled": 0.07583219978874073
+    },
+    "A1.R2b[1]": {
+      "value": 15.638285623046949,
+      "stderr": 0.4413640634913353,
+      "vary": true,
+      "stderr_rescaled": 0.4516217602935198
+    },
+    "A1.R1H[0]": {
+      "value": 1.0697853803320013e-10,
+      "stderr": 8899.87683902349,
+      "vary": true,
+      "stderr_rescaled": 9106.717961223916
+    },
+    "A1.R2H[0]": {
+      "value": 2.2872873005680464e-13,
+      "stderr": 5707.679844846262,
+      "vary": true,
+      "stderr_rescaled": 5840.331445045067
+    },
+    "A1.R1H[1]": {
+      "value": 2.3292407874627873e-08,
+      "stderr": 472.86706819632644,
+      "vary": true,
+      "stderr_rescaled": 483.8569230905527
+    },
+    "A1.R2H[1]": {
+      "value": 40.9591512259893,
+      "stderr": 237.6475159137799,
+      "vary": true,
+      "stderr_rescaled": 243.17065738740314
+    }
+  },
+  "jacobian_rank": 15,
+  "scaled_condition": 441.2165905157969,
+  "v1n_correlations": [
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a[1]"
+      ],
+      "correlation": -0.7975311990785258
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kab"
+      ],
+      "correlation": -0.7644401662071761
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.dw_ppm"
+      ],
+      "correlation": 0.2118071224771624
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1[0]"
+      ],
+      "correlation": -0.15377187873892761
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "kba"
+      ],
+      "correlation": 0.14412128983654596
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b[1]"
+      ],
+      "correlation": -0.13693659513414835
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1[1]"
+      ],
+      "correlation": -0.12839477966226687
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2H[1]"
+      ],
+      "correlation": -0.06325474375973149
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1H[1]"
+      ],
+      "correlation": 0.06127739973076387
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.peak_ppm"
+      ],
+      "correlation": -0.040711433929022815
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2a[0]"
+      ],
+      "correlation": -0.030823069265856085
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R1H[0]"
+      ],
+      "correlation": 0.024800237873120384
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2H[0]"
+      ],
+      "correlation": -0.024796836112969945
+    },
+    {
+      "parameters": [
+        "v1n_scale",
+        "A1.R2b[0]"
+      ],
+      "correlation": -0.006203745795361647
+    }
+  ],
+  "at_bounds": [
+    "A1.R1H[0]",
+    "A1.R2H[0]"
+  ],
+  "warnings": [
+    "Weakly constrained proton nuisance parameters: A1.R1H[0], A1.R2H[0], A1.R1H[1], A1.R2H[1]",
+    "Strong peakwise R1H/R2H correlation; individual H rates are poorly separated",
+    "Parameters at bounds: A1.R1H[0], A1.R2H[0]",
+    "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 2; inspect model adequacy.",
+    "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+  ],
+  "covariance_note": "Local linear covariance using supplied absolute intensity errors; not rescaled by chi2/dof",
+  "nfev": 18,
+  "message": "`ftol` termination condition is satisfied.",
+  "success": true,
+  "residual_diagnostics": {
+    "n_points": 522,
+    "n_parameters": 15,
+    "dof": 507,
+    "chi2": 530.8401203280276,
+    "reduced_chi2": 1.0470219335858533,
+    "reduced_chi2_expected_sd": 0.06280742930213278,
+    "sigma_scale_estimate": 1.0232408971429228,
+    "residual_mean": -0.0015014509506150286,
+    "residual_sd": 1.0093982011634344,
+    "outliers_beyond_3sigma": 1,
+    "expected_outliers_beyond_3sigma": 1.409293545021828,
+    "overall_runs_test": {
+      "runs": 278,
+      "n_positive": 260,
+      "n_negative": 262,
+      "expected_runs": 261.9961685823755,
+      "z": 1.4023043769091634,
+      "p_value": 0.16082437395782279
+    },
+    "by_residue": {
+      "A1": {
+        "n_points": 522,
+        "reduced_chi2": 1.016935096413846
+      }
+    },
+    "by_dataset": {
+      "0": {
+        "n_points": 75,
+        "reduced_chi2": 1.0067241841556804
+      },
+      "1": {
+        "n_points": 75,
+        "reduced_chi2": 1.0578146419330807
+      },
+      "2": {
+        "n_points": 75,
+        "reduced_chi2": 1.016147328848492
+      },
+      "3": {
+        "n_points": 99,
+        "reduced_chi2": 0.8434880278330785
+      },
+      "4": {
+        "n_points": 99,
+        "reduced_chi2": 1.2038733907563857
+      },
+      "5": {
+        "n_points": 99,
+        "reduced_chi2": 0.9808068511856239
+      }
+    },
+    "blocks": [
+      {
+        "residue": "A1",
+        "dataset_index": 0,
+        "n_points": 75,
+        "chi2": 75.50431381167603,
+        "reduced_chi2": 1.0067241841556804,
+        "residual_mean": 0.03133446052961762,
+        "runs_test": {
+          "runs": 46,
+          "n_positive": 41,
+          "n_negative": 34,
+          "expected_runs": 38.17333333333333,
+          "z": 1.8360422871695934,
+          "p_value": 0.06635140275077878
+        },
+        "lag1_autocorrelation": -0.31117852176092614,
+        "lag1_threshold": 0.23094010767585027,
+        "max_abs_residual": 2.5702648294986252
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 1,
+        "n_points": 75,
+        "chi2": 79.33609814498105,
+        "reduced_chi2": 1.0578146419330807,
+        "residual_mean": -0.19814581855273758,
+        "runs_test": {
+          "runs": 33,
+          "n_positive": 33,
+          "n_negative": 42,
+          "expected_runs": 37.96,
+          "z": -1.1703660453471418,
+          "p_value": 0.2418536938223379
+        },
+        "lag1_autocorrelation": -0.012383991175480159,
+        "lag1_threshold": 0.23094010767585027,
+        "max_abs_residual": 2.3753540022303232
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 2,
+        "n_points": 75,
+        "chi2": 76.21104966363689,
+        "reduced_chi2": 1.016147328848492,
+        "residual_mean": 0.1442629150674132,
+        "runs_test": {
+          "runs": 50,
+          "n_positive": 42,
+          "n_negative": 33,
+          "expected_runs": 37.96,
+          "z": 2.8409691907216907,
+          "p_value": 0.004497665733015133
+        },
+        "lag1_autocorrelation": -0.2582190508267109,
+        "lag1_threshold": 0.23094010767585027,
+        "max_abs_residual": 3.0209183955998142
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 3,
+        "n_points": 99,
+        "chi2": 83.50531475547477,
+        "reduced_chi2": 0.8434880278330785,
+        "residual_mean": -0.09932941685272659,
+        "runs_test": {
+          "runs": 44,
+          "n_positive": 44,
+          "n_negative": 55,
+          "expected_runs": 49.888888888888886,
+          "z": -1.2048248990346664,
+          "p_value": 0.2282709057097978
+        },
+        "lag1_autocorrelation": 0.005760712601391736,
+        "lag1_threshold": 0.20100756305184242,
+        "max_abs_residual": 2.211349713189481
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 4,
+        "n_points": 99,
+        "chi2": 119.18346568488218,
+        "reduced_chi2": 1.2038733907563857,
+        "residual_mean": -0.02205003697347513,
+        "runs_test": {
+          "runs": 58,
+          "n_positive": 49,
+          "n_negative": 50,
+          "expected_runs": 50.494949494949495,
+          "z": 1.5164844401706645,
+          "p_value": 0.129396901845656
+        },
+        "lag1_autocorrelation": -0.10027236226337262,
+        "lag1_threshold": 0.20100756305184242,
+        "max_abs_residual": 2.8641540963305623
+      },
+      {
+        "residue": "A1",
+        "dataset_index": 5,
+        "n_points": 99,
+        "chi2": 97.09987826737677,
+        "reduced_chi2": 0.9808068511856239,
+        "residual_mean": 0.1305448662045549,
+        "runs_test": {
+          "runs": 48,
+          "n_positive": 51,
+          "n_negative": 48,
+          "expected_runs": 50.45454545454545,
+          "z": -0.49637939758402316,
+          "p_value": 0.619626757983242
+        },
+        "lag1_autocorrelation": -0.013494653530951032,
+        "lag1_threshold": 0.20100756305184242,
+        "max_abs_residual": 2.6027734035045658
+      }
+    ],
+    "warnings": [
+      "Runs test finds systematic residual sign structure (p < 0.01) in: A1/dataset 2; inspect model adequacy.",
+      "Lag-1 residual autocorrelation beyond 2/sqrt(n) in: A1/dataset 0, A1/dataset 2."
+    ],
+    "interpretation": "Reduced chi2 near 1 (within a few expected spreads) is consistent with the supplied absolute sigma; runs tests and autocorrelation detect ordered structure that a correct model should not leave. Rescaled errors multiply the local covariance by chi2/dof and assume a correct model with uniformly mis-estimated sigma.",
+    "rescaled_stderr": [
+      0.06964663224027783,
+      1.0156817519096852,
+      0.0026398224486822047,
+      0.0013429457329346228,
+      0.0016178465190107823,
+      0.0005375885935806545,
+      1.1012770631758524,
+      1.2041349935176884,
+      0.00045729477552918505,
+      0.07583219978874073,
+      0.4516217602935198,
+      9106.717961223916,
+      5840.331445045067,
+      483.8569230905527,
+      243.17065738740314
+    ],
+    "rescale_factor": 1.0470219335858533
+  },
+  "provenance": {
+    "config_sha256": "3c615b53a649b6486a65013520d2c0c18c1f52731d79d5dcc89b12791094df8a",
+    "datasets": [
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/600/full_25.txt",
+        "sha256": "a28136f6d2d45c875f1201f8687e6a9f77594ddbb35fe81bf2c5135cc9c95b9a"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/600/full_50.txt",
+        "sha256": "c0aa6294d7277808b6cc8d8e3c9c07cea3b64ba3cf0986a18809d7cf0622c37c"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/600/full_100.txt",
+        "sha256": "a332dd5e76ebf1afd16da87555fc5ee6257d9c0ea990ad74b983e4e915b8f32d"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/800/full_25.txt",
+        "sha256": "29f7e8a9899c3822fba26ee00e70fcf06424ad55dc9248fec70d9fd54dc71bc3"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/800/full_50.txt",
+        "sha256": "404769ecadf9975720258db70595a4ea31a3eb4abd3cbf7618c6652200579546"
+      },
+      {
+        "path": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/inputs/800/full_100.txt",
+        "sha256": "9e4fe23e4da5cd185963136ce61576ad09fa580507373b295a10fd15a233981a"
+      }
+    ],
+    "git": {
+      "commit": "d3f188e8111d5e54fe58a93da40cea4a5897f6d0",
+      "dirty": true
+    },
+    "packages": {
+      "matplotlib": "3.11.2",
+      "numpy": "2.5.3",
+      "optimalcontrol-nmr": "0.5.0",
+      "scipy": "1.18.1"
+    },
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.12.14 (main, Aug 12 2026, 13:57:54) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "source_sha256": {
+      "est_data.py": "131152cd937b1b8db977cd66c3baadaeb5ed2263f8ea119af56f658d66429d83",
+      "estmodel.py": "16dc43b1f7cfe165ab5b11583aabda52a7763bea75685fef9964d328f348ad8b",
+      "fit.py": "eabf35f2acd4d21792facac9d47f02928675dba5e46c37c0f59ed837cd91bddc",
+      "run.py": "b43bf925b31731f5c12252e32a673055fe8edcb870270e87ea5c14d725d0bcb6",
+      "sb_analysis.py": "9466ce1157e87e541352058240655a0078ac89a35a21ba694306f85c37396ae0",
+      "sb_bootstrap.py": "d011a61a50775795dc0008ac769763238344bd53a8eb110a080b1c674d32aa28",
+      "sb_checkpoint.py": "2d1e199c95df35a6a5a707c1f6cd42cf78432b2966483e01ecd0b41e6b844681",
+      "sb_report.py": "3c240a8950860b09ac7b4006a78b13e315c7d815784c0818a4f2222e4f51261a",
+      "sb_workflow.py": "4ebd807b37ba090e8ede9ca4fdc3ac9150132adde936149f4fc64b2349238977",
+      "sbfit.py": "d177fa37fd9d041fec2a7772e8a66f478e38f543ccba68a433b9f2209a194b1d",
+      "sideband.py": "bb37750d9284bcbf1efc8022e1cfabd19cb4455741cbd7f7031bbdb24618925f"
+    },
+    "started_utc": "2026-10-04T07:56:26.808010+00:00",
+    "threads": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "VECLIB_MAXIMUM_THREADS": "1"
+    },
+    "waveforms": [],
+    "elapsed_s": 3.6845595829945523,
+    "elapsed_note": "Seconds in the final invocation; excludes earlier interrupted invocations.",
+    "resumed": false,
+    "workers": 8
+  },
+  "checkpoint": "/Users/donghanlee/work/projects/sbonest/session_artifacts/improve7_20261004/tree/results/field_comparison_joint_20261004/auto_H_per_field_N/fit_checkpoint"
+}

@@ -134,8 +134,59 @@ def check_cli():
     assert bad.returncode == 2
 
 
+def check_model_comparison():
+    from sb_compare import compare_models, three_state_config
+    from test_sb_models import three_state_config as make_three_state_data, two_field_config
+
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-compare-models-'))
+    # Data with a genuine third state, described by a two-state configuration.
+    data_cfg, K = make_three_state_data(folder / 'three')
+    two_state = json.loads(json.dumps(data_cfg))
+    two_state['init'] = {'Method': 'Sideband', 'initial': {'kab': 12., 'kba': 300., 'A1.peak_ppm': 120., 'A1.R1': 1.4},
+                         'max_nfev': 400}
+    two_state['sideband']['residues']['A1'] = {'h_ppm_a': 6.2, 'h_ppm_b': 6.5}
+    derived = three_state_config(two_state, 'Sideband_3st_Linear', h_ppm_c={'A1': 7.1})
+    assert derived['init']['Method'] == 'Sideband_3st_Linear' and derived['sideband']['residues']['A1']['h_ppm_c'] == 7.1
+    assert {'kbc', 'kcb', 'A1.dwC_ppm', 'A1.R2c'} <= set(derived['init']['initial'])
+    assert len(derived['init']['multistart']['starts']) == 5 and 'kex' not in derived['init']
+    with contextlib.redirect_stdout(io.StringIO()):
+        paths = compare_models(two_state, folder / 'three', folder / 'out_three',
+                               models=('Sideband', 'Sideband_3st_Linear'), h_ppm_c={'A1': 7.1}, workers=2)
+    summary = json.loads(Path(paths['comparison_json']).read_text())
+    assert summary['fits']['Sideband']['success'] and summary['fits']['Sideband_3st_Linear']['success'], summary['warnings']
+    c = summary['comparison']
+    assert c['preferred_by_aicc'] == 'Sideband_3st_Linear', c
+    assert c['delta_chi2_vs_two_state']['Sideband_3st_Linear'] > 0
+    populations = summary['fits']['Sideband_3st_Linear']['exchange']['populations']
+    assert populations['C'] > 0.03, populations
+    assert 'two-state versus three-state' in Path(paths['comparison_txt']).read_text()
+    # Two-state data: the extra state is not supported.
+    cfg2, _ = two_field_config(folder / 'two')
+    cfg2['sideband']['datasets'] = cfg2['sideband']['datasets'][:2]
+    cfg2['datasets'] = cfg2['datasets'][:2]
+    cfg2['sideband']['proton_relaxation'] = {'mode': 'fixed'}
+    cfg2['sideband']['decoupling'].update(R1H=2., R2H=25.)
+    cfg2['sideband'].pop('nitrogen_relaxation')
+    cfg2['init']['initial'].update(kab=15., kba=285.)
+    with contextlib.redirect_stdout(io.StringIO()):
+        paths = compare_models(cfg2, folder / 'two', folder / 'out_two', models=('Sideband', 'Sideband_3st_Linear'))
+    summary = json.loads(Path(paths['comparison_json']).read_text())
+    fits = summary['fits']
+    if fits['Sideband_3st_Linear']['success']:
+        c = summary['comparison']
+        assert c['delta_chi2_vs_two_state']['Sideband_3st_Linear'] >= -1e-6
+        assert c['preferred_by_aicc'] == 'Sideband' or summary['warnings'], summary
+    try:
+        compare_models(derived, folder / 'three', folder / 'out_bad', models=('Sideband', 'Sideband_3st_Linear'))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('Three-state base configuration accepted for --models')
+
+
 if __name__ == '__main__':
     check_statistics_and_config_pruning()
     check_shared_and_distinct_exchange()
     check_cli()
-    print('PASS: global versus individual comparison statistics, fits and CLI')
+    check_model_comparison()
+    print('PASS: global versus individual comparison statistics, fits, CLI and model comparison')

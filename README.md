@@ -139,6 +139,12 @@ rank and correlations of planned acquisitions at a known truth without fitting
 shared-exchange model and per-residue models and compares chi2, AICc, BIC and a
 nested F-test ([comparison sources](sb_compare.py)). All three are within-model
 statements under the supplied absolute sigma.
+`compare ... --models Sideband Sideband_3st_Linear` compares two- and three-state
+models on the same data (manual 8.7); `validate_uncertainty.py --profile-interval
+kex --inner-bootstrap B` measures the coverage of profile and bootstrap intervals
+alongside the local-SE coverage (manual 8.2); `compare_joint_fields.py` fits the
+600/800 MHz benchmark jointly with field groups (manual 7.1, archived in
+`results/field_comparison_joint_20261004/`).
 
 [Preview of the new residual report](docs/diagnostics-preview.png)
 (A1 from the same synthetic two-RF example).

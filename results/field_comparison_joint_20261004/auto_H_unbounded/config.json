@@ -1,0 +1,83 @@
+{
+  "Project Name": "results/field_comparison_joint_20261004/auto_H_unbounded/fit",
+  "datasets": [
+    "600/full_25.txt",
+    "600/full_50.txt",
+    "600/full_100.txt",
+    "800/full_25.txt",
+    "800/full_50.txt",
+    "800/full_100.txt"
+  ],
+  "residues": [
+    {
+      "name": "A1",
+      "flag": "on"
+    }
+  ],
+  "init": {
+    "Method": "Sideband",
+    "kex": {
+      "min": 200.0,
+      "max": 400.0,
+      "nsteps": 3
+    },
+    "pB": {
+      "min": 0.03,
+      "max": 0.07,
+      "nsteps": 3
+    },
+    "initial": {
+      "A1.peak_ppm": 120.05,
+      "A1.R1": 1.2
+    }
+  },
+  "sideband": {
+    "decoupling": {
+      "h_carrier_ppm": 8.5,
+      "p90_s": 7e-05,
+      "cycle": "RR",
+      "b1_scale": 1.0,
+      "J_hz": 92.0
+    },
+    "residues": {
+      "A1": {
+        "h_ppm_a": 6.2,
+        "h_ppm_b": 6.5
+      }
+    },
+    "v1n": {
+      "mode": "scale",
+      "initial": 1.0,
+      "bounds": [
+        0.8,
+        1.2
+      ]
+    },
+    "proton_relaxation": {
+      "mode": "fit"
+    },
+    "datasets": [
+      {
+        "h_larmor_mhz": 600.0
+      },
+      {
+        "h_larmor_mhz": 600.0
+      },
+      {
+        "h_larmor_mhz": 600.0
+      },
+      {
+        "h_larmor_mhz": 800.0
+      },
+      {
+        "h_larmor_mhz": 800.0
+      },
+      {
+        "h_larmor_mhz": 800.0
+      }
+    ],
+    "nitrogen_relaxation": {
+      "mode": "shared"
+    }
+  }
+}

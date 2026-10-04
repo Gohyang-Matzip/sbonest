@@ -115,11 +115,11 @@ otherwise, executable `test_*.py` regressions.
 
 ## PR 6 — `codex/coverage-fields-models`
 
-- [ ] `validate_uncertainty.py`: coverage of profile-likelihood intervals and
+- [x] `validate_uncertainty.py`: coverage of profile-likelihood intervals and
       bootstrap percentile intervals in the same seeded study.
-- [ ] 600/800 MHz joint multi-field fit (automatic proton rates, per-field
+- [x] 600/800 MHz joint multi-field fit (automatic proton rates, per-field
       nitrogen relaxation) added to `compare_field_models.py` and documented.
-- [ ] `sb_workflow.py compare --models`: two-state versus three-state with
+- [x] `sb_workflow.py compare --models`: two-state versus three-state with
       AICc/BIC and a multistart-based three-state initialization.
 
 ## PR 7 — `codex/import-qa-web-refactor`
