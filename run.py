@@ -90,10 +90,18 @@ def main():
         help="Skip PDF reports; save numeric results only.",
     )
     parser.add_argument("--check", action="store_true", help="Validate Sideband inputs without fitting or writing outputs")
+    parser.add_argument("--identifiability", action="store_true",
+                        help="With --check: add local Jacobian diagnostics at the initial point")
     parser.add_argument("--resume", action="store_true", help="Resume a matching Sideband checkpoint")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Sideband worker processes for Jacobian columns, restarts, profile points and bootstrap replicates (default 1)")
     args = parser.parse_args()
     if args.check and args.resume:
         parser.error("--check and --resume cannot be combined")
+    if args.identifiability and not args.check:
+        parser.error("--identifiability requires --check")
+    if args.workers < 1:
+        parser.error("--workers must be a positive integer")
     config = load_config(args.config_file)
 
     if config["init"].get("Method") == "Sideband":
@@ -102,16 +110,18 @@ def main():
         try:
             if args.check:
                 summary = check_config(config, Path(args.config_file).resolve().parent,
-                                       no_pdf=args.no_pdf)
+                                       no_pdf=args.no_pdf, identifiability=args.identifiability,
+                                       workers=args.workers)
                 print(json.dumps(summary, indent=2, allow_nan=False))
                 parser.exit(0 if summary["valid"] else 1)
-            run_config(config, Path(args.config_file).resolve().parent, args.no_pdf, resume=args.resume)
+            run_config(config, Path(args.config_file).resolve().parent, args.no_pdf,
+                       resume=args.resume, workers=args.workers)
         except (ValueError, KeyError, OSError, RuntimeError) as exc:
             parser.exit(1, f"Error: {exc}\n")
         return
 
-    if args.check or args.resume:
-        parser.exit(1, "Error: --check/--resume currently support init.Method = Sideband\n")
+    if args.check or args.resume or args.workers != 1:
+        parser.exit(1, "Error: --check/--resume/--workers currently support init.Method = Sideband\n")
 
     model = est_model()
     model.verbose = True

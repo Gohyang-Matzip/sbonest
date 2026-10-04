@@ -37,6 +37,7 @@ python test_profile_jacobian.py
 python test_sb_bootstrap.py
 python test_sb_workflow.py
 python test_uncertainty_validation.py
+python test_sb_parallel.py
 python demo_sideband.py --out session_artifacts/sideband_demo_01
 ```
 
@@ -52,6 +53,12 @@ Explicit `--source` is necessary in fresh checkouts. This longer study is separa
 
 `python sb_workflow.py init-demo --out NEW_DIRECTORY` prepares a portable example.
 `python run.py CONFIG --check` validates without optimization or output writes.
+`--check --identifiability` adds local Jacobian diagnostics at the initial point.
+`--workers N` parallelizes Jacobian columns, restarts, profile points and bootstrap
+replicates through `sb_parallel.py` (spawn-based pool, one model per worker); the
+serial and parallel paths must stay numerically identical, and scripts that call
+`run_config(..., workers>1)` need a `__main__` guard. CI runs the fast checks on
+Python 3.12 and 3.13 and the full workflow on 3.12.
 Every run retains a `<Project Name>_checkpoint` directory. `--resume` requires the
 same configuration, inputs, source/dependency identity, thread settings and PDF
 mode; preserve checkpoints and do not manually edit their records. The synthetic

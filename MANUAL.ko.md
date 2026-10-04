@@ -105,9 +105,10 @@ python run.py config.json
 ```bash
 python mcrun.py config.json 100          # 100회 MC, 모든 CPU 코어 사용
 python mcrun.py config.json 100 4        # 4개 프로세스로 제한
+python mcrun.py config.json 100 4 --seed 7   # 재현 가능한 잡음 추출 (i번째 실행은 seed + i 사용)
 ```
 
-각 실행은 오차 범위 내에서 데이터를 재추출하여 다시 피팅합니다. 추가 출력: `default_mc.txt` (파라미터 평균 ± 표준편차), `default_mcmean.pdf`.
+각 실행은 오차 범위 내에서 데이터를 재추출하여 다시 피팅합니다. 추가 출력: `default_mc.txt` (파라미터 평균 ± 표준편차), `default_mcmean.pdf`. 재피팅이 실패한 실행은 제외되고 그 오류가 stderr에 출력됩니다. `--seed`가 없으면 실행마다 잡음 추출이 달라집니다.
 
 참고 (macOS): 파이프된 stdin이 아닌 저장된 스크립트/파일로 실행하세요 — `spawn` 방식이 `<stdin>`을 재임포트하지 못합니다.
 

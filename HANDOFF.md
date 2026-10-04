@@ -1,219 +1,127 @@
-# HANDOFF: SBONEST reliable analysis workflow
+# HANDOFF: SBONEST improvement programme — PR 1 (parallel workers and diagnostics)
 
 **Written:** 2026-10-04 (Asia/Seoul)
 **Repository:** https://github.com/Gohyang-Matzip/sbonest
 **Main checkout:** `/Users/donghanlee/work/projects/sbonest`
-**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/workflow_20261004/tree`
-**Branch:** `codex/reliable-analysis-workflow`
-**Base:** `e19fbb14b0ded0a988d9191db597aef0051307a2` (main and origin/main at handoff)
+**Implementation worktree:** `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve2_20261004/tree`
+**Branch:** `codex/parallel-and-diagnostics`
+**Base:** `791fb1dee0f1d8b2e1a0d34fd43b264044c18a73` (main after PR #8)
 
 ## Goal and current status
 
-The user approved six proposed improvements (preflight checks, durable and
-resumable analysis, one-command dummy setup, grouped profile derivatives,
-saved-result reporting, and a reproducible parametric bootstrap with synthetic
-uncertainty checks), followed by debugging, refactoring, this handoff, then
-commit, push, PR and merge. This authorizes the complete remote workflow,
-including passing PR CI, merge, merged-commit CI and local main sync.
+The user approved the complete 2026-10-04 improvement list ("제안대로 전부 해").
+The programme is delivered as four themed PRs described in
+`docs/superpowers/plans/2026-10-04-full-improvements.md`; this handoff covers
+PR 1. Each PR follows the same delivery rule: executable regressions, bilingual
+documentation, local verification, PR CI, merge, merged-commit CI, main sync.
 
-Implementation, debugging/refactoring, an independent branch review and local
-validation are complete. At the time this handoff was written the changes are
-uncommitted in the worktree above; remote delivery is the remaining step. This
-document is part of the change to publish, so it is not evidence that delivery
-has happened. Inspect live Git/GitHub state before repeating any delivery action.
+PR 1 implementation and local validation are complete; at the time of writing
+the changes are uncommitted in the worktree above. This file is part of the
+change, so it is not evidence that delivery happened. Inspect live Git/GitHub
+state before repeating any delivery action. The previous handoff (PR #8,
+reliable analysis workflow) is archived locally at
+`.archive/HANDOFF.before-parallel-20261004.md`.
 
-## Applied changes
+## Applied changes (PR 1)
 
 Every item below is **still applied**.
 
-- **[still applied] `sbfit.py`, `run.py`, `test_sb_check.py`:**
-  `SidebandModel.prepare_fit` initializes/validates vectors, bounds and free
-  indices without optimizing; `check_config` and `run.py CONFIG --check` print a
-  JSON summary (validity, errors, warnings, resolved datasets/waveforms, planned
-  outputs and conflicts, point/residue/parameter counts, free/fixed names and
-  bounds) and write nothing. Invalid optional `init.multistart`, `init.profile`
-  and `init.bootstrap` settings fail before any optimizer runs. `--check` and
-  `--resume` exit with an error for non-Sideband methods and cannot be combined.
-- **[still applied] `sb_checkpoint.py`, `sbfit.py`, `test_sb_checkpoint.py`:**
-  every Sideband run owns `<Project Name>_checkpoint/` with an flock'd `.lock`,
-  a manifest holding the execution identity (config/input/waveform/source
-  SHA-256, packages, Python, platform, threads, PDF mode), provenance, baseline
-  snapshot, per-attempt/per-point/per-replicate records, staged exports and a
-  completion marker. Records are immutable JSON with checksums; staged outputs
-  are published exclusively, and resume only accepts identical already-published
-  files. `--resume` requires the same identity, skips the completed baseline,
-  restarts, profile points and replicates, and a run that already finished with
-  failure is restored and exits nonzero without refitting. Failed fits retain
-  optimizer diagnostics and provenance in `<prefix>_result.json`.
-- **[still applied] `sb_analysis.py`, `test_sb_analysis.py`,
-  `test_profile_jacobian.py`:** multistart and profile scans accept `completed`
-  records and `on_complete` callbacks (callback exceptions and interruptions
-  propagate); `snapshot_fit`/`restore_fit` restore a selected fit exactly
-  (covariance, rank, diagnostics, predictions). Profile refits group verified
-  residue-independent coordinates and keep the dense reference for unknown
-  layouts; constrained exchange coordinates, reordered/subset vary, fixed
-  parameters and inward bound stencils are covered against an independent dense
-  reference.
-- **[still applied] `sb_bootstrap.py`, `test_sb_bootstrap.py`:**
-  `init.bootstrap = {replicates, seed, confidence}` draws seeded Gaussian
-  replicates around the selected predictions with the supplied absolute sigma,
-  refits each from the selected baseline, retains every replicate and status,
-  summarizes percentiles only across successful varied estimates, labels fixed
-  inputs as assumptions, and warns on failures, boundary hits and fewer than 100
-  successful replicates. Model/data state is restored even after interruption.
-- **[still applied] `validate_uncertainty.py`, `test_uncertainty_validation.py`:**
-  optional seeded synthetic coverage study of local standard-error intervals
-  with explicit truth, independent noise draws, retained failures and Wilson
-  sampling intervals. Separate from CI's small executable checks.
-- **[still applied] `sb_workflow.py`, `sb_report.py`, `test_sb_workflow.py`,
-  `test_sb_output.py`:** `python sb_workflow.py init-demo --out NEW_DIRECTORY`
-  copies the bundled synthetic two-RF inputs into a new folder and writes
-  `fit.json` with an absolute `Project Name`; existing targets are rejected.
-  `python sb_workflow.py report RESULT_JSON --out NEW_PREFIX` reads the result
-  and its predictions CSV (hashes both, validates consistency), and writes
-  `<prefix>_summary.json`, `<prefix>_summary.txt` and `<prefix>.pdf` with
-  profile/residual panels, restart/profile/replicate summaries and residue/dataset
-  residual statistics. No optimization and no new dependency.
-- **[still applied] `.github/workflows/ci.yml`, `AGENTS.md`:** CI runs the six
-  new executable regressions and the actual dummy-guide commands (init-demo,
-  `--check`, fit, `--resume`, report) once with `--no-pdf`. Contributor guide
-  lists the new tests and the checkpoint/resume rules.
-- **[still applied] `README.md`, `SBONEST_MANUAL.md`, `SBONEST_MANUAL.ko.md`,
-  `DUMMY_GUIDE.md`, `DUMMY_GUIDE.ko.md`, `SIDEBAND.md`:** synchronized
-  documentation of the helper CLI, preflight, checkpoints/resume, reports and
-  bootstrap. Both guides contain the same 12 bash blocks; blocks 3–12 were
-  executed verbatim (see evidence).
-- **[still applied] `docs/superpowers/plans/2026-10-04-reliable-analysis.md`:**
-  the implementation plan with its execution record; a previous plan is already
-  tracked under the same directory.
-- **[still applied] `HANDOFF.md`:** this briefing. The previous handoff
-  (PR #6 diagnostics work) is archived locally, outside Git, at
-  `.archive/HANDOFF.before-workflow-20261004.md` in the worktree.
+- **[still applied] `sb_parallel.py` (new):** spawn-based `WorkerPool` holding one
+  `SidebandModel` per worker with cached prepared data; module-level tasks
+  `residual_task`, `multistart_task`, `profile_task`, `bootstrap_task` reuse the
+  serial code paths; `map` yields in submission order; `Progress` prints
+  elapsed time and an ETA. `validate_workers` rejects non-positive/bool/float.
+- **[still applied] `fit._block_jacobian(evaluate_many=...)`:** the base vector is
+  evaluated first (its dtype selects the 3-point epsilon exactly as before), then
+  all perturbed vectors are evaluated in one batch. Stencils, steps and arithmetic
+  are unchanged; `test_grouped_jacobian.py` and `test_profile_jacobian.py` pass.
+- **[still applied] `SidebandModel.fit`:** when `model.pool` is set, Jacobian
+  columns are evaluated in workers. The residual closure memoizes the last
+  evaluated vector: SciPy evaluates the residual at an accepted step and then
+  requests the Jacobian at the same point, so the base evaluation is reused.
+  Results are identical (882-point example: chi2 802.8203212916861, same
+  parameters and covariance); serial time 36 s → 33 s, 8 workers 16 s.
+- **[still applied] `sb_analysis.py`:** `fit_attempt`, `profile_point`,
+  `base_fit_config`, `local_jacobian`, `identifiability`; `fit_multistart` and
+  `profile_likelihood` accept `pool=` and run pending items in index order
+  (the configured initial fit always runs in the main process). The profile
+  residual closure also memoizes its last vector. Completed-prefix and
+  `on_complete` semantics are unchanged.
+- **[still applied] `sb_bootstrap.py`:** `bootstrap_draws` (SeedSequence([seed,
+  index]) draws in the main process) and `bootstrap_replicate` (fit one replicate,
+  restore data); `bootstrap_fit(pool=)` sends drawn observations to workers.
+- **[still applied] `sbfit.run_config(workers=)`, `check_config(identifiability=,
+  workers=)`, `run.py`/`sbfit.py` flags `--workers N` and `--identifiability`
+  (requires `--check`).** Provenance records `workers`; the checkpoint identity
+  excludes it, so a parallel run resumes serially and vice versa.
+- **[still applied] Identifiability report:** column-scaled singular values, rank,
+  condition, expected and relative SE from `(J^T J)^-1`, zero-sensitivity and weak
+  parameters (relative SE > 100% or no finite SE), correlations ≥ 0.95 and derived
+  kex/pB SE at the initial point; `--check` adds warnings for rank deficiency,
+  weak parameters and strong correlations. On the bundled example it names
+  `A1.R1H, G2.R1H, S3.R1H` and the three R1H/R2H pairs before any fit.
+- **[still applied] `sb_report._paginate`:** section-aware, balanced pagination of
+  the report summary text (no near-empty orphan page).
+- **[still applied] CI:** `checks` job (ruff, compile, 15 fast scripts) on Python
+  3.12 and 3.13; `workflow` job (test_sb_output, demo, dummy-guide commands with
+  `--check --identifiability`, `--workers 2` fit, serial `--resume`, report) on 3.12.
+  The pinned constraints install and the fast scripts pass locally on 3.13.15.
+- **[still applied] `test_sb_parallel.py` (new):** worker validation, Progress
+  output, exact Jacobian/identifiability parity through a 2-worker pool, task
+  error propagation and pool reuse, serial-vs-parallel `run_config` with
+  multistart/profile/bootstrap (result JSON and every checkpoint record identical),
+  resume across worker counts without refitting, CLI flag errors and
+  `--check --identifiability --workers 2` output.
+- **[still applied] Docs:** README, both SBONEST manuals (section 8.4, --check
+  identifiability, troubleshooting), both dummy guides, SIDEBAND.md, AGENTS.md.
 
-No files in historical `results/`, manuscript bundles or raw inputs were changed.
-The root `.venv` of the main checkout was preserved. Worktree environments, run
-folders and evidence under `session_artifacts/` are ignored and must not be added.
+## Findings
 
-## Debugging and refactoring findings
-
-- **Relative output prefix regression (fixed, still applied).** The final
-  verification run of `demo_sideband.py` failed with
-  `'/.../noisefree_scale_checkpoint/export-5ixb_21o/noisefree_scale_result.txt' is not in the subpath of 'noisefree_scale_checkpoint'`.
-  Cause: Python 3.12 `tempfile.mkdtemp` returns absolute paths while a
-  cwd-relative `Project Name` left `Checkpoint.path` relative, so
-  `output_plan`'s `relative_to` failed. The regression came in with the
-  checkpoint-integrity hardening after the earlier verification pass.
-  `Checkpoint.__init__` now stores `Path(path).absolute()`;
-  `check_relative_prefix` in `test_sb_checkpoint.py` reproduces the failure on
-  the old behavior (verified red) and passes now. The test compares resolved
-  paths because macOS `/var` is a symlink to `/private/var`.
-- Independent branch review (worker `workflow_review`) found checkpoint
-  integrity, failed-run recovery and fixed-population labeling issues; all were
-  fixed before handoff and the final verdict was approve. Logs:
-  `session_artifacts/workflow_20261004/checkpoint_red.log`,
-  `checkpoint_green.log`, `checkpoint_fix.log`, `checkpoint_integrity.log`.
-- Grouped profile derivatives were investigated against the real 882-point
-  layout (`investigate_profile_layout.py`, `verify_full_profiles.py` in
-  `session_artifacts/workflow_20261004/`); grouping is only applied to verified
-  residue-independent coordinates, and the dense path remains the reference.
+- The first full-fit timing of the serial path showed 394 s wall time; the
+  result's own `elapsed_s` was 38 s. A concurrent Python 3.13 environment build
+  was saturating the machine. A clean rerun took 36 s (33 s with memoization).
+- Spawned workers re-import the caller's `__main__`; a script without an
+  `if __name__ == "__main__":` guard recursively starts pools. All repository
+  entry points have guards; the manual documents the requirement.
+- Single-fit speedup is bounded by the optimizer's serial residual evaluations and
+  the base Jacobian evaluation; bootstrap/profile/multistart items scale almost
+  linearly up to the item count.
 
 ## Verified evidence and commands
 
-Use the worktree's Python 3.12.14 environment (NumPy 2.5.3, SciPy 1.18.1):
-
 ```bash
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MPLBACKEND=Agg
-cd /Users/donghanlee/work/projects/sbonest/session_artifacts/workflow_20261004/tree
+cd /Users/donghanlee/work/projects/sbonest/session_artifacts/improve2_20261004/tree
 ruff check *.py --select F
 .venv/bin/python -m py_compile *.py
-for t in test_performance test_debugging verify_3state test_sideband test_grouped_jacobian \
-         test_benchmark test_sb_analysis test_sb_output test_sb_check test_sb_checkpoint \
-         test_profile_jacobian test_sb_bootstrap test_sb_workflow test_uncertainty_validation; do
-  .venv/bin/python $t.py || break
-done
-.venv/bin/python demo_sideband.py --out session_artifacts/final_demo_03
+for t in test_performance test_debugging verify_3state test_sideband \
+         test_grouped_jacobian test_benchmark test_sb_analysis test_sb_output \
+         test_sb_check test_sb_checkpoint test_profile_jacobian test_sb_bootstrap \
+         test_sb_workflow test_uncertainty_validation test_sb_parallel; do .venv/bin/python $t.py; done
+.venv/bin/python demo_sideband.py --out session_artifacts/final_demo_NEW
 ```
 
-Evidence directory: `/Users/donghanlee/work/projects/sbonest/session_artifacts/workflow_20261004/`.
-
-- `verification_final/summary.json` + `NN.log`: Ruff, compile, 14 regression
-  scripts and `git diff --check` exited 0. Entry 16 (`demo_sideband.py`) recorded
-  the relative-prefix failure above; `16_rerun.log` (fresh
-  `session_artifacts/final_demo_02`) and `11_rerun.log` (`test_sb_checkpoint.py`)
-  passed after the fix. `post_fix_summary2.txt` lists the reruns of every script
-  that exercises `run_config`/`Checkpoint` after the fix (all exit 0;
-  `post_fix_summary.txt` is an aborted earlier attempt).
-- `guide_final.log`: DUMMY_GUIDE blocks 3–12 executed verbatim with `set -eu`
-  in a fresh `tree/session_artifacts/dummy_01` (check → fit → resume → result
-  check → report → multistart/profile/bootstrap analysis → analysis report →
-  profiling). The fit gives chi2/dof 0.93569, kex 299.68 ± 0.67 s⁻¹, rank 24 of
-  24, `S3.R1H` at its bound with the documented proton-rate warnings.
-  Rendered pages of `analysis_report_01.pdf` and `fit.pdf` are in
-  `verification_final/*.png` and were inspected.
-- `tree/session_artifacts/full_workflow_01/`: the default 882-point/24-parameter
-  fit reproduces the archived baseline exactly (chi2 = 802.8203212916861, rank 24;
-  `results/auto_H_refit/fits/two_RF_result.json`, SHA-256
-  `c60a488b…b060b`), plus report outputs and `full_report.log`.
-- `full_profile_comparison_fixed.json`: dense vs grouped kex profiles at
-  295/300/305 s⁻¹ from the archived baseline give identical parameters and chi2
-  (differences 0.0, constraint error 0.0) with 2.27× lower wall time and 2.26×
-  fewer residual evaluations for the grouped path.
-  `full_profile_numerics.json` confirms identical refit rows and nfev
-  (24/16/16) and gradient agreement ≤ 3.7e-12 across memory layouts.
-- Earlier passes: `verification_01/summary.json` (all scripts before the review
-  fixes), `full_check.json` (`--check` output for the full example), `full_fit.log`.
-
-Fresh checkouts: create a Python 3.12 environment and install
-`python -m pip install -r requirements-sideband.txt -c constraints-sideband.txt ruff`.
-The main checkout's root `.venv/bin/python` is Python 3.14; do not mistake it
-for CI. New output prefixes are mandatory; dataset/waveform paths resolve from
-the config directory and output prefixes from the working directory.
+Evidence under `session_artifacts/improve2_20261004/` (main checkout, ignored):
+`verification_01/summary.json` (all commands exit 0), `parity_small.py`
+(serial vs 3 workers identical result JSON), `tree/session_artifacts/par_full/`
+(882-point fits with 1/4/8 workers, all chi2 802.8203212916861 and identical
+parameters), `py313_*.log` (fast scripts on Python 3.13.15), `guide_workers/`
+(dummy-guide workflow with `--workers`, rendered report pages).
 
 ## Delivery steps — perform only those still missing
 
-1. Check the worktree and remote state (`git status --short --branch`,
-   `git fetch origin`). Main and origin/main were the base SHA above at handoff;
-   the main checkout was clean. Do not reset or discard user edits that appear.
-2. Stage only: `.github/workflows/ci.yml`, `AGENTS.md`, `DUMMY_GUIDE.ko.md`,
-   `DUMMY_GUIDE.md`, `HANDOFF.md`, `README.md`, `SBONEST_MANUAL.ko.md`,
-   `SBONEST_MANUAL.md`, `SIDEBAND.md`, `run.py`, `sb_analysis.py`,
-   `sb_bootstrap.py`, `sb_checkpoint.py`, `sb_report.py`, `sb_workflow.py`,
-   `sbfit.py`, `validate_uncertainty.py`, `docs/superpowers/plans/2026-10-04-reliable-analysis.md`
-   and the seven `test_*.py` files (`test_profile_jacobian`, `test_sb_analysis`,
-   `test_sb_bootstrap`, `test_sb_check`, `test_sb_checkpoint`, `test_sb_output`,
-   `test_sb_workflow`, `test_uncertainty_validation`). Never add `.venv` or
-   `session_artifacts`. Commit with a `feat:` prefix and push the branch.
-3. GitHub account `Gohyang-Matzip` has ADMIN access to the repository; the global
-   gh account is `dleess` and must stay active. The helper
-   `/Users/donghanlee/work/projects/sbonest/session_artifacts/improve_20261004/github.py`
-   obtains that account's token into a subprocess environment without printing
-   it: `python3 github.py gh pr ...` and
-   `python3 github.py git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push ...`.
-4. Look for an existing PR for `codex/reliable-analysis-workflow` before creating
-   one. Use a body file; include the validation above. Require successful CI for
-   the exact head SHA, then merge into main.
-5. Verify successful push CI for the merge SHA, fetch, and fast-forward the clean
-   main checkout to origin/main. Report the PR URL, merge SHA and CI outcome.
-6. Keep the worktree and evidence; archive instead of deleting. Stop after
-   delivery; no further research work is authorized.
-
-Useful read-only status commands:
-
-```bash
-git status --short --branch
-gh pr list --repo Gohyang-Matzip/sbonest --state all \
-  --head codex/reliable-analysis-workflow \
-  --json number,state,url,headRefOid,mergeCommit
-gh run list --repo Gohyang-Matzip/sbonest --branch main --limit 5
-```
+1. Check worktree and remote state; do not discard user edits in the main checkout.
+2. Stage implementation, tests, CI, docs, plan and this handoff; commit with
+   `perf:`/`feat:` prefix; push `codex/parallel-and-diagnostics`.
+3. Use `session_artifacts/improve_20261004/github.py` for `Gohyang-Matzip`-scoped
+   gh/Git commands; preserve the global `dleess` account.
+4. Find or create the PR; require CI success for the exact head SHA; merge.
+5. Verify merge-commit CI, fast-forward the clean main checkout, report.
+6. Continue with PR 2 (`codex/design-intervals-comparison`) from the merged main.
 
 ## Scientific boundaries
 
-All validation uses the bundled synthetic example or small independently
-generated synthetic inputs; it checks the software workflow, not an experimental
-sample. Local errors, profile differences and bootstrap percentile intervals are
-conditional on the selected model, fixed inputs and supplied absolute sigma; few
-replicates are demonstrations, not coverage evidence. Weak H-rate
-identifiability, boundary parameters and model mismatch still require
-scientific interpretation. The historical fixed-H 600/800 MHz benchmark was not
-rerun or altered.
+Parallel execution changes only where residuals are evaluated. Identifiability
+diagnostics are local linear properties of the initial point and the design with
+the supplied absolute sigma; they do not guarantee convergence or replace the
+fitted covariance. All evidence is synthetic.

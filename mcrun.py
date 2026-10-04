@@ -16,14 +16,20 @@ import argparse
 
 def run_single_mc_iteration(args_tuple):
     """One MC iteration: reload data with noise, refit from the optimized params."""
-    conf, pp_optimized_params_for_mc, _worker_id = args_tuple
+    conf, pp_optimized_params_for_mc, _worker_id, *rest = args_tuple
+    seed = rest[0] if rest else None
+    if seed is not None:
+        # Reproducible noise per run: the same seed and run index give the same draws.
+        np.random.seed(seed + _worker_id)
     mmc = est_model()
     mmc.verbose = False
     try:
         load_datasets(mmc, conf, with_error=True)
         out_mc_fit = mmc.fit(p0=pp_optimized_params_for_mc, fitting_config=conf["init"])
         return out_mc_fit[0]
-    except Exception:
+    except Exception as exc:
+        # Report the cause; a silently excluded run hides environment problems.
+        sys.stderr.write(f"MC run {_worker_id} failed: {type(exc).__name__}: {exc}\n")
         return None
 
 
@@ -37,10 +43,17 @@ def main():
         action="store_true",
         help="Skip PDF reports; save numeric results only.",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Seed for reproducible noise draws; run i uses seed + i (default: unseeded).",
+    )
     args = parser.parse_args()
     nrun, num_processes = args.number_of_mc_runs, args.num_processes
     if nrun <= 0 or (num_processes is not None and num_processes <= 0):
         parser.error("MC runs and process count must be positive.")
+    if args.seed is not None and args.seed < 0:
+        parser.error("--seed must be a nonnegative integer.")
     conf = load_config(args.config_file)
 
     m2 = est_model()
@@ -70,7 +83,7 @@ def main():
             print(f"Generating PDF for initial fit: {project_name}.pdf")
         m2.pdf(pp_optimized_params, f"{project_name}.pdf")
 
-    tasks_args = [(conf, pp_optimized_params, i) for i in range(nrun)]
+    tasks_args = [(conf, pp_optimized_params, i, args.seed) for i in range(nrun)]
     if num_processes is None:
         num_processes = os.cpu_count() or 1
     num_processes = min(num_processes, nrun)

@@ -46,6 +46,15 @@ OC는 `optimalcontrol-nmr` 패키지로 설치되므로 인접한 OC 폴더가 �
 이는 준비 상태를 확인하며 수렴·식별성을 보장하지 않는다. 새 실행의 출력을
 만들기 전에 사용한다.
 
+`--check --identifiability`는 초기값에서 grouped 유한차분 Jacobian을 한 번
+계산해(이 예제에서 1–2초) `identifiability` 항목에 열 정규화 특이값, rank,
+조건수, 입력 absolute sigma 기준 `(J^T J)^-1`의 자유 파라미터별 기대 표준오차와
+상대오차, 감도가 0인 파라미터, 약하게 결정되는 파라미터(상대오차 100% 초과
+또는 유한한 오차 없음), 0.95 이상의 쌍별 상관, 유도된 kex/pB 오차를 보고한다.
+이는 초기값과 샘플링 설계의 성질이므로 optimizer를 돌리기 전에 R1H/R2H가
+분리되지 않는 상황을 경고할 수 있지만, fitting 후의 공분산을 대신하지는
+않는다. 병렬 실행은 8.4절을 참고한다.
+
 이 예제는 25/100 Hz nitrogen RF에서 3개 peak를 fitting한다. 각 peak·RF마다
 105–135 ppm에 균일한 offset 147개가 있으며 실제 간격은 약 24.985 Hz다.
 Sideband를 포함한 전체 관측점 882개에 대해 공통 교환 속도 2개, RF scale
@@ -684,6 +693,28 @@ profile·bootstrap 기록을 담는다. 실패한 profile 점과 음수 Δχ²�
 JSON에는 보고할 predictions가 없다. 기존 파일은 보호하므로 매번 새 보고서
 접두사를 사용한다. 원래 fitting을 `--no-pdf`로 실행했어도 PDF를 만들 수 있다.
 
+## 8.4. `--workers`로 병렬 실행하기
+
+`run.py CONFIG --workers N`(`sbfit.py`와 `--check --identifiability`에서도 사용
+가능)은 같은 설정과 데이터를 가진 모델 사본을 하나씩 든 worker 프로세스 N개를
+시작한다. 주 프로세스가 optimizer와 checkpoint를 담당하고, worker는 모든
+fitting의 grouped Jacobian 열, 명시적·무작위 restart, profile 점, bootstrap
+replicate를 계산한다. 결과는 index 순서로 모으므로 checkpoint 기록은 그대로
+순서 있는 prefix이며 `--resume`도 직렬 실행과 똑같이 동작한다. 결과가 worker
+수에 의존하지 않으므로 worker 수는 checkpoint 식별 정보에 포함하지 않는다.
+병렬 실행은 직렬 실행의 모든 수치를 재현하며, `test_sb_parallel.py`가 결과
+JSON과 checkpoint 기록에서 이를 검증한다.
+
+`OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`는 1로
+유지한다. 병렬성은 pool이 제공한다. 10코어 노트북에서 제공 예제의 882점
+fitting은 worker 1개로 약 33초, 8개로 16초가 걸렸다. optimizer 자체의 잔차
+계산은 직렬로 남기 때문이다. restart·profile 점·bootstrap replicate는 항목
+수까지 worker 수에 거의 비례해 빨라진다. worker는 spawn 방식으로 시작하므로
+`run_config(..., workers=N)`를 호출하는 Python 스크립트는 진입점을
+`if __name__ == "__main__":`로 감싸야 한다. restart·profile·bootstrap에는 경과
+시간과 남은 시간 추정이 담긴 진행 표시가 출력된다. Ctrl-C 후 worker는 진행
+중인 항목을 마치고 종료하며, 완료된 항목은 이미 checkpoint에 있다.
+
 ## 9. 실험 fitting 순서와 모델 한계
 
 1. 두 핵의 장비 주파수, carrier, pulse 위상과 길이, 보정한 ¹H amplitude,
@@ -740,7 +771,7 @@ CSA–DD cross-correlation, 시간에 따른 RF drift는 포함하지 않는다.
 | Profile Δχ²가 음수 | Scan이 기준 해를 개선함. 해당 벡터를 확인하고 새 출력 접두사로 그 해에서 다시 fitting |
 | `derived_se`, `covariance`, `provenance` 없음 | 이전 보존 결과인지 확인. 원본을 유지하고 현재 코드로 새 fitting 수행 |
 | `Profile already exists` | 기존 측정은 보존하고 새 `--profile-output` 파일명 지정 |
-| 실행이 오래 걸림 | 수치 라이브러리 thread를 1로 유지하고 `--no-pdf` 사용. 0이 아닌 `v1err`는 RF 평균화 비용 추가 |
+| 실행이 오래 걸림 | 수치 라이브러리 thread를 1로 유지하고 `--no-pdf`와 `--workers N`(8.4절) 사용. 0이 아닌 `v1err`는 RF 평균화 비용 추가 |
 
 프로젝트 폴더에서 수치 회귀 검증을 다시 실행할 수 있다.
 

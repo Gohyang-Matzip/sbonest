@@ -6,6 +6,7 @@ ONEST text inputs and reports are retained; see SIDEBAND.md for configuration.
 """
 
 import argparse
+import contextlib
 import json
 from pathlib import Path
 import time
@@ -96,6 +97,7 @@ class SidebandModel(est_model):
         self.config = config
         self._initializing = False
         self.result = None
+        self.pool = None
         sb = config["sideband"]
         _known(
             sb,
@@ -438,10 +440,19 @@ class SidebandModel(est_model):
                 p[self.free] = q
                 return p
 
+            memo = {}
+
             def residual(q):
+                # SciPy evaluates the residual at an accepted step and then asks for
+                # the Jacobian at the same point; reuse that vector instead of
+                # recomputing it. The cached values are exactly the recomputed ones.
+                key = np.asarray(q, dtype=float).tobytes()
+                if memo.get("key") == key:
+                    return memo["values"].copy()
                 values = self.errFunc(expand(q))
                 if not np.isfinite(values).all():
                     raise ValueError("Non-finite Sideband residual")
+                memo["key"], memo["values"] = key, np.asarray(values, dtype=float).copy()
                 return values
 
             sizes = [
@@ -450,6 +461,12 @@ class SidebandModel(est_model):
                 if r.active
             ]
             full_order = np.array_equal(self.free, np.arange(len(p0)))
+            pool = getattr(self, "pool", None)
+            evaluate_many = None
+            if pool is not None:
+                def evaluate_many(vectors):
+                    # Workers hold identical models; results are byte-identical to residual().
+                    return pool.evaluate_many([expand(q) for q in vectors])
             jac = _block_jacobian(
                 residual,
                 sizes,
@@ -459,6 +476,7 @@ class SidebandModel(est_model):
                 free=self.free,
                 bounds=(lower[self.free], upper[self.free]),
                 method="2-point" if full_order else "3-point",
+                evaluate_many=evaluate_many,
             )
             self.result = least_squares(
                 residual,
@@ -672,13 +690,18 @@ def _output_paths(config, no_pdf=False):
     return outputs
 
 
-def check_config(config, config_dir=".", *, no_pdf=False):
+def check_config(config, config_dir=".", *, no_pdf=False, identifiability=False, workers=1):
     """Return a JSON-safe preflight summary without optimization or file writes.
 
     The existing initialization grid is evaluated to check the actual baseline.
     Invalid settings and output conflicts are reported in ``errors``. An invalid
     baseline is reported even when later multistart attempts could recover it.
+    With ``identifiability``, one grouped Jacobian at the initial point adds local
+    expected errors, rank, condition, weak parameters and strong correlations.
     """
+    from sb_parallel import WorkerPool, validate_workers
+
+    workers = validate_workers(workers)
     summary = {"valid": False, "method": "Sideband", "errors": [], "warnings": [],
                "datasets": [], "waveforms": [], "outputs": [], "output_conflicts": []}
     try:
@@ -737,6 +760,24 @@ def check_config(config, config_dir=".", *, no_pdf=False):
             for i, name in enumerate(model.parameter_names)
         }
         summary["bounds_note"] = "null bounds denote unbounded directions"
+        if identifiability:
+            from sb_analysis import identifiability as _identifiability
+
+            pool_context = (WorkerPool(workers, config, config_dir) if workers > 1
+                            else contextlib.nullcontext())
+            with pool_context as pool:
+                summary["identifiability"] = _identifiability(model, initial, pool=pool)
+            report = summary["identifiability"]
+            if report["jacobian_rank"] < report["n_free"]:
+                summary["warnings"].append(
+                    "Rank-deficient Jacobian at the initial point: parameters are not separately identifiable there.")
+            if report["weak_parameters"]:
+                summary["warnings"].append(
+                    "Weakly determined at the initial point: " + ", ".join(report["weak_parameters"]))
+            if report["strong_correlations"]:
+                summary["warnings"].append(
+                    "Strongly correlated at the initial point: " + ", ".join(
+                        "/".join(row["parameters"]) for row in report["strong_correlations"][:5]))
         summary["warnings"].append(
             "Preflight validates configuration and initialization; convergence and identifiability require fitting."
         )
@@ -746,10 +787,12 @@ def check_config(config, config_dir=".", *, no_pdf=False):
     return summary
 
 
-def run_config(config, config_dir=".", no_pdf=False, *, resume=False):
+def run_config(config, config_dir=".", no_pdf=False, *, resume=False, workers=1):
     from sb_bootstrap import bootstrap_fit
     from sb_checkpoint import Checkpoint, execution_identity, output_plan, publish_outputs
+    from sb_parallel import WorkerPool, validate_workers
 
+    workers = validate_workers(workers)
     model = SidebandModel(config, config_dir)
     _validate_fit_config(model, config["init"])
     project = Path(config["Project Name"])
@@ -759,7 +802,11 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False):
     metadata = provenance(config, config_dir)
     began = time.monotonic()
     checkpoint = Path(str(project) + "_checkpoint")
-    with Checkpoint(checkpoint, execution_identity(metadata, no_pdf=no_pdf), resume=resume) as journal:
+    # Worker count never enters the checkpoint identity: results do not depend on it.
+    pool_context = WorkerPool(workers, config, config_dir) if workers > 1 else contextlib.nullcontext()
+    with Checkpoint(checkpoint, execution_identity(metadata, no_pdf=no_pdf), resume=resume) as journal, \
+            pool_context as pool:
+        model.pool = pool
         if not resume:
             journal.save("provenance", metadata)
         metadata = journal.read("provenance")
@@ -811,7 +858,8 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False):
                 if "multistart" in config["init"]:
                     p, covariance, attempts = fit_multistart(
                         model, config["init"]["multistart"], completed=completed("attempt"),
-                        on_complete=lambda row: journal.save(f"attempt-{row['index']}", row))
+                        on_complete=lambda row: journal.save(f"attempt-{row['index']}", row),
+                        pool=pool)
                     fitted = p, covariance
                 else:
                     fitted = model.fit(fitting_config=config["init"])
@@ -843,16 +891,18 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False):
                 counts[name] += 1
 
             info["profiles"] = profile_likelihood(model, fitted[0], config["init"]["profile"],
-                                                  completed=existing, on_complete=save_point)
+                                                  completed=existing, on_complete=save_point,
+                                                  pool=pool)
             info["warnings"].extend(info["profiles"]["warnings"])
         if "bootstrap" in config["init"]:
             info["bootstrap"] = bootstrap_fit(
                 model, fitted[0], config["init"]["bootstrap"], completed=completed("bootstrap"),
-                on_complete=lambda row: journal.save(f"bootstrap-{row['index']}", row))
+                on_complete=lambda row: journal.save(f"bootstrap-{row['index']}", row),
+                pool=pool)
             info["warnings"].extend(info["bootstrap"]["warnings"])
         metadata = {**metadata, "elapsed_s": time.monotonic() - began,
                     "elapsed_note": "Seconds in the final invocation; excludes earlier interrupted invocations.",
-                    "resumed": bool(resume)}
+                    "resumed": bool(resume), "workers": workers}
         info["provenance"] = metadata
         info["checkpoint"] = str(checkpoint.absolute())
         rows = prediction_rows(model, fitted[0])
@@ -879,15 +929,24 @@ def main():
     parser.add_argument("config_file")
     parser.add_argument("--no-pdf", action="store_true")
     parser.add_argument("--check", action="store_true", help="Validate without fitting or writing outputs")
+    parser.add_argument("--identifiability", action="store_true",
+                        help="With --check: add local Jacobian diagnostics at the initial point")
     parser.add_argument("--resume", action="store_true", help="Resume a matching Sideband checkpoint")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Worker processes for Jacobian columns, restarts, profile points and bootstrap replicates (default 1)")
     args = parser.parse_args()
     if args.check and args.resume:
         parser.error("--check and --resume cannot be combined")
+    if args.identifiability and not args.check:
+        parser.error("--identifiability requires --check")
+    if args.workers < 1:
+        parser.error("--workers must be a positive integer")
     try:
         config = load_config(args.config_file)
         config_dir = Path(args.config_file).resolve().parent
         if args.check:
-            summary = check_config(config, config_dir, no_pdf=args.no_pdf)
+            summary = check_config(config, config_dir, no_pdf=args.no_pdf,
+                                   identifiability=args.identifiability, workers=args.workers)
             print(json.dumps(summary, indent=2, allow_nan=False))
             parser.exit(0 if summary["valid"] else 1)
         run_config(
@@ -895,6 +954,7 @@ def main():
             config_dir,
             args.no_pdf,
             resume=args.resume,
+            workers=args.workers,
         )
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
         parser.exit(1, f"Error: {exc}\n")
