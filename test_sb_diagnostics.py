@@ -7,6 +7,7 @@ for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'
 os.environ.setdefault('MPLBACKEND', 'Agg')
 
 import contextlib
+import copy
 import io
 import json
 import math
@@ -15,7 +16,7 @@ import tempfile
 
 import numpy as np
 
-from sb_diagnostics import diagnostics_lines, lag1_autocorrelation, residual_diagnostics, runs_test
+from sb_diagnostics import _block_summary, diagnostics_lines, lag1_autocorrelation, residual_diagnostics, runs_test
 from sbfit import run_config
 from test_sb_output import small_config
 
@@ -67,10 +68,41 @@ def check_synthetic_rows():
             raise AssertionError('Insufficient degrees of freedom accepted')
 
 
-def check_fit_integration():
+def check_directions():
+    cases = [([1, -1] * 20, 'alternating', 'negative'),
+             ([1] * 20 + [-1] * 20, 'clustered', 'positive'),
+             ([1, -1, -1, 1], 'balanced', 'negative'),
+             ([-1, 0, 1], 'unavailable', 'zero'),
+             ([], 'unavailable', 'unavailable'),
+             ([1], 'unavailable', 'unavailable'),
+             ([0] * 4, 'unavailable', 'unavailable'),
+             ([2] * 4, 'unavailable', 'unavailable')]
+    for values, runs, correlation in cases:
+        block = _block_summary(rows_from(values))
+        assert block['runs_direction'] == runs
+        assert block['correlation_direction'] == correlation
+        assert block['runs_test'] == runs_test(values)
+        assert block['lag1_autocorrelation'] == lag1_autocorrelation(values)
+        if len(values) == 40:
+            assert block['runs_test']['p_value'] < .01
+            report = residual_diagnostics(rows_from(values), 0)
+            assert len(report['warnings']) == 2
+    rows = rows_from(cases[0][0]) + rows_from(cases[1][0], residue='G2', dataset=1)
+    expected = residual_diagnostics(rows, 0)
+    for reordered in (rows[::-1], rows[40:] + rows[:40], rows[::2] + rows[1::2]):
+        actual = residual_diagnostics(reordered, 0)
+        keyed = lambda report: {(b['residue'], b['dataset_index']): b for b in report['blocks']}
+        assert keyed(actual) == keyed(expected)
+    legacy = copy.deepcopy(expected)
+    for block in legacy['blocks']:
+        del block['runs_direction'], block['correlation_direction']
+    assert diagnostics_lines(legacy)
+
+
+def check_fit_integration(folder=None):
     from sb_report import regenerate_report
 
-    folder = Path(tempfile.mkdtemp(prefix='sbonest-diagnostics-'))
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-diagnostics-')) if folder is None else Path(folder)
     cfg = small_config(folder)
     cfg['init']['vary'] = ['kab', 'kba', 'v1n_scale', 'A1.R2b']
     with contextlib.redirect_stdout(io.StringIO()):
@@ -88,10 +120,25 @@ def check_fit_integration():
     summary = json.loads(Path(paths['summary_json']).read_text())
     assert abs(summary['residual_diagnostics']['reduced_chi2'] - report['reduced_chi2']) < 1e-12
     assert 'overall runs test' in Path(paths['summary_txt']).read_text()
+    assert summary['parameters'] == result['parameters']
+    assert summary['residual_diagnostics']['blocks'] == report['blocks']
+    for block in report['blocks']:
+        assert block['runs_direction'] in {'alternating', 'clustered', 'balanced', 'unavailable'}
+        assert block['correlation_direction'] in {'positive', 'negative', 'zero', 'unavailable'}
+    legacy = copy.deepcopy(result)
+    for block in legacy['residual_diagnostics']['blocks']:
+        del block['runs_direction'], block['correlation_direction']
+    legacy_path = folder / 'legacy_result.json'
+    legacy_path.write_text(json.dumps(legacy))
+    legacy_paths = regenerate_report(legacy_path, folder / 'legacy_report',
+                                     predictions_path=folder / 'fit_predictions.csv')
+    assert Path(legacy_paths['summary_txt']).is_file()
+    print(f'Retained real-fit and regenerated reports: {folder}')
 
 
 if __name__ == '__main__':
     check_tests()
     check_synthetic_rows()
+    check_directions()
     check_fit_integration()
     print('PASS: runs test, autocorrelation, sigma scale warnings, fit integration and report')
