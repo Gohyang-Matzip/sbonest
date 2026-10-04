@@ -33,13 +33,11 @@ def upload(client, folder, config, **form):
 
 
 def wait_idle(client, job_id, timeout=240):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        status = client.get(f'/jobs/{job_id}').get_json()
-        if not status['running']:
-            return status
-        time.sleep(0.5)
-    raise AssertionError('Fit did not finish in time')
+    process = sb_server._processes[job_id]
+    process.wait(timeout=timeout)
+    status = client.get(f'/jobs/{job_id}').get_json()
+    assert not status['running']
+    return status
 
 
 def check_workflow():
@@ -87,7 +85,7 @@ def check_workflow():
     text = client.get(f'/jobs/{job_id}/files/fit_result.txt').data.decode()
     assert 'Results using Sideband' in text
     # PNG preview is rendered from the predictions CSV and cached.
-    png = client.get(f'/jobs/{job_id}/preview.png')
+    png = client.get(f'/jobs/{job_id}/preview.png?t=1')
     assert png.status_code == 200 and png.data.startswith(b'\x89PNG')
     assert (JOBS / job_id / 'preview.png').exists()
     listing = client.get('/jobs').get_json()
@@ -133,6 +131,12 @@ def check_analyses_token_and_expiry():
         assert client.get('/jobs', headers={'X-SBONEST-Token': 'wrong'}).status_code == 401
         assert client.get('/jobs', headers={'X-SBONEST-Token': 'secret-token'}).status_code == 200
         assert client.get(f'/jobs/{job_id}?token=secret-token').status_code == 200
+        png = client.get(f'/jobs/{job_id}/preview.png?token=secret-token&t=1')
+        assert png.status_code == 200 and png.data.startswith(b'\x89PNG')
+        for action in ('fit', 'resume', 'report', 'archive'):
+            rejected = client.post(f'/jobs/{job_id}/{action}', headers={'X-SBONEST-Token': 'wrong'})
+            assert rejected.status_code == 401 and rejected.get_json()['error']
+        assert (JOBS / job_id).is_dir()
         assert b'access token' in client.get('/').data
     finally:
         sb_server.app.config['SBONEST_TOKEN'] = None
@@ -171,7 +175,36 @@ def check_rejections():
                    for p in JOBS.iterdir())
 
 
+def check_running_archive():
+    """Rejected archives preserve files while a real child is awaiting input."""
+    import subprocess
+    import sys
+
+    folder = JOBS / 'running-archive'
+    folder.mkdir()
+    marker = folder / 'retained.txt'
+    marker.write_text('retained')
+    process = subprocess.Popen([sys.executable, '-c', 'import sys; sys.stdin.buffer.read()'],
+                               stdin=subprocess.PIPE)
+    sb_server._processes[folder.name] = process
+    try:
+        client = sb_server.app.test_client()
+        for _ in range(2):
+            response = client.post(f'/jobs/{folder.name}/archive')
+            assert response.status_code == 409 and response.get_json()['error']
+            assert client.get(f'/jobs/{folder.name}').get_json()['running']
+            assert marker.read_text() == 'retained'
+    finally:
+        process.communicate(timeout=10)
+        sb_server._processes.pop(folder.name)
+    assert process.returncode == 0
+    response = client.post(f'/jobs/{folder.name}/archive')
+    assert response.status_code == 200
+    assert (JOBS / 'archive' / folder.name / marker.name).read_text() == 'retained'
+
+
 if __name__ == '__main__':
+    check_running_archive()
     check_rejections()
     check_workflow()
     check_analyses_token_and_expiry()

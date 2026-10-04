@@ -49,6 +49,10 @@ the numerical-library thread variables at one in both cases. Every result also
 carries `residual_diagnostics` (reduced chi-square, sigma scale, runs tests,
 autocorrelation, rescaled errors; manual section 8.8), and a design file can
 `optimize` which spectrum rows to measure for a given budget (manual section 8.6).
+Per-block `runs_direction` distinguishes alternating from clustered signs;
+`correlation_direction` independently labels lag-1 correlation. Both tails can
+indicate structure requiring inspection of model, noise and acquisition, not a
+proven cause. Rescaled errors are an alternative, never the default absolute-sigma SE.
 
 The first example fits three peaks at **1.2 GHz, 25/100 Hz nitrogen RF,
 105–135 ppm**, with 147 equally spaced offsets per peak and RF
@@ -181,17 +185,31 @@ a QA figure (manual section 14). `docs/API_REFERENCE.md` lists the public API
 The inherited ONEST web interface (`server_run.py`), `prepare.py` and `mcrun.py`
 are for ONEST models.
 
-To install the command line into an environment:
+To install the command line noneditably from this checkout into an environment:
 
 ```bash
-python -m pip install -e . -c constraints-sideband.txt
+python -m pip install . -c constraints-sideband.txt
 sbonest version
-sbonest check example/sideband_auto_H/two_RF.json --identifiability
+sbonest init-demo --out demo
+sbonest check demo/fit.json --no-pdf
+sbonest fit demo/fit.json --no-pdf --workers 1
+sbonest resume demo/fit.json --no-pdf --workers 1
+sbonest report demo/fit_result.json --out demo/report
 ```
+
+After installation, run the commands in a writable directory outside the checkout
+with a fresh `demo` name. Wheel and source-distribution installs include the
+synthetic two-RF inputs; `init-demo` does not need an `example/` directory.
+Existing demo folders and fit outputs are protected. Resume requires the same
+inputs, source/dependency identity, thread settings and PDF mode.
 
 `sbonest check|fit|resume|report|init-demo|design|compare|import-bruker|serve|benchmark|version`
 call the same functions as the scripts, so outputs and provenance are identical
 (manual section 13). The scripts keep working from a plain checkout.
+Installed `compare` also accepts `--models` and `--h-ppm-c`; `serve` accepts
+`--token` and `--max-age-days`, like the scripts. Browser action errors remain
+visible separately from the job log, failed archive keeps the selected job, and
+PNG previews work with or without token access (manual sections 13 and 15).
 
 Exact pulse-segment propagation is used, but the model has one N/H pair per
 state and phenomenological relaxation. Automatic proton relaxation does not

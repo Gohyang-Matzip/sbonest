@@ -58,9 +58,15 @@ def _block_summary(block):
     n = int(values.size)
     chi2 = float(values @ values)
     corr = lag1_autocorrelation(values)
+    test = runs_test(values)
+    z = test['z']
     return {'n_points': n, 'chi2': chi2, 'reduced_chi2': chi2 / n if n else None,
             'residual_mean': float(values.mean()) if n else None,
-            'runs_test': runs_test(values), 'lag1_autocorrelation': corr,
+            'runs_test': test, 'lag1_autocorrelation': corr,
+            'runs_direction': ('unavailable' if z is None else
+                               'alternating' if z > 0 else 'clustered' if z < 0 else 'balanced'),
+            'correlation_direction': ('unavailable' if corr is None else
+                                      'positive' if corr > 0 else 'negative' if corr < 0 else 'zero'),
             'lag1_threshold': 2 / math.sqrt(n) if n else None,
             'max_abs_residual': float(np.max(np.abs(values))) if n else None}
 
@@ -108,11 +114,13 @@ def residual_diagnostics(rows, n_parameters, covariance=None, *, runs_alpha=0.01
                   if row['runs_test']['p_value'] is not None and row['runs_test']['p_value'] < runs_alpha]
     if structured:
         warnings.append('Runs test finds systematic residual sign structure (p < '
-                        f'{runs_alpha:g}) in: ' + ', '.join(structured) + '; inspect model adequacy.')
+                        f'{runs_alpha:g}) in: ' + ', '.join(structured)
+                        + '; inspect model, noise, and acquisition; this does not establish a cause.')
     correlated = [f'{row["residue"]}/dataset {row["dataset_index"]}' for row in block_rows
                   if row['lag1_autocorrelation'] is not None and abs(row['lag1_autocorrelation']) > row['lag1_threshold']]
     if correlated:
-        warnings.append('Lag-1 residual autocorrelation beyond 2/sqrt(n) in: ' + ', '.join(correlated) + '.')
+        warnings.append('Lag-1 residual autocorrelation beyond 2/sqrt(n) in: ' + ', '.join(correlated)
+                        + '; inspect model, noise, and acquisition; this does not establish a cause.')
     outliers = int(np.sum(np.abs(values) > 3))
     expected_outliers = n * 2 * (1 - _NORMAL.cdf(3))
     if outliers > max(3, 3 * expected_outliers):
@@ -128,7 +136,9 @@ def residual_diagnostics(rows, n_parameters, covariance=None, *, runs_alpha=0.01
         'warnings': warnings,
         'interpretation': ('Reduced chi2 near 1 (within a few expected spreads) is consistent with the supplied '
                            'absolute sigma; runs tests and autocorrelation detect ordered structure that a '
-                           'correct model should not leave. Rescaled errors multiply the local covariance by '
+                           'correct model should not leave. Inspect model, noise, and acquisition; these '
+                           'warnings do not establish a cause. The concatenated overall runs test is '
+                           'descriptive because block boundaries are artificial. Rescaled errors multiply the local covariance by '
                            'chi2/dof and assume a correct model with uniformly mis-estimated sigma.'),
     }
     if covariance is not None:
@@ -150,13 +160,16 @@ def diagnostics_lines(report, parameter_names=None):
              f'residual mean {number(report["residual_mean"], 3)}, outliers beyond 3 sigma {report["outliers_beyond_3sigma"]} '
              f'(expected {number(report["expected_outliers_beyond_3sigma"], 2)})']
     overall = report['overall_runs_test']
-    lines.append(f'overall runs test: runs {overall["runs"]}, expected {number(overall["expected_runs"])}, '
+    lines.append(f'overall runs test (descriptive; concatenated block boundaries are artificial): '
+                 f'runs {overall["runs"]}, expected {number(overall["expected_runs"])}, '
                  f'z {number(overall["z"], 3)}, p {number(overall["p_value"], 3)}')
     for row in report['blocks']:
         test = row['runs_test']
         lines.append(f'{row["residue"]} / dataset {row["dataset_index"]}: n {row["n_points"]}, reduced chi2 '
-                     f'{number(row["reduced_chi2"])}, runs p {number(test["p_value"], 3)}, lag-1 r '
-                     f'{number(row["lag1_autocorrelation"], 3)} (|r| > {number(row["lag1_threshold"], 2)} flags), '
+                     f'{number(row["reduced_chi2"])}, runs p {number(test["p_value"], 3)} '
+                     f'({row.get("runs_direction", "unavailable")}), lag-1 r '
+                     f'{number(row["lag1_autocorrelation"], 3)} ({row.get("correlation_direction", "unavailable")}; '
+                     f'|r| > {number(row["lag1_threshold"], 2)} flags), '
                      f'max |residual| {number(row["max_abs_residual"], 3)}')
     if report.get('rescaled_stderr') is not None and parameter_names:
         lines.append(f'Rescaled standard errors (local SE x sqrt(chi2/dof) = x{number(math.sqrt(report["rescale_factor"]))}; '

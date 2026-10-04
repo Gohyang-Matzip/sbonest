@@ -1,5 +1,6 @@
 """Sideband workflow helpers: demo setup, saved-result reports, design and model comparison."""
 import argparse
+from importlib import resources
 import json
 from pathlib import Path
 
@@ -9,10 +10,9 @@ def init_demo(out):
     out = Path(out).expanduser().absolute()
     if out.exists() or out.is_symlink():
         raise FileExistsError(f'Demo target already exists: {out}')
-    root = Path(__file__).resolve().parent
-    template = root / 'example/sideband_auto_H/two_RF.json'
-    config = json.loads(template.read_text(encoding='utf-8'))
-    sources = [(template.parent / name).resolve() for name in config['datasets']]
+    root = resources.files('sbonest_data').joinpath('sideband_auto_H')
+    config = json.loads(root.joinpath('two_RF.json').read_bytes())
+    sources = [root.joinpath(name) for name in config['datasets']]
     # Read every bundled input before creating any output.
     contents = [(source.name, source.read_bytes()) for source in sources]
     config['datasets'] = [f'data/{name}' for name, _ in contents]

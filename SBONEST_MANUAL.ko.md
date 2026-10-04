@@ -872,8 +872,15 @@ B 상태의 양성자 이동을 재사용하고, `kbc`/`kcb`와 `dwC_ppm`을 2�
   너무 작거나(또는 모델이 구조를 놓치거나) 너무 크다고 경고한다.
 - 잔기별·dataset별·잔기/dataset 블록별 점 수와 reduced chi-square. 블록마다
   offset 순으로 정렬한 잔차 부호의 Wald–Wolfowitz runs test, `2/sqrt(n)` 기준이
-  붙은 lag-1 자기상관, 최대 표준화 잔차. 체계적인 부호 run이나 자기상관은
-  sigma가 아니라 모델 부적합을 경고한다.
+  붙은 lag-1 자기상관, 최대 표준화 잔차. 부호 구조나 자기상관이 있으면 모델,
+  잡음, 측정 과정을 살펴야 하며, 어느 원인인지 입증하는 것은 아니다.
+  `runs_direction`은 runs z가 양수면 `alternating`, 음수면 `clustered`,
+  0이면 `balanced`, null이면 `unavailable`이다. 이와 독립적으로
+  `correlation_direction`은 lag-1 상관에 따라 `positive`, `negative`, `zero`,
+  `unavailable`이다. 방향 자체는 유의성 검정이 아니다. 양측 runs p-value와
+  상관 절댓값의 임계값은 그대로이며 교대와 군집 모두 경고를 낼 수 있다.
+  `overall_runs_test`는 블록 연결 경계가 인위적이므로 기술적 요약이다.
+  Offset 순으로 정렬한 블록별 통계를 살펴야 한다.
 - Gaussian 기대치와 비교한 3 sigma 초과 이상점 수.
 - `rescaled_stderr`와 자유 파라미터별 `stderr_rescaled`: 국소 표준오차에
   `sqrt(chi2/dof)`를 곱한 값. sigma가 균일하게 잘못 추정되었다고 믿을 때 쓰는
@@ -1042,13 +1049,32 @@ null이며 `exchange.kex_AB`/`kex_BC`가 쌍별 합을 준다. 3상태에는 교
 
 ## 13. `sbonest` 명령 설치
 
-저장소는 설치 가능한 패키지이기도 하다. Python 3.12 환경에서:
+저장소는 설치 가능한 패키지이기도 하다. Python 3.12 환경에서 checkout을
+일반 설치한다(개발용 `-e .` 설치도 계속 가능하다).
 
 ```bash
-python -m pip install -e . -c constraints-sideband.txt
+python -m pip install . -c constraints-sideband.txt
 sbonest --help
 sbonest version
 ```
+
+Wheel과 source distribution에는 합성 two-RF 예제와 runtime 진단 모듈이
+포함된다. 설치 후에는 checkout이나 `example/` 폴더가 필요 없다. 1절의 수치
+thread 환경변수를 설정한 뒤 쓰기 가능한 작업 폴더에서 새 `demo` 이름으로 실행한다.
+
+```bash
+sbonest init-demo --out demo
+sbonest check demo/fit.json --no-pdf
+sbonest fit demo/fit.json --no-pdf --workers 1
+sbonest resume demo/fit.json --no-pdf --workers 1
+sbonest report demo/fit_result.json --out demo/report
+```
+
+`init-demo`는 제공 입력을 `demo/data/`에 복사하고 상대 dataset 경로와 절대
+출력 접두사를 가진 `demo/fit.json`을 쓴다. 이미 있는 대상 폴더는 거부한다.
+일반 fit을 다시 실행해도 기존 출력은 거부한다. Resume는 설정, 입력, 소스와
+의존성 식별 정보, thread 설정, PDF 모드가 같을 때만 사용한다(8.3절).
+`version`은 dataset을 읽지 않고 소스 해시를 출력한다.
 
 콘솔 명령은 모든 도구를 묶는다. `sbonest check CONFIG [--identifiability]`,
 `sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
@@ -1060,6 +1086,14 @@ sbonest version
 `sb_workflow.py` 등)와 같은 함수를 호출하므로 출력·checkpoint·provenance가
 동일하며, 설치 없이 checkout에서 스크립트를 그대로 써도 된다. 모듈은 저장소
 루트에 평평하게 유지되어 `provenance`의 소스 해시가 의미를 잃지 않는다.
+
+설치된 `compare`도 스크립트의 `--models`, `--h-ppm-c` 옵션을 받는다.
+`--models Sideband Sideband_3st_Linear`에는 two-state `Sideband` 설정을
+입력하며 three-state 설정은 여기서 파생된다. `--h-ppm-c A1=7.1`은 A1의
+상태 C proton shift를 지정한다(생략하면 상태 B shift 사용). `--models`가
+없으면 공유 교환 대 잔기별 교환 비교를 유지한다. `--workers N`, `--pdf`도
+같이 적용된다. 모델 비교는 입력 absolute sigma 아래의 모델 내 진술이며
+실험 검증이 아니다.
 
 ## 14. Bruker pseudo-2D 데이터 가져오기
 
@@ -1103,8 +1137,7 @@ JSON 요약이 출력된다. 위상·baseline 품질, peak 겹침, 기준 행 �
 `run.py` 프로세스로 fitting을 시작하고, checkpoint로 중단된 작업을 재개하며,
 보고서를 다시 만든다. 페이지는 작업 상태(프로세스 상태, checkpoint 기록, 결과
 요약, 로그 끝부분)를 주기적으로 조회하고 모든 출력의 다운로드 링크를 보여 준다.
-작업 폴더 안의 파일만 제공한다. 실행기는 신뢰할 수 있는 로컬 네트워크용이며
-인증이 없다.
+작업 폴더 안의 파일만 제공한다.
 
 업로드 폼은 `init`에 기록되는 선택 분석도 받는다. seed가 있는 무작위 restart,
 kex profile 격자, kex/pB profile 구간, seed가 있는 bootstrap이다. fitting 후
@@ -1116,13 +1149,26 @@ D일보다 오래 쉬고 있는 작업을 보관한다. 아무것도 삭제하�
 접근 토큰이 필요하다. 페이지가 토큰을 물어 `X-SBONEST-Token` 헤더(다운로드는
 `?token=`)로 보낸다. 토큰이 없으면 실행기는 신뢰할 수 있는 로컬 네트워크용이다.
 
+설치된 명령도 같은 token·archive 옵션을 받는다.
+
+```bash
+sbonest serve --host 127.0.0.1 --port 5057 --token qa-token --max-age-days 30
+```
+
+실제 사용에서는 이 예제 값 대신 자신의 접근 토큰을 쓴다. Archive age는
+양수여야 한다. Fit, resume, report, archive 오류는 작업 로그와 별도로
+표시되며 상태 새로고침 후에도 남는다. Archive 실패 시 선택한 작업과 버튼을
+유지하고, 늦게 도착한 상태 응답이 보관된 작업을 다시 선택하지 않는다.
+인증·네트워크·잘못된 응답 오류를 성공으로 처리하지 않고 표시한다.
+PNG 미리보기는 토큰 유무와 관계없이 작동한다.
+
 ## 16. 모듈 구성과 API 레퍼런스
 
 `sbfit.py`는 모델(`SidebandModel`, 설정 검증)을, `sb_run.py`는 실행 workflow
 (`check_config`, `run_config`, `run.py`와 `sbfit.py`가 공유하는 명령줄)를 담으며
 두 이름 모두 `sbfit`에서 그대로 import할 수 있다. `docs/API_REFERENCE.md`는
 Sideband 모듈의 모든 공개 함수·클래스를 서명과 docstring 첫 줄과 함께 나열한다.
-공개 서명을 바꾸면 `python generate_api_reference.py`로 다시 생성한다(CI는
+공개 서명이나 docstring을 바꾸면 `python generate_api_reference.py`로 다시 생성한다(CI는
 `--check`를 실행한다).
 
 구현 근거: [sbfit.py](sbfit.py), [sideband.py](sideband.py),
