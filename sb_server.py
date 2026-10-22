@@ -15,6 +15,7 @@ SB_JOBS/archive/ when the server starts or when /jobs/archive-expired is called;
 nothing is deleted.
 """
 import json
+import math
 import os
 from pathlib import Path
 import secrets
@@ -31,6 +32,7 @@ BASE_DIR = Path(__file__).resolve().parent
 JOBS_DIR = Path(os.environ.get("SBONEST_JOBS_DIR", BASE_DIR / "SB_JOBS"))
 ARCHIVE_NAME = "archive"
 MAX_WORKERS = max(1, os.cpu_count() or 1)
+RESERVED_NAMES = {"config.json", "job.json", "check.json", "check.log", "fit.log", "fit_result.json"}
 ANALYSIS_FIELDS = ("multistart_random", "multistart_seed", "profile_kex", "profile_interval",
                    "bootstrap_replicates", "bootstrap_seed")
 
@@ -90,10 +92,17 @@ def _checkpoint_status(folder):
             "failed": "failure" in names, "baseline": "baseline" in names}
 
 
-def _status(job_id, folder):
+def _is_running(job_id):
+    """Return True when a background run.py process for job_id is still alive."""
     with _lock:
         process = _processes.get(job_id)
-    running = process is not None and process.poll() is None
+    return process is not None and process.poll() is None
+
+
+def _status(job_id, folder):
+    running = _is_running(job_id)
+    with _lock:
+        process = _processes.get(job_id)
     returncode = None if process is None or running else process.returncode
     log = folder / "fit.log"
     tail = ""
@@ -132,9 +141,7 @@ def archive_expired(max_age_days):
     archive = JOBS_DIR / ARCHIVE_NAME
     moved = []
     for folder in sorted(p for p in JOBS_DIR.iterdir() if p.is_dir() and p.name != ARCHIVE_NAME) if JOBS_DIR.exists() else []:
-        with _lock:
-            process = _processes.get(folder.name)
-        if process is not None and process.poll() is None:
+        if _is_running(folder.name):
             continue
         age = _age_days(folder)
         if age is not None and age > max_age_days:
@@ -175,8 +182,8 @@ def analysis_settings(form):
             values = [float(v) for v in grid.replace(",", " ").split()]
         except ValueError as exc:
             raise ValueError("profile_kex must list numbers") from exc
-        if not values or any(v <= 0 for v in values):
-            raise ValueError("profile_kex values must be positive")
+        if not values or any(not math.isfinite(v) or v <= 0 for v in values):
+            raise ValueError("profile_kex values must be positive finite numbers")
         init["profile"] = {"kex": values}
     interval = form.getlist("profile_interval") if hasattr(form, "getlist") else form.get("profile_interval", [])
     interval = [v for v in interval if v in ("kex", "pB", "v1n_scale")]
@@ -294,6 +301,8 @@ def create_job():
         return jsonify({"error": "Configuration needs a datasets list"}), 400
     if not isinstance(config.get("init"), dict) or not isinstance(config.get("sideband", {}), dict):
         return jsonify({"error": "Configuration init and sideband sections must be objects"}), 400
+    if not isinstance(config.get("sideband", {}).get("datasets", []), list):
+        return jsonify({"error": "sideband.datasets must be a list"}), 400
     if not str(config.get("init", {}).get("Method", "")).startswith("Sideband"):
         return jsonify({"error": "This runner accepts Sideband configurations only"}), 400
     try:
@@ -311,6 +320,11 @@ def create_job():
     if missing:
         return jsonify({"error": "Configuration datasets not uploaded: " + ", ".join(missing)}), 400
     waveform = request.files.get("waveform")
+    wname = secure_filename(waveform.filename) if waveform is not None and waveform.filename else None
+    if any(name in RESERVED_NAMES for name in [*uploaded, *([wname] if wname else [])]):
+        return jsonify({"error": "File names reserved by the runner: " + ", ".join(sorted(RESERVED_NAMES))}), 400
+    if wname and wname in uploaded:
+        return jsonify({"error": f"Waveform name collides with a data file: {wname}"}), 400
     workers = request.form.get("workers", "1")
     try:
         workers = int(workers)
@@ -328,7 +342,6 @@ def create_job():
     config["Project Name"] = "fit"
     config["init"].update(analyses)
     if waveform is not None and waveform.filename:
-        wname = secure_filename(waveform.filename)
         waveform.save(folder / wname)
         sideband = config.get("sideband", {})
         for entry in [sideband.get("decoupling", {}), *sideband.get("datasets", [])]:
@@ -340,7 +353,14 @@ def create_job():
                                                  "created": time.strftime("%Y-%m-%dT%H:%M:%S")}, indent=2) + "\n")
     args = ["config.json", "--check", "--identifiability", "--workers", str(workers)] + (["--no-pdf"] if no_pdf else [])
     command, env = _python_command(folder, "run.py", *args)
-    run = subprocess.run(command, cwd=folder, env=env, capture_output=True, text=True, timeout=600)
+    try:
+        run = subprocess.run(command, cwd=folder, env=env, capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired as exc:
+        partial = "".join(v.decode("utf-8", "replace") if isinstance(v, bytes) else (v or "") for v in (exc.stdout, exc.stderr))
+        (folder / "check.log").write_text(partial, encoding="utf-8")
+        check = {"valid": False, "errors": ["preflight timed out after 600 s"]}
+        (folder / "check.json").write_text(json.dumps(check, indent=2) + "\n", encoding="utf-8")
+        return jsonify({"job_id": job_id, "check": check, "analyses": sorted(analyses)}), 504
     (folder / "check.log").write_text(run.stdout + run.stderr, encoding="utf-8")
     try:
         check = json.loads(run.stdout)
@@ -398,7 +418,10 @@ def make_report(job_id):
         index += 1
     prefix = f"report_{index:02d}"
     command, env = _python_command(folder, "sb_workflow.py", "report", "fit_result.json", "--out", prefix)
-    run = subprocess.run(command, cwd=folder, env=env, capture_output=True, text=True, timeout=600)
+    try:
+        run = subprocess.run(command, cwd=folder, env=env, capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "report timed out after 600 s"}), 504
     if run.returncode != 0:
         return jsonify({"error": run.stderr.strip() or run.stdout.strip()}), 500
     return jsonify({"job_id": job_id, "prefix": prefix,
@@ -468,9 +491,7 @@ def list_jobs():
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     jobs = []
     for folder in sorted(p for p in JOBS_DIR.iterdir() if p.is_dir() and p.name != ARCHIVE_NAME):
-        with _lock:
-            process = _processes.get(folder.name)
-        jobs.append({"job_id": folder.name, "running": process is not None and process.poll() is None,
+        jobs.append({"job_id": folder.name, "running": _is_running(folder.name),
                      "finished": (folder / "fit_result.json").exists(),
                      "age_days": round(_age_days(folder) or 0.0, 3)})
     archived = sorted(p.name for p in (JOBS_DIR / ARCHIVE_NAME).iterdir()) if (JOBS_DIR / ARCHIVE_NAME).is_dir() else []
