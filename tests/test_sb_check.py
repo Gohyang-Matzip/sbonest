@@ -132,8 +132,33 @@ def check_invalid_names_bounds_and_cli():
     assert not json.loads(result.stdout)['valid']
 
 
+def check_missing_sideband_keys():
+    # Missing required keys must produce named errors, never a bare KeyError.
+    base = json.loads((ROOT / 'example/sideband_auto_H/two_RF.json').read_text())
+    config_dir = ROOT / 'example/sideband_auto_H'
+    cases = []
+    cfg = copy.deepcopy(base)
+    del cfg['sideband']['decoupling']
+    cases.append((cfg, 'decoupling'))
+    cfg = copy.deepcopy(base)
+    cfg['sideband']['decoupling'].pop('h_larmor_mhz', None)
+    for entry in cfg['sideband'].get('datasets', []):
+        entry.pop('h_larmor_mhz', None)
+    cases.append((cfg, 'h_larmor_mhz'))
+    cfg = copy.deepcopy(base)
+    cfg['init']['kex'] = 10
+    cases.append((cfg, 'init.kex must be an object'))
+    for cfg, phrase in cases:
+        summary = sbfit.check_config(cfg, config_dir)
+        text = ' '.join(summary['errors'])
+        assert not summary['valid'], phrase
+        assert phrase in text, (phrase, text)
+        assert 'KeyError' not in text, text
+
+
 if __name__ == '__main__':
     for check in (check_optional_validation_before_fit, check_preflight_summary_and_no_outputs,
-                  check_prepare_freshness_and_validation, check_invalid_names_bounds_and_cli):
+                  check_prepare_freshness_and_validation, check_invalid_names_bounds_and_cli,
+                  check_missing_sideband_keys):
         check()
         print('PASS', check.__name__)

@@ -14,12 +14,11 @@ from scipy.optimize import least_squares
 from estmodel import b1_weights, est_model
 from fit import PARAM_LAYOUT, _block_jacobian, generate_initial_parameters
 from run import set_residue_flags
-from sideband import composite_segments, profile, waveform_segments
+from sideband import composite_segments, profile, profile_states, stationary_populations, waveform_segments
 from sb_report import derived_errors, prediction_rows
 from sb_analysis import (
     _multistart_settings, _number, _profile_settings,
 )
-from sideband import profile_states, stationary_populations
 
 # Sideband model name -> (ONEST parameter layout, number of exchanging sites).
 SIDEBAND_METHODS = {
@@ -56,6 +55,8 @@ def _validate_fit_config(model, cfg):
         if name not in cfg:
             continue
         grid = cfg[name]
+        if not isinstance(grid, dict):
+            raise ValueError(f"init.{name} must be an object with min, max and nsteps")
         _known(grid, ("min", "max", "nsteps"), f"init.{name}")
         lo, hi, steps = grid.get("min"), grid.get("max"), grid.get("nsteps", 6)
         if (not _number(lo) or not _number(hi) or lo > hi
@@ -125,6 +126,8 @@ class SidebandModel(est_model):
             ("decoupling", "datasets", "residues", "v1n", "proton_relaxation", "nitrogen_relaxation"),
             "sideband",
         )
+        if not isinstance(sb.get("decoupling"), dict):
+            raise ValueError("sideband.decoupling must be an object with h_larmor_mhz, h_carrier_ppm and p90_s")
         self.rf_config = sb.get("v1n", {"mode": "fixed"})
         _known(self.rf_config, ("mode", "initial", "bounds"), "v1n")
         self.rf_mode = self.rf_config.get("mode", "fixed")
@@ -195,8 +198,12 @@ class SidebandModel(est_model):
         if self.nitrogen_mode not in ("shared", "per_field"):
             raise ValueError("nitrogen_relaxation.mode must be shared or per_field")
         self.decoupling, self.segments = [], []
-        for entry in overrides:
+        for index, entry in enumerate(overrides):
             d = {**sb["decoupling"], **entry}
+            if "h_larmor_mhz" not in d or "h_carrier_ppm" not in d:
+                raise ValueError(f"decoupling for dataset {index + 1} needs h_larmor_mhz and h_carrier_ppm")
+            if "waveform_json" not in d and "p90_s" not in d:
+                raise ValueError(f"decoupling for dataset {index + 1} needs p90_s or waveform_json")
             _known(
                 d,
                 (
