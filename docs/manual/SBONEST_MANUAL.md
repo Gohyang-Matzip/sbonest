@@ -836,7 +836,10 @@ is a planning assumption, not independent knowledge). Each scenario dataset
 gives the nitrogen RF amplitude, saturation time, absolute sigma and an offset
 grid, either absolute (`offsets_ppm`) or relative to each residue's `peak_ppm`
 (`offsets_rel_ppm`); `v1err_hz`, `field_mhz` and a `decoupling` override are
-optional. For every scenario the command writes complete noise-free synthetic
+optional. When a scenario has as many datasets as the base configuration,
+scenario dataset i inherits base dataset i's field and decoupling override;
+otherwise it inherits dataset 1's, and a base configuration with several field
+groups then requires `decoupling.h_larmor_mhz` in every scenario dataset. For every scenario the command writes complete noise-free synthetic
 inputs and `design_config.json` under `scenarios/<name>/`, evaluates the grouped
 Jacobian at the truth and reports, in `design.json`, `design.txt` and
 `design.pdf`, the point count, the acquisition proxy Σ(points × T), rank and
@@ -1173,7 +1176,10 @@ starting `dw` (repeatable); `--reference-row K` names the reference spectrum
 that normalizes intensities and is excluded from the output; `--noise-region
 LO HI` is a signal-free proton range whose standard deviation in the reference
 row becomes the absolute error; `--saturation-s` and `--v1-hz` fill the header.
-`--half-width` (ppm) and `--mode max|sum` select the window statistic, `--r2a`,
+`--half-width` (ppm) and `--mode max|sum` select the window statistic (with
+`sum`, each peak's error is the noise times the square root of the number of
+points in that peak's own window; the summary keeps the unscaled
+`noise_sigma_raw` and lists each peak's `noise_sigma`), `--r2a`,
 `--r2b` set the header starting values, `--exclude-row` removes further rows,
 and the saturated-nucleus field defaults to `SF × γ(15N)/γ(1H)` (`--nucleus`,
 `--field-mhz`). The output is the text format of section 2 and a JSON summary is

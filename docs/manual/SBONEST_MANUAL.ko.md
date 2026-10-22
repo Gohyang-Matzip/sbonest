@@ -802,7 +802,10 @@ fit이 최적이 아니며 구간을 신뢰할 수 없다고 표시한다. nuisa
 가정이지 독립적으로 알려진 값이 아니다). 시나리오의 각 dataset은 질소 RF
 세기, saturation 시간, absolute sigma, offset 격자(절대 `offsets_ppm` 또는
 각 잔기 `peak_ppm` 기준 상대 `offsets_rel_ppm`)를 주며 `v1err_hz`, `field_mhz`,
-`decoupling` 덮어쓰기는 선택이다. 시나리오마다 잡음 없는 완전한 합성 입력과
+`decoupling` 덮어쓰기는 선택이다. 시나리오의 dataset 수가 기본 설정과 같으면
+시나리오 dataset i는 기본 dataset i의 자기장과 decoupling 덮어쓰기를 물려받고,
+다르면 첫 dataset의 것을 물려받으며 이때 기본 설정에 field group이 여러 개면 모든
+시나리오 dataset에 `decoupling.h_larmor_mhz`가 필요하다. 시나리오마다 잡음 없는 완전한 합성 입력과
 `design_config.json`을 `scenarios/<name>/`에 쓰고, 참값에서 grouped Jacobian을
 계산해 `design.json`, `design.txt`, `design.pdf`에 관측점 수, 측정 시간 대리값
 Σ(점 수 × T), rank와 조건수, 자유 파라미터별 기대 표준오차와 상대오차, 유도
@@ -1113,7 +1116,9 @@ ppm, 또는 `--offset-unit hz --carrier-ppm X`와 함께 Hz)을 나열한다.
 `--reference-row K`는 세기를 정규화하고 출력에서 제외되는 기준 스펙트럼이고,
 `--noise-region LO HI`는 기준 행에서 표준편차를 구해 absolute error로 쓰는 신호
 없는 양성자 구간이며, `--saturation-s`와 `--v1-hz`가 헤더를 채운다.
-`--half-width`(ppm)와 `--mode max|sum`은 창 통계를, `--r2a`, `--r2b`는 헤더
+`--half-width`(ppm)와 `--mode max|sum`은 창 통계를 정한다(`sum`에서는 각 peak의
+오차가 잡음에 그 peak 자신의 창에 든 점 수의 제곱근을 곱한 값이며, 요약에는
+스케일하지 않은 `noise_sigma_raw`와 peak별 `noise_sigma`가 남는다). `--r2a`, `--r2b`는 헤더
 시작값을, `--exclude-row`는 추가 제외 행을 정하고, 포화 핵 자기장은 기본적으로
 `SF × γ(15N)/γ(1H)`이다(`--nucleus`, `--field-mhz`). 출력은 2절의 텍스트 형식이며
 JSON 요약이 출력된다. 위상·baseline 품질, peak 겹침, 기준 행 선택은 사용자의
