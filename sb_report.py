@@ -182,6 +182,8 @@ def preview_png(path, rows, *, dpi=110):
 PREDICTION_COLUMNS = ('residue', 'dataset_index', 'field_mhz', 'saturation_s',
                       'v1n_nominal_hz', 'v1n_hz', 'offset_ppm', 'observed',
                       'predicted', 'sigma', 'residual_sigma')
+# Keys of a saved profiles mapping that hold metadata rather than profile curves.
+PROFILE_META_KEYS = ('parameter_names', 'warnings', 'interpretation', 'base_chi2')
 
 
 def _finite(value, label, *, positive=False, nonnegative=False):
@@ -205,6 +207,9 @@ def _load_report_inputs(result_path, predictions_path):
     count = info.get('n_points')
     if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
         raise ValueError('Result n_points must be a positive integer')
+    n_parameters = info.get('n_parameters')
+    if isinstance(n_parameters, bool) or not isinstance(n_parameters, int) or not 0 < n_parameters <= count:
+        raise ValueError('Result n_parameters must be a positive integer')
     parameters = info.get('parameters')
     if not isinstance(parameters, dict) or not parameters:
         raise ValueError('Result parameters are missing')
@@ -300,7 +305,7 @@ def _validate_analyses(info):
         if not np.isclose(base, info['chi2'], rtol=1e-9, atol=1e-9):
             raise ValueError('Profile baseline differs from saved fit')
         for name, curve in profiles.items():
-            if name in ('parameter_names', 'warnings', 'interpretation', 'base_chi2'):
+            if name in PROFILE_META_KEYS:
                 continue
             if not isinstance(curve, list):
                 raise ValueError(f'Invalid profile curve {name}')
@@ -461,7 +466,7 @@ def _summary_lines(summary):
             lines.append(f'#{row.get("index")}: success={row["success"]}, selected={row.get("selected", False)}, '
                          f'chi2={number(row.get("chi2"))}, status={row.get("status")}; {row.get("message", "")}')
     for name, curve in summary.get('profiles', {}).items():
-        if name in ('parameter_names', 'warnings', 'interpretation', 'base_chi2'):
+        if name in PROFILE_META_KEYS:
             continue
         lines.extend(['', f'Likelihood profile {name}: (failed points retained; negative deltas retained)'])
         for row in curve:
@@ -572,7 +577,7 @@ def _summary_pdf_pages(pdf, summary):
         pdf.savefig(fig)
         plt.close(fig)
     for name, curve in summary.get('profiles', {}).items():
-        if name in ('parameter_names', 'warnings', 'interpretation', 'base_chi2'):
+        if name in PROFILE_META_KEYS:
             continue
         fig, ax = plt.subplots(figsize=(8.5, 6))
         fig.subplots_adjust(left=.12, right=.97, bottom=.18, top=.89)

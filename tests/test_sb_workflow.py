@@ -3,8 +3,10 @@ from pathlib import Path
 import sys
 from _env import ROOT
 
+import contextlib
 import copy
 import csv
+import io
 from importlib import resources
 import json
 import subprocess
@@ -221,7 +223,29 @@ def check_saved_fit_report():
     assert_allclose(sum(row['chi2'] for row in summary['by_dataset'].values()), original['chi2'], rtol=1e-12)
 
 
+def check_report_requires_n_parameters():
+    from sb_report import regenerate_report
+    from sbfit import run_config
+    from test_sb_output import small_config
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-n-parameters-'))
+    with contextlib.redirect_stdout(io.StringIO()):
+        run_config(small_config(folder), no_pdf=True)
+    result = folder / 'fit_result.json'
+    info = json.loads(result.read_text())
+    del info['n_parameters']
+    result.write_text(json.dumps(info))
+    before = set(folder.iterdir())
+    try:
+        regenerate_report(result, folder / 'bad')
+    except ValueError as exc:
+        assert 'n_parameters' in str(exc), str(exc)
+    else:
+        raise AssertionError('Report accepted a result without n_parameters')
+    assert set(folder.iterdir()) == before, 'Rejected report created files'
+
+
 if __name__ == '__main__':
-    for check in (check_demo, check_demo_resources, check_report, check_invalid_report_no_writes, check_saved_fit_report):
+    for check in (check_demo, check_demo_resources, check_report, check_invalid_report_no_writes, check_saved_fit_report,
+                  check_report_requires_n_parameters):
         check()
         print('PASS', check.__name__)
