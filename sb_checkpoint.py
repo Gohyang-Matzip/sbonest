@@ -1,4 +1,5 @@
 """Run-owned, immutable JSON checkpoints with atomic publication and a process lock."""
+import errno
 import fcntl
 import hashlib
 import json
@@ -45,7 +46,13 @@ class Checkpoint:
             lock_path = self.path / '.lock'
             fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
             self.lock = os.fdopen(fd, 'a')
-            fcntl.flock(self.lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try:
+                fcntl.flock(self.lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise BlockingIOError(
+                    errno.EWOULDBLOCK,
+                    f'Another run holds checkpoint {self.path}; wait for it to finish or choose a new Project Name',
+                ) from exc
             expected = {'schema_version': 1, 'identity': self.identity}
             if self.resume:
                 if self.read('manifest') != expected:
