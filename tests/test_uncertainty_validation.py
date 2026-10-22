@@ -174,8 +174,43 @@ def check_profile_and_bootstrap_coverage():
     assert coverage['bootstrap']['kex']['fraction'] == 0.5 and coverage['warnings']
 
 
+def check_plain_study_workers():
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-coverage-workers-'))
+    config_path, truth_path, _ = study_inputs(folder)
+    runner().run_study(config_path, truth_path, 2, 7, folder / 'serial', workers=1)
+    runner().run_study(config_path, truth_path, 2, 7, folder / 'parallel', workers=2)
+    serial = json.loads((folder / 'serial' / 'samples.json').read_text())
+    parallel = json.loads((folder / 'parallel' / 'samples.json').read_text())
+    assert [row['parameters'] for row in parallel] == [row['parameters'] for row in serial]
+    assert [row['success'] for row in parallel] == [row['success'] for row in serial]
+
+
+def check_interval_failure_classification():
+    failed = {'success': False, 'lower': None, 'upper': None,
+              'message': 'ProfileIntervalError: lower bracket for kex exceeded max_evaluations'}
+    one_sided = {'success': False, 'lower': None, 'upper': 310.,
+                 'message': 'lower: threshold not reached; upper: threshold crossing located'}
+    rows = [{'success': True, 'parameters': [], 'profile_intervals': {'kex': failed}},
+            {'success': True, 'parameters': [], 'profile_intervals': {'kex': one_sided}}]
+    coverage = runner()._interval_coverage(rows, {'kex': 300.})
+    assert coverage['profile']['kex']['failed'] == 1
+    assert coverage['profile']['kex']['open_or_one_sided'] == 1
+    assert coverage['profile']['kex']['closed_intervals'] == 0
+
+
+def check_three_state_rows():
+    names = ['kab', 'kba', 'kbc', 'kcb']
+    truth = {'kab': 2., 'kba': 8., 'kbc': 3., 'kcb': 5.}
+    sample = {'success': True, 'parameters': [2., 8., 3., 5.], 'stderr': [.1, .1, .1, .1],
+              'derived_se': None, 'kex': None, 'pB': None, 'at_bounds': []}
+    result = runner().coverage_summary([sample], names, names, truth)
+    assert 'kex' not in result['parameters'] and 'pB' not in result['parameters']
+    assert result['parameters']['kab']['eligible_se'] == 1
+
+
 if __name__ == '__main__':
     for check in (check_coverage_arithmetic, check_truth_validation_before_writes, check_real_cli_and_seed,
-                  check_profile_and_bootstrap_coverage):
+                  check_profile_and_bootstrap_coverage, check_plain_study_workers,
+                  check_interval_failure_classification, check_three_state_rows):
         check()
         print('PASS', check.__name__)

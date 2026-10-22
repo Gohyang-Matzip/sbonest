@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import numbers
+import re
 from pathlib import Path
 from statistics import NormalDist
 import time
@@ -23,6 +24,8 @@ from sb_analysis import _interval_settings, profile_intervals
 from sb_bootstrap import bootstrap_draws, bootstrap_fit, bootstrap_replicate, validate_bootstrap
 from sb_report import provenance
 from sbfit import SidebandModel
+
+_PROFILE_FAILURE = re.compile(r'^\w+(Error|Exception): ')
 
 
 def _finite_number(value):
@@ -52,12 +55,15 @@ def coverage_summary(samples, parameter_names, varying_parameters, truth, confid
     good = [row for row in samples if row['success']]
     varied = set(varying_parameters)
     rates = varied & {'kab', 'kba'}
-    total = truth['kab'] + truth['kba']
-    if not math.isfinite(total) or total <= 0:
-        raise ValueError('Generating exchange rate must be finite and positive')
-    truths = {**truth, 'kex': total, 'pB': truth['kab'] / total}
+    three_state = 'kbc' in parameter_names
+    truths = dict(truth)
+    if not three_state:
+        total = truth['kab'] + truth['kba']
+        if not math.isfinite(total) or total <= 0:
+            raise ValueError('Generating exchange rate must be finite and positive')
+        truths.update(kex=total, pB=truth['kab'] / total)
     results = {}
-    for name in [*parameter_names, 'kex', 'pB']:
+    for name in [*parameter_names, *([] if three_state else ['kex', 'pB'])]:
         index = parameter_names.index(name) if name in parameter_names else None
         fixed = name not in varied if index is not None else not rates
         # A fixed zero kab also fixes pB at zero when kba alone varies.
@@ -147,9 +153,8 @@ def _interval_coverage(good, truths):
                     continue
                 lower, upper = interval.get('lower'), interval.get('upper')
                 if kind == 'profile' and not interval.get('success'):
-                    if lower is None and upper is None and not interval.get('message', '').startswith('both'):
-                        failed += 1 if 'failed' in interval.get('message', '') else 0
-                        openside += 0 if 'failed' in interval.get('message', '') else 1
+                    if _PROFILE_FAILURE.match(interval.get('message') or ''):
+                        failed += 1
                     else:
                         openside += 1
                     continue
@@ -270,8 +275,11 @@ def run_study(config_path, truth_path, replicates, seed, out, confidence=.95, *,
     varying = [model.parameter_names[i] for i in range(len(model.parameter_names)) if i in free]
     samples = []
     if interval_settings is None and inner_settings is None:
-        result = bootstrap_fit(model, p, settings,
-                               on_complete=lambda row: _write_json(out / 'samples' / f"{row['index']:06d}.json", row))
+        pool_context = (WorkerPool(workers, config, config_path.parent) if workers > 1
+                        else __import__('contextlib').nullcontext())
+        with pool_context as pool:
+            result = bootstrap_fit(model, p, settings, pool=pool,
+                                   on_complete=lambda row: _write_json(out / 'samples' / f"{row['index']:06d}.json", row))
         samples = result['samples']
     else:
         pool_context = (WorkerPool(workers, config, config_path.parent) if workers > 1
