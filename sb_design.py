@@ -154,11 +154,23 @@ def _write_dataset(path, model, truth_vector, index, offsets_spec, sigma, field,
     return count
 
 
-def _placeholder_dataset(path, config, index, scenario_ds, truth):
-    """Write a placeholder input so the model can be built before predictions exist."""
+def _base_override(overrides, index, inherit):
+    """Base sideband.datasets override for scenario dataset ``index``."""
+    if not overrides:
+        return {}
+    if not inherit:
+        return overrides[0]
+    return overrides[index] if index < len(overrides) else {}
+
+
+def _placeholder_dataset(path, config, base_index, scenario_ds, truth):
+    """Write a placeholder input so the model can be built before predictions exist.
+
+    The field is the scenario dataset's ``field_mhz`` or the header of base dataset ``base_index``.
+    """
     field = scenario_ds.get('field_mhz')
     if field is None:
-        template = Path(config['datasets'][0])
+        template = Path(config['datasets'][base_index])
         field = float(template.read_text(encoding='utf-8').splitlines()[0].split()[0])
     lines = [f'{field:.12g}', f'{scenario_ds["T"]:.12g}',
              f'{scenario_ds["v1n_hz"]:.12g} {scenario_ds.get("v1err_hz", 0.):.12g}', '# offset(ppm) intensity error']
@@ -189,10 +201,19 @@ def evaluate_scenario(design, scenario, folder, *, workers=1):
     config['residues'] = [entry for entry in config['residues'] if entry.get('flag') == 'on']
     if not config['residues']:
         raise ValueError('Design needs at least one active residue in the base configuration')
+    inherit = len(scenario['datasets']) == len(config['datasets'])
+    overrides = config['sideband'].get('datasets')
+    overrides = overrides if isinstance(overrides, list) else []
+    several = len({o['h_larmor_mhz'] for o in overrides if 'h_larmor_mhz' in o}) > 1
+    if not inherit and several:
+        for i, ds in enumerate(scenario['datasets']):
+            if 'h_larmor_mhz' not in ds.get('decoupling', {}):
+                raise ValueError(f'scenario dataset {i} must set decoupling.h_larmor_mhz: '
+                                 'the base configuration has several field groups')
     datasets, specs = [], []
     for i, ds in enumerate(scenario['datasets']):
         path = folder / f'data_{i}.txt'
-        field, spec = _placeholder_dataset(path, config, i, ds, truth)
+        field, spec = _placeholder_dataset(path, config, i if inherit else 0, ds, truth)
         datasets.append(str(path))
         specs.append((field, spec, ds))
     config['datasets'] = datasets
@@ -201,9 +222,8 @@ def evaluate_scenario(design, scenario, folder, *, workers=1):
             if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval')}
     config['init'] = init
     sb = config['sideband']
-    overrides = sb.get('datasets')
-    base_override = overrides[0] if isinstance(overrides, list) and overrides else {}
-    sb['datasets'] = [{**base_override, **ds.get('decoupling', {})} for ds in scenario['datasets']]
+    sb['datasets'] = [{**_base_override(overrides, i, inherit), **ds.get('decoupling', {})}
+                      for i, ds in enumerate(scenario['datasets'])]
     model = SidebandModel(config, design['config_path'].parent)
     _validate_fit_config(model, init)
     names = list(model.parameter_names)
@@ -492,12 +512,18 @@ def optimize_design(design, out, results, *, workers=1):
         selected.setdefault(dataset, []).append(float(grids[dataset][k]))
     optimized = {'name': f'{name}_optimized_{settings["budget"]}',
                  'datasets': [dict(ds, offsets_ppm=sorted(selected.get(i, []))) for i, ds in enumerate(candidate['datasets'])]}
-    for ds in optimized['datasets']:
+    for i, ds in enumerate(optimized['datasets']):
         if len(ds['offsets_ppm']) < 2:
-            ds['offsets_ppm'] = sorted(set(ds['offsets_ppm']) | set(grids[optimized['datasets'].index(ds)][:2].tolist()))
-    # Uniform comparison: the same budget spread evenly over the candidate grids.
+            ds['offsets_ppm'] = sorted(set(ds['offsets_ppm']) | set(grids[i][:2].tolist()))
+    # Uniform comparison: at least 2 per dataset, the rest split by grid length (largest remainder).
+    budget = settings['budget']
     total = sum(len(g) for g in grids)
-    shares = [max(2, round(settings['budget'] * len(g) / total)) for g in grids]
+    spare = max(0, budget - 2 * len(grids))
+    exact = [spare * len(g) / total for g in grids]
+    shares = [2 + int(e) for e in exact]
+    order = sorted(range(len(grids)), key=lambda i: (-(exact[i] - int(exact[i])), i))
+    for i in order[:spare - sum(int(e) for e in exact)]:
+        shares[i] += 1
     uniform = {'name': f'{name}_uniform_{settings["budget"]}',
                'datasets': [dict(ds, offsets_ppm=np.linspace(g[0], g[-1], share).tolist())
                             for ds, g, share in zip(candidate['datasets'], grids, shares)]}

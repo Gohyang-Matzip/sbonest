@@ -144,6 +144,46 @@ def check_per_field_design():
     assert any(line.startswith('# A1 R2a: 12') for line in header), header[:6]
 
 
+def check_multi_field_inheritance():
+    """Scenario datasets inherit the base field of the same index; ambiguous mappings are rejected."""
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-design-inherit-'))
+    config_path = write_synthetic(folder / 'base', {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    cfg = json.loads(config_path.read_text())
+    cfg['sideband']['datasets'] = [{'h_larmor_mhz': 600.}, {'h_larmor_mhz': 800.}]
+    config_path.write_text(json.dumps(cfg))
+    truth = truth_for(config_path)
+    spectrum = {'v1n_hz': 25., 'T': .03, 'sigma': .004, 'offsets_rel_ppm': {'min': -.4, 'max': .4, 'n': 9}}
+    scenarios = [{'name': 'a', 'datasets': [dict(spectrum), dict(spectrum)]},
+                 {'name': 'b', 'datasets': [dict(spectrum), dict(spectrum), dict(spectrum)]}]
+    path = write_design(folder, config_path, truth, scenarios[:1])
+    run_design(path, folder / 'out')
+    written = json.loads((folder / 'out' / 'scenarios' / 'a' / 'design_config.json').read_text())
+    assert [d['h_larmor_mhz'] for d in written['sideband']['datasets']] == [600., 800.]
+    path = write_design(folder / 'three', config_path, truth, scenarios[1:])
+    try:
+        run_design(path, folder / 'three' / 'out')
+    except ValueError as exc:
+        assert 'h_larmor_mhz' in str(exc), exc
+    else:
+        raise AssertionError('Three-dataset scenario without decoupling was accepted')
+
+
+def check_uniform_budget():
+    """The uniform comparison spends exactly the budget across its candidate grids."""
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-design-uniform-'))
+    config_path = write_synthetic(folder / 'base', {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    truth = truth_for(config_path)
+    candidate = {'name': 'cand', 'datasets': [
+        {'v1n_hz': 25., 'T': .03, 'sigma': .004, 'offsets_ppm': {'min': 105., 'max': 135., 'n': 31}},
+        {'v1n_hz': 80., 'T': .03, 'sigma': .004, 'offsets_ppm': {'min': 110., 'max': 130., 'n': 3}}]}
+    design = {'config': os.path.relpath(config_path, folder), 'truth': truth, 'scenarios': [candidate],
+              'optimize': {'scenario': 'cand', 'budget': 10, 'criterion': 'kex', 'min_per_dataset': 2}}
+    (folder / 'design.json').write_text(json.dumps(design))
+    paths = run_design(folder / 'design.json', folder / 'out')
+    rows = {row['name']: row for row in json.loads(Path(paths['design_json']).read_text())['scenarios']}
+    assert rows['cand_uniform_10']['n_points'] == 10 * 3
+
+
 def check_optimization():
     folder = Path(tempfile.mkdtemp(prefix='sbonest-design-opt-'))
     config_path = write_synthetic(folder / 'base', {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
@@ -205,5 +245,7 @@ if __name__ == '__main__':
     check_expected_errors_and_inputs()
     check_truth_result_and_cli()
     check_per_field_design()
+    check_multi_field_inheritance()
     check_optimization()
+    check_uniform_budget()
     print('PASS: design validation, expected errors, synthetic inputs, CLI and optimization')
