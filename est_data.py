@@ -7,7 +7,7 @@ import re
 import numpy as np
 
 
-_NUMBER = r"([+-]?\d+\.?\d*(?:[eE][+-]?\d+)?)"
+_NUMBER = r"([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)"
 _SCALAR_RE = re.compile(rf"^\s*{_NUMBER}\s*(?:#.*)?$")
 _RF_RE = re.compile(rf"^\s*{_NUMBER}\s+{_NUMBER}\s*(?:#.*)?$")
 _DATA_RE = re.compile(rf"^\s*{_NUMBER}\s+{_NUMBER}\s+{_NUMBER}\s*(?:#.*)?$")
