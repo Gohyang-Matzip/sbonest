@@ -123,6 +123,8 @@ def read_offsets(path, *, unit, carrier_ppm=None, field_mhz=None):
     if not values:
         raise ValueError("Offset list is empty")
     offsets = np.asarray(values, dtype=float)
+    if not np.isfinite(offsets).all():
+        raise ValueError("Offset list contains a non-finite value")
     unit = file_unit or unit
     if unit == "ppm":
         return offsets
@@ -258,12 +260,13 @@ def convert(pdata, offsets_path, out, *, peaks, half_width, reference_row, noise
     out = Path(out)
     if out.exists() or out.is_symlink():
         raise FileExistsError(f"Output already exists: {out}")
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    summary["output"] = str(out.resolve())
     if qa_path is not None:
         qa_path = Path(qa_path)
         if qa_path.exists() or qa_path.is_symlink():
             raise FileExistsError(f"QA output already exists: {qa_path}")
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    summary["output"] = str(out.resolve())
+    if qa_path is not None:
         qa_pdf(qa_path, data, axis, peaks, half_width, reference_row, noise_region, offsets, keep, heights, sigma)
         summary["qa_pdf"] = str(qa_path.resolve())
     return summary
@@ -313,6 +316,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.peak:
         peaks = {label: position for label, position, _ in args.peak}
+        if len(peaks) != len(args.peak):
+            parser.error("--peak labels must be unique")
         dw = {label: value for label, _, value in args.peak}
     elif args.peaks_from_reference:
         try:

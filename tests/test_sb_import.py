@@ -136,6 +136,11 @@ def check_cli():
                           '--noise-region', '2', '4', '--saturation-s', '0.4', '--v1-hz', '25'],
                          capture_output=True, text=True, env=env, cwd=ROOT)
     assert bad.returncode == 2 and 'residue number' in bad.stderr
+    twice = subprocess.run([sys.executable, str(ROOT / 'sb_import.py'), str(pdata), str(pdata / 'offsets.txt'),
+                            '--out', str(folder / 'cli3.txt'), '--peak', 'A1=8.3', '--peak', 'A1=7.6', '--reference-row', '0',
+                            '--noise-region', '2', '4', '--saturation-s', '0.4', '--v1-hz', '25'],
+                           capture_output=True, text=True, env=env, cwd=ROOT)
+    assert twice.returncode == 2 and 'unique' in twice.stderr and not (folder / 'cli3.txt').exists()
 
 
 def check_fqlist_peaks_and_qa():
@@ -175,6 +180,14 @@ def check_fqlist_peaks_and_qa():
         pass
     else:
         raise AssertionError('QA PDF was overwritten')
+    assert not (folder / 'again.txt').exists(), 'dataset written although the QA output was refused'
+    (folder / 'nan.txt').write_text('1.0\nnan\n')
+    try:
+        read_offsets(folder / 'nan.txt', unit='ppm')
+    except ValueError as exc:
+        assert 'non-finite' in str(exc)
+    else:
+        raise AssertionError('Non-finite offset accepted')
     env = dict(os.environ, PYTHONPATH=str(ROOT))
     run = subprocess.run([sys.executable, str(ROOT / 'sb_import.py'), str(pdata), str(fq), '--out', str(folder / 'auto.txt'),
                           '--peaks-from-reference', '--reference-row', '0', '--noise-region', '2', '4',

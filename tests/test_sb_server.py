@@ -202,6 +202,8 @@ def check_upload_validation():
         ('sideband.datasets not a list',
          {**config, 'sideband': {**config.get('sideband', {}), 'datasets': 'oops'}}, datasets, None),
         ('reserved data name', {**config, 'datasets': ['fit_result.json']}, ['fit_result.json'], None),
+        ('data named like a fit output', {**config, 'datasets': ['fit_predictions.csv']}, ['fit_predictions.csv'], None),
+        ('data named like the checkpoint', {**config, 'datasets': ['fit_checkpoint']}, ['fit_checkpoint'], None),
         ('reserved waveform name', config, datasets, 'check.log'),
         ('waveform equals data name', config, datasets, datasets[0]),
     ]

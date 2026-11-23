@@ -6,7 +6,9 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 - Web runner uploads: a non-list `sideband.datasets`, data or waveform files named
   like runner files (`config.json`, `job.json`, `check.json`, `check.log`,
-  `fit.log`, `fit_result.json`), a waveform named like a data file and
+  `fit.log`, `fit_result.json`) or like the job's fit outputs
+  (`fit_result.txt`, `fit_predictions.csv`, `fit.pdf`, `fit_data.pdf`,
+  `fit_checkpoint`, `preview.png`), a waveform named like a data file and
   non-finite `profile_kex` values are rejected with HTTP 400 before a job folder
   exists (previously a 500 or a silent overwrite); preflight and report timeouts
   return HTTP 504 with the job marked invalid instead of a 500.
@@ -16,6 +18,10 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 - `sb_import.py --mode sum`: each peak's error uses the point count of its own
   window (previously the first peak's); `noise_sigma_raw` is the unscaled noise
   and each peak records its `noise_sigma`.
+- `sb_import.py`: an existing `--qa-pdf` target is refused before the dataset
+  is written (previously the dataset was left behind and blocked the rerun),
+  repeated `--peak` labels are an error instead of silently keeping the last,
+  and non-finite offsets (`nan`, `inf`) in the list are rejected.
 - Configuration errors name a missing `sideband.decoupling`, `h_larmor_mhz`,
   `h_carrier_ppm` or `p90_s` instead of a bare `KeyError`, and a non-object
   `init.kex`/`init.pB` is reported as such.

@@ -32,7 +32,10 @@ BASE_DIR = Path(__file__).resolve().parent
 JOBS_DIR = Path(os.environ.get("SBONEST_JOBS_DIR", BASE_DIR / "SB_JOBS"))
 ARCHIVE_NAME = "archive"
 MAX_WORKERS = max(1, os.cpu_count() or 1)
-RESERVED_NAMES = {"config.json", "job.json", "check.json", "check.log", "fit.log", "fit_result.json"}
+# Runner files and the outputs of a fit with the fixed prefix "fit".
+RESERVED_NAMES = {"config.json", "job.json", "check.json", "check.log", "fit.log", "fit_result.json",
+                  "fit_result.txt", "fit_predictions.csv", "fit.pdf", "fit_data.pdf", "fit_checkpoint",
+                  "preview.png"}
 ANALYSIS_FIELDS = ("multistart_random", "multistart_seed", "profile_kex", "profile_interval",
                    "bootstrap_replicates", "bootstrap_seed")
 
