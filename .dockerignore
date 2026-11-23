@@ -1,0 +1,13 @@
+.git
+.venv
+.archive
+.github
+.ruff_cache
+__pycache__
+*.egg-info
+session_artifacts
+SB_JOBS
+results
+manuscript
+docs
+tests

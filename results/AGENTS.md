@@ -10,6 +10,7 @@ file: distinct domain with hash and archiving rules.
 |-----------|----------|----------|
 | `auto_H_refit/` | Automatic proton-rate refit; `auto_H_refit/fits/two_RF_result.json` is the canonical golden | `tests/test_sb_golden.py`, two-state bit-identity checks |
 | `field_comparison_600_800_20261003_02/` | 600/800 MHz separate-field study with `inputs/` | `scripts/compare_field_models.py --source` |
+| `field_seeds_20261123/` | The same comparison over 100 noise draws per field (bias, SE calibration) | `scripts/compare_field_seeds.py` |
 | `field_comparison_joint_20261004/` | Joint-field study (no checkpoints, no input copies) | `scripts/compare_joint_fields.py` |
 | `two_RF_check/`, `random_H_rates/`, `peakwise_H_fit/`, `proton_relaxation_fit/` | Outputs of the matching `scripts/check_*.py` | docs/reports |
 

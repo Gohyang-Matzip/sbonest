@@ -1,0 +1,199 @@
+{
+  "scope": "Noise-free 30 ppm profiles of the archived benchmark plus Gaussian noise, sigma 0.001; draw k of a field uses SeedSequence([20261123, field_MHz, k]).",
+  "uncertainty": "Bias SE is the empirical SD over seeds divided by sqrt(seeds). Local SE is the absolute-sigma covariance error of each fit; for a calibrated error about 68% of fits lie within 1 SE of the truth and 95% within 2. Fixed R1H=2, R2H=25 s^-1 as in the archived study. ONEST_Matrix is the RF-matched forward model with its zero clamp.",
+  "truth": {
+    "kex": 300.0,
+    "pB": 0.05,
+    "v1n_scale": 1.08
+  },
+  "seeds": 100,
+  "sigma": 0.001,
+  "fields": {
+    "600": {
+      "SBONEST": {
+        "mean_reduced_chi2": 0.995153420109005,
+        "starts_agree": 99,
+        "kex": {
+          "mean": 299.93106120091363,
+          "bias": -0.06893879908636791,
+          "bias_se": 0.16663777974708913,
+          "bias_z": -0.413704498409654,
+          "empirical_sd": 1.6663777974708913,
+          "mean_local_se": 1.6398060128770284,
+          "coverage_1se": 0.69,
+          "coverage_2se": 0.93
+        },
+        "pB": {
+          "mean": 0.05003125353563145,
+          "bias": 3.1253535631443896e-05,
+          "bias_se": 2.9014232686484786e-05,
+          "bias_z": 1.0771794646150408,
+          "empirical_sd": 0.00029014232686484787,
+          "mean_local_se": 0.0003055018343782626,
+          "coverage_1se": 0.74,
+          "coverage_2se": 0.97
+        },
+        "v1n_scale": {
+          "mean": 1.0799895531930817,
+          "bias": -1.0446806918418261e-05,
+          "bias_se": 0.0003287370557442745,
+          "bias_z": -0.031778610703823006,
+          "empirical_sd": 0.0032873705574427447,
+          "mean_local_se": 0.003553030966301867,
+          "coverage_1se": 0.75,
+          "coverage_2se": 0.98
+        }
+      },
+      "ONEST_Matrix": {
+        "mean_reduced_chi2": 1.0086517054087378,
+        "starts_agree": 77,
+        "kex": {
+          "mean": 299.933694862649,
+          "bias": -0.0663051373509802,
+          "bias_se": 0.16524058362854538,
+          "bias_z": -0.4012642408721556,
+          "empirical_sd": 1.652405836285454,
+          "mean_local_se": 1.6463882435393173,
+          "coverage_1se": 0.68,
+          "coverage_2se": 0.93
+        },
+        "pB": {
+          "mean": 0.05000676185657417,
+          "bias": 6.761856574166725e-06,
+          "bias_se": 3.0724270240685216e-05,
+          "bias_z": 0.22008192615141903,
+          "empirical_sd": 0.00030724270240685213,
+          "mean_local_se": 0.0003468054826892339,
+          "coverage_1se": 0.77,
+          "coverage_2se": 0.97
+        },
+        "v1n_scale": {
+          "mean": 1.0801001354936965,
+          "bias": 0.00010013549369647379,
+          "bias_se": 0.000358108220742926,
+          "bias_z": 0.2796235548257847,
+          "empirical_sd": 0.00358108220742926,
+          "mean_local_se": 0.004234966180102721,
+          "coverage_1se": 0.75,
+          "coverage_2se": 0.98
+        }
+      },
+      "paired_ONEST_minus_SBONEST": {
+        "kex": {
+          "mean": 0.0026336617353479143,
+          "se": 0.013503772225189354
+        },
+        "pB": {
+          "mean": -2.4491679057263226e-05,
+          "se": 1.5114254387912012e-05
+        },
+        "v1n_scale": {
+          "mean": 0.0001105823006148432,
+          "se": 0.00021255526323326533
+        }
+      }
+    },
+    "800": {
+      "SBONEST": {
+        "mean_reduced_chi2": 0.9936377562620012,
+        "starts_agree": 100,
+        "kex": {
+          "mean": 299.8996929450048,
+          "bias": -0.10030705499519854,
+          "bias_se": 0.10452950219345658,
+          "bias_z": -0.9596052108767973,
+          "empirical_sd": 1.0452950219345658,
+          "mean_local_se": 1.2328804996030456,
+          "coverage_1se": 0.78,
+          "coverage_2se": 0.97
+        },
+        "pB": {
+          "mean": 0.05010188234243787,
+          "bias": 0.00010188234243786731,
+          "bias_se": 3.3797382781277725e-05,
+          "bias_z": 3.014503906921032,
+          "empirical_sd": 0.00033797382781277724,
+          "mean_local_se": 0.0003175130342810077,
+          "coverage_1se": 0.7,
+          "coverage_2se": 0.94
+        },
+        "v1n_scale": {
+          "mean": 1.0786481958897383,
+          "bias": -0.0013518041102618117,
+          "bias_se": 0.00043589263749390717,
+          "bias_z": -3.1012318033949517,
+          "empirical_sd": 0.004358926374939072,
+          "mean_local_se": 0.0039481998601058775,
+          "coverage_1se": 0.67,
+          "coverage_2se": 0.93
+        }
+      },
+      "ONEST_Matrix": {
+        "mean_reduced_chi2": 1.0123347855553122,
+        "starts_agree": 82,
+        "kex": {
+          "mean": 301.438903099965,
+          "bias": 1.438903099964989,
+          "bias_se": 0.1044938390097268,
+          "bias_z": 13.770219503860403,
+          "empirical_sd": 1.044938390097268,
+          "mean_local_se": 1.2346298010217192,
+          "coverage_1se": 0.43,
+          "coverage_2se": 0.82
+        },
+        "pB": {
+          "mean": 0.0499010600339346,
+          "bias": -9.893996606540056e-05,
+          "bias_se": 3.316389562968079e-05,
+          "bias_z": -2.983363811362739,
+          "empirical_sd": 0.00033163895629680795,
+          "mean_local_se": 0.0003279635684441242,
+          "coverage_1se": 0.61,
+          "coverage_2se": 0.95
+        },
+        "v1n_scale": {
+          "mean": 1.081480085845302,
+          "bias": 0.001480085845301904,
+          "bias_se": 0.0004384951476880607,
+          "bias_z": 3.375375652628239,
+          "empirical_sd": 0.004384951476880607,
+          "mean_local_se": 0.0041325706236062035,
+          "coverage_1se": 0.6,
+          "coverage_2se": 0.94
+        }
+      },
+      "paired_ONEST_minus_SBONEST": {
+        "kex": {
+          "mean": 1.5392101549602273,
+          "se": 0.0027211851900040217
+        },
+        "pB": {
+          "mean": -0.00020082230850326197,
+          "se": 1.4094978713332025e-05
+        },
+        "v1n_scale": {
+          "mean": 0.0028318899555634758,
+          "se": 0.0001899082839605898
+        }
+      }
+    }
+  },
+  "source_sha256": {
+    "scripts/compare_field_seeds.py": "70c03fcfbb22188fd52ce3bf3f74b26eb1e9a7013a9e22ff90cb9fa95f6596ef",
+    "scripts/compare_field_models.py": "4b7e486b188286bb98c946278688d94a1b3603668646d072abdc68de4a0fc114",
+    "manuscript/sideband_30ppm/compare_conventional.py": "5bce7701222c95e1639d9796a00dabf4ed5b2f5251e1beb8e16a83ef7a928b52",
+    "sbfit.py": "d54041da6f7023f3b0ef8874563cc6c311f98ea347ac0aae5527a1b0616f26a9",
+    "sideband.py": "33fa943beea7cd5c2ae675fa4062431b45851d8d06f5c9bd47c9ddb45aa9996c",
+    "estmodel.py": "16dc43b1f7cfe165ab5b11583aabda52a7763bea75685fef9964d328f348ad8b",
+    "est_data.py": "f36c695ad6aa2667d07f37b4b67db30fb0adeaff180f6771c6254329bca8d997",
+    "fit.py": "eabf35f2acd4d21792facac9d47f02928675dba5e46c37c0f59ed837cd91bddc",
+    "results/field_comparison_600_800_20261003_02/inputs/600/full.json": "0d530cc97caa412c53ca81e978de7cb0647f201431ac73881475da1372fe9901",
+    "results/field_comparison_600_800_20261003_02/inputs/600/exact_25.txt": "455823eb530566fcb9cbf80e671105d8e645b749191597f236024871068305eb",
+    "results/field_comparison_600_800_20261003_02/inputs/600/exact_50.txt": "ebd3eebd04eefd88608eea67d54ebc233ba00ab6225e5ecb237a95de3c18ad44",
+    "results/field_comparison_600_800_20261003_02/inputs/600/exact_100.txt": "9c2ec96e4934a240306d4af212613fa6479acf4549ce2c5f8b23b1e096ac1a6a",
+    "results/field_comparison_600_800_20261003_02/inputs/800/full.json": "e67bc3cf2f474e1b20b180f5863e4cb2ed401d232c01735f8d1c839d03be0283",
+    "results/field_comparison_600_800_20261003_02/inputs/800/exact_25.txt": "cce3fe36e5c35b48e6c9ede2b1c9b641c0f2cfa3459588fc3234bb0b94d971f0",
+    "results/field_comparison_600_800_20261003_02/inputs/800/exact_50.txt": "014def51f871d1cd6613afc5c7459f576084c70284b4fb8996a8efcfe109014a",
+    "results/field_comparison_600_800_20261003_02/inputs/800/exact_100.txt": "8e8f7c531e4002b1a21efbf750451507ddbc134e59cf5375135b9041384ddd64"
+  }
+}
