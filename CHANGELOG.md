@@ -4,6 +4,10 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- Release automation: pushing a tag `vX.Y.Z` that matches `pyproject.toml` and
+  `CITATION.cff` builds the wheel and sdist, checks them with twine and publishes
+  a GitHub release with that version's changelog section; the test suite now
+  checks that the three version records agree.
 - New `sb_workflow.py simulate CONFIG --out NEW_DIR --seed N [--truth JSON]`
   (`sbonest simulate`): seeded synthetic datasets at the offsets, sigmas and
   conditions of an existing Sideband configuration, with a ready-to-fit

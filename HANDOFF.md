@@ -30,6 +30,15 @@ pieces of work, all recorded under "Unreleased" in `CHANGELOG.md`:
    Documented in manual 8.2 and 13 (both languages), README, `AGENTS.md`;
    checked by `tests/test_sb_workflow.py::check_simulate` (no fitting).
 
+4. Round 3 proposal 7, release automation (2026-11-23, without Docker):
+   `.github/workflows/release.yml` runs on a `v*` tag, refuses a tag that
+   disagrees with `pyproject.toml`/`CITATION.cff` or has no changelog section,
+   builds, runs `twine check --strict` and creates the GitHub release with the
+   distributions and that section as notes. Its version step was run locally
+   for a matching and a mismatching tag; the workflow itself has never run on
+   GitHub. `tests/test_sb_cli.py::check_packaging_metadata` checks that the
+   three version records agree.
+
 ## Blocked
 
 Pushing and merging need write access to `Gohyang-Matzip/sbonest`. The `gh`
@@ -53,8 +62,12 @@ branch head.
 ## Remaining round 3 proposals (not started)
 
 2 multi-seed field benchmark, 4 global optimizer for three-state fits, 5 MCMC
-option, 6 Bruker fixture from real data, 7 release automation and Docker, 8 type
-hints and further Ruff rules, 9 documentation site. PR #16
+option, 6 Bruker fixture from real data, 7 Docker image (release automation is
+done), 9 documentation site. Proposal 8 (further Ruff rules) was surveyed and
+dropped: the bug-prone families (B, ARG, RET, BLE, PLE, PLW) report 37 findings
+in the root modules, none a defect (loop closures called inside their iteration,
+deliberate broad excepts around worker and optimizer failures), and enforcing
+them would churn hashed sources. PR #16
 (`execute/sbonest-user-trust-c`, another agent's branch) still needs a rebase.
 The original proposal text was in a handoff of the earlier checkout and is not in
 this one.

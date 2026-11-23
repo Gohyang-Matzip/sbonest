@@ -81,7 +81,10 @@ tools) on Python 3.12, 3.13 and 3.14 and the full workflow on 3.12; add a new
 `sb_diagnostics.py` computes residual/sigma diagnostics from prediction rows;
 its warnings are indicators and `stderr_rescaled` is an explicitly labelled
 alternative, never the default error. Keep `CHANGELOG.md`, `CITATION.cff` and
-`pyproject.toml` versions in step.
+`pyproject.toml` versions in step (`tests/test_sb_cli.py` checks it). Release by
+moving "Unreleased" under a `## X.Y.Z — DATE` heading, bumping both versions and,
+after the merge, pushing tag `vX.Y.Z`: `.github/workflows/release.yml` refuses a
+tag that disagrees and publishes the wheel, sdist and that changelog section.
 `scripts/compare_joint_fields.py` is a longer study like `scripts/compare_field_models.py` (not in
 CI); its archived run lives in `results/field_comparison_joint_*/` without
 checkpoints or input copies. `sb_compare.compare_models`/`three_state_config`
