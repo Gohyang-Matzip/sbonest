@@ -119,6 +119,17 @@ def bootstrap_task(payload):
                                payload['index'], observed)
 
 
+def mcmc_task(payload):
+    """Run one MCMC chain in a worker from the base fit's bounds and free indices."""
+    from sb_mcmc import mcmc_chain
+
+    model = _model()
+    p = np.asarray(payload['p'], dtype=float)
+    model.prepare_fit(p0=p, fitting_config=payload['cfg'])
+    model._fit_data = model._prepare_data()
+    return mcmc_chain(model, p, np.asarray(payload['covariance'], dtype=float), payload['settings'], payload['index'])
+
+
 def study_task(payload):
     """One coverage-study replicate (draws, refit, optional intervals and inner bootstrap)."""
     from validate_uncertainty import study_replicate

@@ -19,7 +19,7 @@ for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"
     os.environ.setdefault(name, "1")
 os.environ.setdefault("MPLBACKEND", "Agg")
 
-MODULES = ("sideband", "sbfit", "sb_run", "sb_analysis", "sb_bootstrap", "sb_checkpoint", "sb_diagnostics",
+MODULES = ("sideband", "sbfit", "sb_run", "sb_analysis", "sb_bootstrap", "sb_mcmc", "sb_checkpoint", "sb_diagnostics",
            "sb_parallel", "sb_report", "sb_design", "sb_compare", "sb_workflow", "sb_import", "sb_server",
            "sb_cli", "validate_uncertainty")
 OUTPUT = ROOT / "docs" / "API_REFERENCE.md"

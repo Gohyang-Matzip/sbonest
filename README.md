@@ -264,6 +264,7 @@ After setting the thread variables above:
 .venv/bin/python tests/test_sb_workflow.py
 .venv/bin/python tests/test_profile_jacobian.py
 .venv/bin/python tests/test_sb_bootstrap.py
+.venv/bin/python tests/test_sb_mcmc.py
 .venv/bin/python tests/test_sb_parallel.py
 .venv/bin/python tests/test_profile_interval.py
 .venv/bin/python tests/test_sb_design.py

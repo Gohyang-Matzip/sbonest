@@ -49,7 +49,7 @@ def _validate_fit_config(model, cfg):
     """Validate settings before the initial grid or an optimizer can run."""
     cfg = model.normalize_init(cfg)
     _known(cfg, ("Method", "kex", "pB", "initial", "bounds", "vary", "max_nfev",
-                 "multistart", "profile", "bootstrap", "profile_interval"), "init")
+                 "multistart", "profile", "bootstrap", "profile_interval", "mcmc"), "init")
     model.selMethod(cfg)
     for name in ("kex", "pB"):
         if name not in cfg:
@@ -101,6 +101,10 @@ def _validate_fit_config(model, cfg):
         from sb_bootstrap import validate_bootstrap
 
         validate_bootstrap(cfg["bootstrap"])
+    if "mcmc" in cfg:
+        from sb_mcmc import validate_mcmc
+
+        validate_mcmc(cfg["mcmc"])
 
 
 class SidebandModel(est_model):

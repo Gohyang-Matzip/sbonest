@@ -21,7 +21,7 @@ from unittest.mock import patch
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from sb_analysis import identifiability, local_jacobian
+from sb_analysis import global_start, identifiability, local_jacobian
 from sb_parallel import Progress, WorkerPool, validate_workers
 from sbfit import SidebandModel, run_config
 from test_sb_output import small_config
@@ -71,8 +71,11 @@ def check_jacobian_and_identifiability_parity():
     model._fit_data = model._prepare_data()
     serial = local_jacobian(model, p0)
     report = identifiability(model, p0)
+    search = {'generations': 2, 'population': 6}
+    start = global_start(model, p0, search, 3)
     with WorkerPool(2, cfg) as pool:
         parallel = local_jacobian(model, p0, pool=pool)
+        assert_array_equal(global_start(model, p0, search, 3, pool=pool), start)
         pooled = identifiability(model, p0, pool=pool)
         try:
             pool.evaluate_many([np.full(len(p0), np.nan)])

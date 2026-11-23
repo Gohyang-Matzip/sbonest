@@ -575,7 +575,16 @@ population은 %, SE는 percentage point로 보고한다. 이전 보존 결과에
 seed가 필요하다. 자유 파라미터만 바꿀 수 있으며 고정 파라미터는 유지한다.
 유한한 양쪽 bounds 안에서는 균등분포를, 한쪽/무한 bounds에서는
 `sb_analysis.py`에 명시된 국소 섭동을 사용한다. 초기값 민감도를 살피는
-절차이며 전역 최적해를 입증하지 않는다. 모든 시도의 전체 초기값·결과 벡터,
+절차이며 전역 최적해를 입증하지 않는다.
+`"global": {"generations": 20, "population": 120}`(둘 다 선택, seed 필요)를 주면
+시도가 하나 더 추가된다. 자유 파라미터에 대해 seed가 고정된 differential
+evolution 탐색을 하는데, 각 파라미터의 bounds(한쪽이라도 없으면 시작값 ± 국소 섭동
+폭의 4배)에 퍼뜨린 population을 지정한 세대만큼 진화시키고, 가장 좋은 점을 보통의
+국소 fitting으로 다듬는다. 비용은 모델 계산 `population × (generations + 1)`회이며
+(기본 population은 자유 파라미터당 5) `--workers`를 사용한다. 넓게 탐색할 속도
+파라미터에는 유한한 `init.bounds`를 준다. 3상태 fitting(12절)이 대표적인 경우다.
+탐색 범위를 넓힐 뿐 전역 최적해를 입증하지는 않는다.
+모든 시도의 전체 초기값·결과 벡터,
 상태·메시지·χ²를 `multistart`에 기록하고, 수렴한 시도 중 최저 χ²를
 `selected=true`로 표시한다. 위 예제는 기본 1회, 명시적 초기값 1회, 난수
 초기값 2회로 총 4회 시도한다. 수렴 상태가 서로 다를 수 있어 각 기록을 확인한다.
@@ -911,6 +920,33 @@ CSV에서 다시 계산한다) 그 경고는 결과 경고에 합쳐진다. 이 
 뿐이다. 1에서 먼 reduced chi-square는 sigma와 모델 중 무엇이 틀렸는지 말해 주지
 않으며, runs test는 짧은 블록에서 검정력이 떨어진다.
 
+## 8.9. MCMC posterior 샘플링
+
+```json
+"mcmc": {"steps": 20000, "seed": 4321, "chains": 4, "burn_in": 5000, "confidence": 0.95}
+```
+
+`init.mcmc`는 fitting 뒤에 fit bounds 안의 flat prior로 exp(-chi2/2)를 샘플링한다.
+따라서 그 구간은 다른 모든 불확실성과 같은 가정, 즉 선택한 모델·제공된 절대
+sigma·고정 입력 아래의 posterior 구간이다. `steps`와 `seed`는 필수이고
+`chains`(기본 4, 최소 2), `burn_in`(기본 steps의 1/4), `confidence`는 선택이다. 각
+chain은 fit에서 국소 공분산 한 번만큼 떨어진 점에서 시작하는 Metropolis random
+walk다. proposal은 자유 파라미터의 국소 공분산이며, burn-in 동안 acceptance 23%를
+향해 크기를 조정한 뒤 고정한다. 한 step은 모델 계산 한 번이고, chain은
+`--workers`로 병렬 실행되며, 직렬·병렬·재개 실행의 draw는 동일하다.
+
+결과 JSON의 `mcmc.parameters`에는 모든 자유 파라미터와 2상태 모델의 `kex`, `pB`에
+대해 median, 구간, 평균, 표준편차, chain 간 split R-hat, effective sample size가
+들어가고, `sb_workflow.py report`의 텍스트 결과에도 같은 내용이 출력된다. chain당
+최대 1000개의 thinning된 draw는 결과 JSON이 아니라 checkpoint 기록 `mcmc-0.json`,
+`mcmc-1.json`, ...에 남는다(각 기록의 `parameter_names` 순서의 자유 파라미터 벡터). R-hat이
+1.05를 넘거나, effective sample이 100 미만이거나, acceptance가 0.05~0.7을 벗어나면
+경고한다. 그런 구간은 인용하지 말고 step을 늘린다. 샘플러에는 유한하고 양의 정부호인
+국소 공분산이 필요하므로, 약하게 결정되거나 bound에 걸린 파라미터는 먼저 고정한다.
+bootstrap과 달리 재fitting을 하지 않아 draw당 비용이 적고, profile 구간과 달리 nuisance
+파라미터를 최대화하지 않고 적분한다. 세 방법의 일치는 모델 안에서의 일관성 확인일 뿐
+모델이 옳다는 증거가 아니다.
+
 ## 9. 실험 fitting 순서와 모델 한계
 
 1. 두 핵의 장비 주파수, carrier, pulse 위상과 길이, 보정한 ¹H amplitude,
@@ -1053,7 +1089,8 @@ null이며 `exchange.kex_AB`/`kex_BC`가 쌍별 합을 준다. 3상태에는 교
 격자 탐색이 없으므로 `init.initial`에 시작 속도를 준다. 3상태 모델에서는
 `kex`/`pB`의 profile과 profile 구간을 거부하며, 대신 bootstrap percentile을
 모든 속도에 대해 보고한다. 3상태 minor-state fitting은 2상태보다 많은 RF 세기나
-자기장을 요구하고 시작값에 민감하므로 `multistart`를 쓰고 `--check
+자기장을 요구하고 시작값에 민감하므로 `multistart`(유한한 속도 bounds와 `global`
+탐색, 8.1절)를 쓰고 `--check
 --identifiability`를 확인하며, 0에 가까운 분포는 데이터가 지지하지 않는 것으로
 본다. C 상태가 비어 있도록 `kbc`, `kcb`를 두면 2상태 결과를 재현하며,
 `tests/test_sb_models.py`가 이 사실과 합성 선형 3상태 참값의 복원을 검증한다.
@@ -1225,6 +1262,6 @@ Sideband 모듈의 모든 공개 함수·클래스를 서명과 docstring 첫 �
 구현 근거: [sbfit.py](../../sbfit.py), [sideband.py](../../sideband.py),
 [run.py](../../run.py), [est_data.py](../../est_data.py), [sb_analysis.py](../../sb_analysis.py),
 [sb_checkpoint.py](../../sb_checkpoint.py), [sb_workflow.py](../../sb_workflow.py),
-[sb_report.py](../../sb_report.py), [sb_bootstrap.py](../../sb_bootstrap.py),
+[sb_report.py](../../sb_report.py), [sb_bootstrap.py](../../sb_bootstrap.py), [sb_mcmc.py](../../sb_mcmc.py),
 [sb_design.py](../../sb_design.py), [sb_compare.py](../../sb_compare.py), [sb_import.py](../../sb_import.py),
 [sb_server.py](../../sb_server.py), [sb_cli.py](../../sb_cli.py), [validate_uncertainty.py](../../validate_uncertainty.py).

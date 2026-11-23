@@ -54,6 +54,7 @@ Optional multistart fits and constrained, nuisance-refitted likelihood profiles.
 - `base_fit_config(model)` — The configured fit settings without optional analyses.
 - `fit_attempt(model, start, source, index, cfg)` — Fit one start and return its JSON-safe attempt row; never raises for fit failure.
 - `fit_multistart(model, settings, *, completed=None, on_complete=None, pool=None)` — Fit the configured baseline plus starts; restore and return the best fit.
+- `global_start(model, base, settings, seed, *, pool=None)` — Best point of a seeded differential-evolution search over the free parameters.
 - `identifiability(model, p, *, pool=None, strong=0.95)` — Local linear identifiability diagnostics at p with the supplied absolute sigma.
 - `local_jacobian(model, p, *, pool=None)` — Grouped finite-difference Jacobian of the Sideband residual at full vector p.
 - `profile_intervals(model, p, covariance, settings, *, completed=None, on_complete=None, pool=None)` — Likelihood-ratio intervals from the exact nuisance-refit profile.
@@ -71,6 +72,14 @@ Seeded parametric bootstrap conditional on the fitted model and absolute sigma.
 - `bootstrap_replicate(model, p, cfg, index, observed, *, analyses=None)` — Fit one replicate's observations from the baseline; restore the model's data.
 - `sample_row(model, fitted, covariance, index)` — JSON-safe summary of one refit: parameters, errors, kex/pB, chi2, bounds.
 - `validate_bootstrap(settings)` — Validate init.bootstrap settings; returns normalized replicates, seed and confidence.
+
+## `sb_mcmc.py`
+
+Seeded Metropolis sampling of the fitted model under the supplied absolute sigma.
+
+- `mcmc_chain(model, p, covariance, settings, index)` — Run chain ``index`` from the fit; returns its JSON-safe row with thinned post-burn-in draws.
+- `mcmc_fit(model, p, covariance, settings, *, completed=None, on_complete=None, pool=None)` — Sample every chain (resuming an ordered prefix) and summarize the pooled draws.
+- `validate_mcmc(settings)` — Validate init.mcmc; returns normalized steps, seed, chains, burn_in and confidence.
 
 ## `sb_checkpoint.py`
 
@@ -108,6 +117,7 @@ Optional process pool for Sideband work; serial by default, numerically identica
   - `predict_blocks(self, p, sizes)` — Predictions for every data block of the worker models at full vector p.
 - `balanced_assignment(sizes, tasks)` — Assign block indices to at most ``tasks`` groups with balanced point counts.
 - `bootstrap_task(payload)` — Fit one bootstrap replicate in a worker from observations drawn in the main process.
+- `mcmc_task(payload)` — Run one MCMC chain in a worker from the base fit's bounds and free indices.
 - `multistart_task(payload)` — Fit one explicit or random restart in a worker.
 - `predict_task(payload)` — Model predictions for the data blocks assigned to this task.
 - `profile_task(payload)` — Constrained profile refit for one target in a worker.

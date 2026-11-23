@@ -40,7 +40,7 @@ def _residue_config(config, labels, keep):
                          if '.' not in name or name.rsplit('.', 1)[0] in keep}
     if 'vary' in init:
         init['vary'] = [name for name in init['vary'] if '.' not in name or name.rsplit('.', 1)[0] in keep]
-    for key in ('multistart', 'profile', 'bootstrap', 'profile_interval'):
+    for key in ('multistart', 'profile', 'bootstrap', 'profile_interval', 'mcmc'):
         init.pop(key, None)
     if 'multistart' in config['init']:
         starts = [{name: value for name, value in start.items()
@@ -307,7 +307,7 @@ def compare_models(config, config_dir, out, *, models=('Sideband', 'Sideband_3st
     for method in models:
         cfg = (copy.deepcopy(config) if method == 'Sideband'
                else three_state_config(config, method, h_ppm_c=h_ppm_c, labels=labels))
-        for key in ('profile', 'bootstrap', 'profile_interval'):
+        for key in ('profile', 'bootstrap', 'profile_interval', 'mcmc'):
             cfg['init'].pop(key, None)
         cfg['Project Name'] = str(out / method / 'fit')
         (out / method).mkdir()

@@ -219,7 +219,7 @@ def evaluate_scenario(design, scenario, folder, *, workers=1):
     config['datasets'] = datasets
     config['Project Name'] = str(folder / 'design')
     init = {key: value for key, value in config['init'].items()
-            if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval')}
+            if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval', 'mcmc')}
     config['init'] = init
     sb = config['sideband']
     sb['datasets'] = [{**_base_override(overrides, i, inherit), **ds.get('decoupling', {})}
