@@ -591,6 +591,16 @@ required for random starts. Only varying parameters may be restarted; fixed
 parameters remain fixed. Random starts sample uniformly inside two finite bounds;
 one-sided/unbounded parameters use local perturbations described in `sb_analysis.py`.
 This explores starting-point sensitivity and does not prove a global optimum.
+`"global": {"generations": 20, "population": 120}` (both optional; needs the
+seed) appends one more attempt whose start comes from a seeded
+differential-evolution search over the free parameters: a population spread
+over each parameter's bounds, or over its starting value plus or minus four
+local perturbation widths when a bound is missing, evolves for the given number
+of generations and its best member is refined by the ordinary local fit. The
+search costs `population x (generations + 1)` model evaluations (the default
+population is five per free parameter) and uses `--workers`; give finite
+`init.bounds` to rates that should be searched widely, which is the usual case
+for three-state fits (section 12). It widens the search and still proves nothing.
 Every attempt's full start, fitted vector, status, message and chi2 is retained in
 `multistart`; `selected=true` marks the lowest chi2 among converged attempts.
 The example fragment requests four attempts: one initial, one explicit and two
@@ -962,6 +972,38 @@ result warnings. The tests are indicators: a reduced chi-square far from 1 does
 not say whether sigma or the model is wrong, and the runs test loses power for
 short blocks.
 
+## 8.9. MCMC posterior sampling
+
+```json
+"mcmc": {"steps": 20000, "seed": 4321, "chains": 4, "burn_in": 5000, "confidence": 0.95}
+```
+
+`init.mcmc` samples exp(-chi2/2) with flat priors inside the fit bounds after
+the fit, so its intervals are posterior intervals under the same assumptions as
+every other uncertainty here: the selected model, the supplied absolute sigma
+and the fixed inputs. `steps` and `seed` are required; `chains` (default 4, at
+least 2), `burn_in` (default a quarter of the steps) and `confidence` are
+optional. Each chain is a Metropolis random walk started one local-covariance
+draw away from the fit. Its proposal is the local covariance of the free
+parameters, rescaled during burn-in toward a 23% acceptance rate and frozen
+afterwards. A step costs one model evaluation, chains run in parallel with
+`--workers`, and serial, parallel and resumed runs give identical draws.
+
+`mcmc.parameters` in the result JSON lists, for every free parameter and for
+`kex` and `pB` in two-state models, the median, the interval, mean, standard
+deviation, split R-hat between chains and the effective sample size; the text
+result of `sb_workflow.py report` prints the same. At most 1000 thinned draws
+per chain are kept, in the checkpoint records `mcmc-0.json`, `mcmc-1.json`, ...
+(free-parameter vectors in each record's `parameter_names` order), not in the result JSON.
+Warnings flag R-hat above 1.05, fewer than 100 effective samples and
+acceptance rates outside 0.05 to 0.7; run more steps rather than quoting such
+intervals. The sampler needs a finite positive-definite local covariance, so fix
+parameters that are weakly determined or sit at a bound first. Unlike the
+bootstrap it never refits, which makes it cheaper per draw, and unlike profile
+intervals it integrates over the nuisance parameters instead of maximizing;
+agreement of the three is a consistency check within the model, not evidence
+that the model is right.
+
 ## 9. Experimental fitting workflow and limits
 
 1. Record field frequencies, carrier, pulse phases and timing, calibrated ¹H
@@ -1110,7 +1152,8 @@ There is no exchange-rate grid search for three states: supply starting rates in
 `init.initial`. Profiles and profile intervals of `kex`/`pB` are rejected for
 three-state models; bootstrap percentiles are reported for every rate instead.
 A three-site minor-state fit needs more RF levels or fields than the two-state
-case and remains sensitive to starting values; use `multistart`, inspect
+case and remains sensitive to starting values; use `multistart` (with finite
+rate bounds and its `global` search, section 8.1), inspect
 `--check --identifiability` and treat near-zero populations as unsupported by
 the data. Setting `kbc` and `kcb` so that state C is unpopulated reproduces the
 two-state result; `tests/test_sb_models.py` verifies this and the recovery of a
@@ -1295,6 +1338,6 @@ Sideband modules with its signature and first docstring line; regenerate it with
 Implementation references: [sbfit.py](../../sbfit.py), [sideband.py](../../sideband.py),
 [run.py](../../run.py), [est_data.py](../../est_data.py), [sb_analysis.py](../../sb_analysis.py),
 [sb_checkpoint.py](../../sb_checkpoint.py), [sb_workflow.py](../../sb_workflow.py),
-[sb_report.py](../../sb_report.py), [sb_bootstrap.py](../../sb_bootstrap.py),
+[sb_report.py](../../sb_report.py), [sb_bootstrap.py](../../sb_bootstrap.py), [sb_mcmc.py](../../sb_mcmc.py),
 [sb_design.py](../../sb_design.py), [sb_compare.py](../../sb_compare.py), [sb_import.py](../../sb_import.py),
 [sb_server.py](../../sb_server.py), [sb_cli.py](../../sb_cli.py) and [validate_uncertainty.py](../../validate_uncertainty.py).

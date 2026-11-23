@@ -34,7 +34,7 @@ def derived_errors(p, covariance):
 # Executed sources recorded in every result and checkpoint identity.
 SOURCES = ('run.py', 'sbfit.py', 'sideband.py', 'fit.py', 'estmodel.py',
            'est_data.py', 'sb_report.py', 'sb_analysis.py', 'sb_workflow.py',
-           'sb_checkpoint.py', 'sb_bootstrap.py', 'sb_run.py', 'sb_diagnostics.py')
+           'sb_checkpoint.py', 'sb_bootstrap.py', 'sb_run.py', 'sb_diagnostics.py', 'sb_mcmc.py')
 
 
 def provenance(config, config_dir):
@@ -397,6 +397,17 @@ def _validate_analyses(info):
                 raise ValueError(f'Bootstrap interval {name} requires successful replicates')
 
 
+    mcmc = info.get('mcmc', {})
+    if not isinstance(mcmc, dict) or (mcmc and not isinstance(mcmc.get('parameters'), dict)):
+        raise ValueError('Invalid saved mcmc summary')
+    for name, item in mcmc.get('parameters', {}).items():
+        if not isinstance(item, dict):
+            raise ValueError(f'Invalid mcmc summary {name}')
+        bounds = [_finite(item.get(key), f'{name} mcmc {key}') for key in ('lower', 'median', 'upper')]
+        if bounds != sorted(bounds):
+            raise ValueError(f'MCMC interval {name} is not ordered')
+
+
 def _residual_stats(rows):
     values = np.asarray([row['residual_sigma'] for row in rows])
     return {'n_points': len(rows), 'chi2': float(values @ values),
@@ -409,7 +420,7 @@ def _report_summary(info, rows, result_path, predictions_path):
                ('method', 'chi2', 'dof', 'n_points', 'n_parameters', 'kex', 'pB',
                 'derived_se', 'parameters', 'parameter_order', 'covariance_note',
                 'jacobian_rank', 'scaled_condition', 'at_bounds', 'warnings',
-                'multistart', 'profiles', 'profile_intervals', 'bootstrap', 'provenance') if key in info}
+                'multistart', 'profiles', 'profile_intervals', 'bootstrap', 'mcmc', 'provenance') if key in info}
     from sb_diagnostics import residual_diagnostics
 
     covariance = info.get('covariance')
@@ -496,6 +507,16 @@ def _summary_lines(summary):
         lines.append('All bootstrap replicates:')
         for row in bootstrap.get('samples', []):
             lines.append(f'#{row.get("index")}: success={row["success"]}, chi2={number(row.get("chi2"))}; {row.get("message", "")}')
+    mcmc = summary.get('mcmc', {})
+    if mcmc:
+        lines.extend(['', f'MCMC: {mcmc.get("chains")} chains x {mcmc.get("steps")} steps (burn-in {mcmc.get("burn_in")}, '
+                      f'{mcmc.get("draws_per_chain")} retained draws each), seed={mcmc.get("seed")}, '
+                      f'confidence={mcmc.get("confidence")}, acceptance '
+                      + ', '.join(number(rate) for rate in mcmc.get('accept_rates', [])),
+                      mcmc.get('interpretation', 'Posterior intervals conditional on the selected model and fixed inputs.')])
+        for name, item in mcmc.get('parameters', {}).items():
+            lines.append(f'{name}: [{number(item.get("lower"))}, {number(item.get("upper"))}], '
+                         f'median={number(item.get("median"))}, R-hat={number(item.get("rhat"))}, ESS={number(item.get("ess"))}')
     diagnostics = summary.get('residual_diagnostics')
     if diagnostics:
         from sb_diagnostics import diagnostics_lines
@@ -503,6 +524,7 @@ def _summary_lines(summary):
         lines.extend(['', *diagnostics_lines(diagnostics, summary.get('parameter_order'))])
     warnings = (list(summary.get('warnings', [])) + bootstrap.get('warnings', [])
                 + summary.get('profiles', {}).get('warnings', []) + intervals.get('warnings', [])
+                + mcmc.get('warnings', [])
                 + (diagnostics or {}).get('warnings', []))
     if warnings:
         lines.extend(['', 'Warnings:', *dict.fromkeys(warnings)])

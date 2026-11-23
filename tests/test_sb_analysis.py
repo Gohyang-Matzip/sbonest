@@ -247,6 +247,42 @@ def check_random_starts_and_validation():
             raise AssertionError(f"Invalid settings accepted: {settings}")
 
 
+def check_global_start():
+    # Failure caught: a local fit trapped in the worse of two minima, an irreproducible
+    # search, or a resume that repeats the search instead of reusing the completed row.
+    def double_well(p):
+        n, b, rf, a = p
+        return [(a - 2.) * (a - 12.) / 10., .05 * (a - 12.), b - 8., n - 20., rf - 1.]
+
+    def model():
+        m = QuadraticModel(residual=double_well)
+        m.upper = np.array([np.inf, np.inf, 1.5, 20.])  # finite bounds make kab's search box [0, 20]
+        return m
+
+    settings = {"seed": 11, "global": {"generations": 30, "population": 24}}
+    first = model()
+    p, _, rows = fit_multistart(first, settings)
+    assert [row["source"] for row in rows] == ["initial", "global"]
+    assert abs(rows[0]["parameters"][3] - 2.) < .2 and rows[0]["chi2"] > .2, rows[0]
+    assert rows[1]["selected"] and rows[1]["chi2"] < 1e-12 and abs(p[3] - 12.) < 1e-5
+    assert all(first.lower[i] <= rows[1]["start"][i] <= first.upper[i] for i in range(4))
+    _, _, again = fit_multistart(model(), settings)
+    assert again[1]["start"] == rows[1]["start"]
+    _, _, other = fit_multistart(model(), {**settings, "seed": 12})
+    assert other[1]["start"] != rows[1]["start"]
+    with patch("sb_analysis.global_start", side_effect=AssertionError("search repeated")):
+        resumed_p, _, resumed = fit_multistart(model(), settings, completed=copy.deepcopy(rows))
+    assert_allclose(resumed_p, p, rtol=0, atol=0) and resumed[1]["selected"]
+    for bad in ({"global": {}}, {"seed": 1, "global": {"generations": 0}}, {"seed": 1, "global": {"population": 4}},
+                {"seed": 1, "global": {"popsize": 3}}, {"seed": 1, "global": True}):
+        try:
+            fit_multistart(model(), bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Invalid global settings accepted: {bad}")
+
+
 def check_lower_profile_and_failed_solver():
     # Failure caught: negative delta-chi2 hidden or nonconvergence called success.
     model = QuadraticModel()
@@ -499,6 +535,7 @@ if __name__ == "__main__":
     check_infeasible_small_rates()
     check_multistart_selection_and_failures()
     check_random_starts_and_validation()
+    check_global_start()
     check_lower_profile_and_failed_solver()
     check_snapshot_and_resumed_starts()
     check_resumed_profiles_and_callback_errors()

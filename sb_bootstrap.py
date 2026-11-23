@@ -136,7 +136,7 @@ def bootstrap_fit(model, p, settings, *, completed=None, on_complete=None, pool=
     varied = [name for i, name in enumerate(names) if i in free]
     init = model.init_config() if hasattr(model, 'init_config') else model.config['init']
     cfg = {key: value for key, value in init.items()
-           if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval')}
+           if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval', 'mcmc')}
     pending = list(range(len(samples), settings['replicates']))
     progress = None
     if pending:

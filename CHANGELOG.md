@@ -4,6 +4,15 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- New `init.mcmc` (`sb_mcmc.py`): seeded Metropolis chains sample exp(-chi2/2)
+  inside the fit bounds after the fit and report posterior medians, intervals,
+  split R-hat and effective sample sizes for the free parameters and for
+  `kex`/`pB`; chains resume from the checkpoint and are identical with and
+  without `--workers` (manual 8.9).
+- New `init.multistart.global`: one more attempt starts from a seeded
+  differential-evolution search over the free parameters, for fits such as
+  three-state models that are sensitive to starting values (manual 8.1).
+
 ## 1.3.0 — 2026-11-23
 
 - Release automation: pushing a tag `vX.Y.Z` that matches `pyproject.toml` and

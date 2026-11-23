@@ -162,7 +162,7 @@ def restore_fit(model, snapshot):
         # expose their current bounds directly.
         if hasattr(model, "prepare_fit"):
             cfg = {key: value for key, value in _init_config(model).items()
-                   if key not in ("initial", "multistart", "profile", "bootstrap", "profile_interval")}
+                   if key not in ("initial", "multistart", "profile", "bootstrap", "profile_interval", "mcmc")}
             model.prepare_fit(p0=p, fitting_config=cfg)
         for name in ("lower", "upper"):
             if not hasattr(model, name) or not np.array_equal(state[name], getattr(model, name)):
@@ -323,8 +323,8 @@ def _multistart_settings(model, settings):
     normalize = getattr(model, "normalize_init", None)
     if callable(normalize) and isinstance(settings, dict):
         settings = normalize({"multistart": settings})["multistart"]
-    if not isinstance(settings, dict) or set(settings) - {"starts", "seed", "random_starts"}:
-        raise ValueError("multistart allows starts, seed, and random_starts")
+    if not isinstance(settings, dict) or set(settings) - {"starts", "seed", "random_starts", "global"}:
+        raise ValueError("multistart allows starts, seed, random_starts, and global")
     count = settings.get("random_starts", 0)
     if isinstance(count, bool) or not isinstance(count, int) or count < 0:
         raise ValueError("multistart.random_starts must be a nonnegative integer")
@@ -333,6 +333,15 @@ def _multistart_settings(model, settings):
         raise ValueError("multistart.seed must be a nonnegative integer")
     if count and seed is None:
         raise ValueError("Random multistart requires an explicit seed")
+    if "global" in settings:
+        search = settings["global"]
+        if not isinstance(search, dict) or set(search) - {"generations", "population"}:
+            raise ValueError("multistart.global allows generations and population")
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < minimum
+               for value, minimum in ((search.get("generations", 20), 1), (search.get("population", 5), 5))):
+            raise ValueError("multistart.global needs generations >= 1 and population >= 5")
+        if seed is None:
+            raise ValueError("multistart.global requires an explicit seed")
     starts = settings.get("starts", [])
     if not isinstance(starts, list):
         raise ValueError("multistart.starts must be a list of parameter mappings")
@@ -345,6 +354,67 @@ def _multistart_settings(model, settings):
         if not all(_number(value) for value in entry.values()):
             raise ValueError("Multistart starting values must be finite numbers")
     return starts, count, seed
+
+
+def _local_scale(name, value):
+    """Sampling scale of a parameter without two finite bounds (see ``_random_start``)."""
+    return (0.1 if name.endswith(".peak_ppm") else
+            max(0.25*abs(value), 0.1) if name.endswith(".dw_ppm") else
+            0.25*max(abs(value), 1.0))
+
+
+def global_start(model, base, settings, seed, *, pool=None):
+    """Best point of a seeded differential-evolution search over the free parameters.
+
+    The search box of a parameter is its bounds when both are finite, otherwise
+    the starting value plus or minus four local sampling scales clipped to its
+    bound. The population (``population``, default five times the free count,
+    the starting point included) evolves for ``generations`` (default 20) with
+    deferred updating, so every generation is one batch of chi-square
+    evaluations: serial and pooled searches visit identical points. The result
+    is a starting vector for the ordinary local fit, not a fit.
+    """
+    from scipy.optimize import differential_evolution
+
+    base = np.asarray(base, dtype=float)
+    free = np.asarray(model.free, dtype=int)
+    box = []
+    for i in free:
+        lo, hi = model.lower[i], model.upper[i]
+        if not (np.isfinite(lo) and np.isfinite(hi)):
+            width = 4 * _local_scale(model.parameter_names[i], base[i])
+            lo, hi = max(lo, base[i] - width), min(hi, base[i] + width)
+        box.append((float(lo), float(hi)))
+    box = np.asarray(box)
+    members = max(5, settings.get("population", 5 * len(free)))
+    rng = np.random.default_rng(np.random.SeedSequence([seed, 0x676C6F62]))
+    population = rng.uniform(box[:, 0], box[:, 1], size=(members, len(free)))
+    population[0] = np.clip(base[free], box[:, 0], box[:, 1])
+
+    def expand(x):
+        full = base.copy()
+        full[free] = x
+        return full
+
+    def chi2(columns):
+        vectors = [expand(x) for x in np.atleast_2d(columns.T)]
+        try:
+            residuals = (pool.evaluate_many(vectors) if pool is not None
+                         else [np.asarray(model.errFunc(v), dtype=float) for v in vectors])
+        except ValueError:
+            # A pooled batch with one non-finite member is scored member by member.
+            residuals = [np.asarray(model.errFunc(v), dtype=float) for v in vectors]
+        values = np.array([float(r @ r) for r in residuals])
+        return np.where(np.isfinite(values), values, np.inf)
+
+    state = _state(model)
+    try:
+        result = differential_evolution(chi2, box, init=population, maxiter=settings.get("generations", 20),
+                                        seed=rng, tol=0., atol=0., polish=False, updating="deferred",
+                                        vectorized=True)
+    finally:
+        _restore(model, state)
+    return expand(result.x)
 
 
 def _random_start(model, base, rng):
@@ -360,10 +430,7 @@ def _random_start(model, base, rng):
         if np.isfinite(lo) and np.isfinite(hi):
             start[i] = rng.uniform(lo, hi)
             continue
-        name = model.parameter_names[i]
-        scale = (0.1 if name.endswith(".peak_ppm") else
-                 max(0.25*abs(value), 0.1) if name.endswith(".dw_ppm") else
-                 0.25*max(abs(value), 1.0))
+        scale = _local_scale(model.parameter_names[i], value)
         sample = rng.normal(value, scale)
         start[i] = (lo + abs(sample - lo) if np.isfinite(lo) else
                     hi - abs(sample - hi) if np.isfinite(hi) else sample)
@@ -373,7 +440,7 @@ def _random_start(model, base, rng):
 def base_fit_config(model):
     """The configured fit settings without optional analyses."""
     return {k: v for k, v in _init_config(model).items()
-            if k not in ("multistart", "profile", "bootstrap", "profile_interval")}
+            if k not in ("multistart", "profile", "bootstrap", "profile_interval", "mcmc")}
 
 
 def fit_attempt(model, start, source, index, cfg):
@@ -437,11 +504,13 @@ def fit_multistart(model, settings, *, completed=None, on_complete=None, pool=No
     attempt; persistence errors and interrupts propagate to the caller.
     With ``pool``, explicit and random starts are fitted in worker processes in
     index order; the configured initial fit always runs in this process.
+    ``settings["global"]`` appends one start found by ``global_start``.
     """
     starts, count, seed = _multistart_settings(model, settings)
     cfg = base_fit_config(model)
     completed = [] if completed is None else copy.deepcopy(completed)
-    sources = ["initial"] + ["explicit"] * len(starts) + ["random"] * count
+    search = settings.get("global") if isinstance(settings, dict) else None
+    sources = ["initial"] + ["explicit"] * len(starts) + ["random"] * count + ["global"] * (search is not None)
     if not isinstance(completed, list) or len(completed) > len(sources):
         raise ValueError("Completed multistart attempts must be a valid prefix")
     for index, row in enumerate(completed):
@@ -501,11 +570,16 @@ def fit_multistart(model, settings, *, completed=None, on_complete=None, pool=No
     rng = np.random.default_rng(seed)
     for _ in range(count):
         planned.append((_random_start(model, base, rng), "random"))
+    if search is not None:
+        planned.append((None, "global"))
     pending = []
     for index, (start, source) in enumerate(planned, 1):
         if index < len(completed):
+            # A completed global row keeps its recorded start; the search is not repeated.
             reuse(index, start)
         else:
+            if source == "global":
+                start = global_start(model, base, search, seed, pool=pool)
             pending.append((index, start, source))
     if pending:
         from sb_parallel import Progress

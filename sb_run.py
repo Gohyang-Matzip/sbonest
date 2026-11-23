@@ -90,7 +90,7 @@ def check_config(config, config_dir=".", *, no_pdf=False, identifiability=False,
             free_parameters=list(vary),
             fixed_parameters=[name for name in model.parameter_names if name not in vary],
             rf_mode=model.rf_mode, proton_relaxation_mode=model.proton_mode,
-            analyses=[name for name in ("multistart", "profile", "profile_interval", "bootstrap")
+            analyses=[name for name in ("multistart", "profile", "profile_interval", "bootstrap", "mcmc")
                       if name in config["init"]],
         )
         initial = model.prepare_fit()
@@ -262,6 +262,13 @@ def run_config(config, config_dir=".", no_pdf=False, *, resume=False, workers=1)
                 on_complete=lambda row: journal.save(f"bootstrap-{row['index']}", row),
                 pool=pool)
             info["warnings"].extend(info["bootstrap"]["warnings"])
+        if "mcmc" in config["init"]:
+            from sb_mcmc import mcmc_fit
+
+            info["mcmc"] = mcmc_fit(
+                model, fitted[0], fitted[1], config["init"]["mcmc"], completed=completed("mcmc"),
+                on_complete=lambda row: journal.save(f"mcmc-{row['index']}", row), pool=pool)
+            info["warnings"].extend(info["mcmc"]["warnings"])
         metadata = {**metadata, "elapsed_s": time.monotonic() - began,
                     "elapsed_note": "Seconds in the final invocation; excludes earlier interrupted invocations.",
                     "resumed": bool(resume), "workers": workers}

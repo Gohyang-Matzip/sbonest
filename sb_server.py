@@ -122,7 +122,7 @@ def _status(job_id, folder):
                                                      "kex", "pB", "derived_se", "warnings", "model", "message")}
         diagnostics = result.get("residual_diagnostics") or {}
         summary["reduced_chi2"] = diagnostics.get("reduced_chi2")
-        summary["analyses"] = [key for key in ("multistart", "profiles", "profile_intervals", "bootstrap") if key in result]
+        summary["analyses"] = [key for key in ("multistart", "profiles", "profile_intervals", "bootstrap", "mcmc") if key in result]
     meta = _read_json(folder / "job.json") or {}
     return {"job_id": job_id, "running": running, "returncode": returncode,
             "checkpoint": _checkpoint_status(folder), "result": summary, "outputs": outputs,

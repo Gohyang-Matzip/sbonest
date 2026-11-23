@@ -270,7 +270,7 @@ def run_study(config_path, truth_path, replicates, seed, out, confidence=.95, *,
     _write_json(out / 'study.json', study)
     began = time.monotonic()
     cfg = {key: value for key, value in model.init_config().items()
-           if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval')}
+           if key not in ('initial', 'multistart', 'profile', 'bootstrap', 'profile_interval', 'mcmc')}
     free = set(int(i) for i in model.free)
     varying = [model.parameter_names[i] for i in range(len(model.parameter_names)) if i in free]
     samples = []
