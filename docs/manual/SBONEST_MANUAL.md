@@ -695,6 +695,25 @@ Each replicate costs one fit plus about six refits per interval quantity plus B
 fits, so use `--workers N` (replicates run in parallel and the serial result is
 identical). Fewer than 100 replicates remain a demonstration.
 
+For a single synthetic dataset to practise on or to test a planned analysis, use
+`simulate`. It evaluates the model of an existing Sideband configuration at that
+configuration's starting point and adds seeded Gaussian noise with the template
+datasets' own sigma, at the same offsets and acquisition conditions:
+
+```bash
+python sb_workflow.py simulate CONFIG.json --out NEW_DIR --seed 7 --truth truth.json
+python run.py NEW_DIR/fit.json --no-pdf
+```
+
+`--truth` is optional: a JSON object whose entries replace starting values, by
+parameter name (ungrouped names address every field group) or as `kex` together
+with `pB` for two-state models. `NEW_DIR` must not exist; it receives
+`data/dataset_N.txt`, `fit.json` (the configuration pointed at the new data,
+with only the active residues and absolute waveform paths) and `truth.json`
+(`"synthetic": true`, the seed and every generating parameter). The data are
+synthetic and the noise is exactly the supplied sigma, so a fit to them says
+nothing about the model's adequacy for measured data.
+
 ## 8.3. Checkpoints, resume and saved-result reports
 
 A normal fit creates `PROJECT_checkpoint/` by default. It preserves an immutable
@@ -1140,6 +1159,7 @@ The console command groups every tool: `sbonest check CONFIG [--identifiability]
 `sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
 `sbonest report RESULT_JSON --out PREFIX`, `sbonest init-demo --out DIR`,
 `sbonest design DESIGN_JSON --out DIR`, `sbonest compare CONFIG --out DIR`,
+`sbonest simulate CONFIG --out DIR --seed N` (section 8.2),
 `sbonest import-bruker ...` (section 14), `sbonest serve` (section 15),
 `sbonest benchmark CONFIG [profile]` and `sbonest version`, which prints the
 package version and the executed-source hashes recorded in provenance. Every

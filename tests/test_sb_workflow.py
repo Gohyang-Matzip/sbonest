@@ -244,8 +244,52 @@ def check_report_requires_n_parameters():
     assert set(folder.iterdir()) == before, 'Rejected report created files'
 
 
+def check_simulate():
+    """Seeded synthetic data: reproducible, centred on the requested truth, loadable, never overwritten."""
+    from run import load_config
+    from sb_run import check_config
+    from sb_workflow import init_demo, simulate
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-simulate-'))
+    path = init_demo(folder / 'demo')
+    truth = folder / 'truth.json'
+    truth.write_text(json.dumps({'kex': 320., 'pB': .04, 'A1.dw_ppm': 3.2}))
+    run = cli('simulate', path, '--out', folder / 'sim', '--seed', 7, '--truth', truth)
+    assert run.returncode == 0, run.stderr
+    record = json.loads((folder / 'sim' / 'truth.json').read_text())
+    assert record['synthetic'] is True and record['seed'] == 7
+    assert_allclose([record['parameters'][k] for k in ('kab', 'kba', 'A1.dw_ppm')], [12.8, 307.2, 3.2])
+    config = load_config(path)
+    same = simulate(config, path.parent, folder / 'same', seed=7, truth=json.loads(truth.read_text()))
+    other = simulate(config, path.parent, folder / 'other', seed=8, truth=json.loads(truth.read_text()))
+    first = (folder / 'sim' / 'data' / 'dataset_0.txt').read_bytes()
+    assert Path(same['data_0']).read_bytes() == first and Path(other['data_0']).read_bytes() != first
+    # The simulated configuration passes preflight on its own data, and the noise matches the template sigma.
+    simulated = load_config(folder / 'sim' / 'fit.json')
+    summary = check_config(simulated, folder / 'sim', no_pdf=True)
+    template = check_config(config, path.parent, no_pdf=True)
+    assert summary['valid'], summary['errors']
+    assert summary['n_points'] == template['n_points'] and summary['n_residues'] == template['n_residues']
+    rows = [[float(v) for v in line.split()] for name in ('sim', 'other') for line in
+            (folder / name / 'data' / 'dataset_0.txt').read_text().splitlines()[4:] if not line.startswith('#')]
+    half = len(rows) // 2
+    scaled = [(a[1] - b[1]) / (a[2] * 2**.5) for a, b in zip(rows[:half], rows[half:])]
+    assert all(a[0] == b[0] and a[2] == b[2] for a, b in zip(rows[:half], rows[half:]))
+    assert abs(np.std(scaled) - 1) < .15 and abs(np.mean(scaled)) < .2, (np.mean(scaled), np.std(scaled))
+    saved = {p: p.read_bytes() for p in (folder / 'sim').rglob('*') if p.is_file()}
+    assert cli('simulate', path, '--out', folder / 'sim', '--seed', 7).returncode == 1
+    assert saved == {p: p.read_bytes() for p in (folder / 'sim').rglob('*') if p.is_file()}
+    for bad in ({'nope': 1.}, {'kex': 300.}, {'kab': float('nan')}, {'kex': 300., 'pB': .05, 'kab': 1.}):
+        try:
+            simulate(config, path.parent, folder / 'bad', seed=1, truth=bad)
+        except ValueError:
+            assert not (folder / 'bad').exists()
+        else:
+            raise AssertionError(f'invalid truth accepted: {bad}')
+    assert cli('simulate', path, '--out', folder / 'neg', '--seed', -1).returncode == 1 and not (folder / 'neg').exists()
+
+
 if __name__ == '__main__':
     for check in (check_demo, check_demo_resources, check_report, check_invalid_report_no_writes, check_saved_fit_report,
-                  check_report_requires_n_parameters):
+                  check_report_requires_n_parameters, check_simulate):
         check()
         print('PASS', check.__name__)

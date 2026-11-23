@@ -10,13 +10,14 @@ import hashlib
 from pathlib import Path
 import sys
 
-COMMANDS = ("check", "fit", "resume", "report", "init-demo", "design", "compare",
+COMMANDS = ("check", "fit", "resume", "report", "init-demo", "design", "compare", "simulate",
             "import-bruker", "serve", "benchmark", "version")
 # Commands whose arguments are handed to a module command line unchanged
 # (``sbonest check CONFIG`` becomes ``sb_run CONFIG --check``).
 _DELEGATED = {"check": ("sb_run", ["--check"]), "fit": ("sb_run", []), "resume": ("sb_run", ["--resume"]),
               "report": ("sb_workflow", ["report"]), "init-demo": ("sb_workflow", ["init-demo"]),
               "design": ("sb_workflow", ["design"]), "compare": ("sb_workflow", ["compare"]),
+              "simulate": ("sb_workflow", ["simulate"]),
               "import-bruker": ("sb_import", []), "benchmark": ("benchmark", [])}
 _HELP = {"check": "Validate a configuration without fitting or writing outputs (see run.py --help)",
          "fit": "Fit a Sideband configuration (see run.py --help)",
@@ -25,6 +26,7 @@ _HELP = {"check": "Validate a configuration without fitting or writing outputs (
          "init-demo": "Copy the bundled synthetic example into a new folder",
          "design": "Expected errors of planned acquisitions at a known truth (see sb_workflow.py design --help)",
          "compare": "Shared-exchange versus per-residue or two- versus three-state fits (see sb_workflow.py compare --help)",
+         "simulate": "Write seeded synthetic data shaped like a configuration (see sb_workflow.py simulate --help)",
          "import-bruker": "Convert Bruker pseudo-2D data (see sb_import.py --help)",
          "benchmark": "Time or profile one fit (see benchmark.py --help)"}
 

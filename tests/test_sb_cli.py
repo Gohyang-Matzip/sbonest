@@ -136,7 +136,7 @@ def check_commands():
     folder = Path(tempfile.mkdtemp(prefix='sbonest-cli-'))
     assert run_cli('version').stdout.startswith('sbonest')
     assert run_cli('--help').returncode == 0
-    for passthrough in (('import-bruker', '--help'), ('benchmark', '--help')):
+    for passthrough in (('import-bruker', '--help'), ('benchmark', '--help'), ('simulate', '--help')):
         run = run_cli(*passthrough)
         assert run.returncode == 0 and 'usage' in run.stdout, passthrough
     demo = run_cli('init-demo', '--out', str(folder / 'demo'))

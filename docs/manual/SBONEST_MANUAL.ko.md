@@ -672,6 +672,23 @@ coverage를 주장하지 않는다. 출력에는 `study.json`, config/truth 사�
 fitting이 들므로 `--workers N`을 쓴다(replicate를 병렬로 돌리며 직렬 결과와
 동일하다). 100회 미만은 여전히 시연이다.
 
+연습용이나 계획한 분석을 시험할 합성 dataset 하나가 필요하면 `simulate`를 쓴다.
+기존 Sideband config의 시작점에서 모델을 계산하고, template dataset과 같은 offset·측정
+조건에서 그 dataset 자신의 sigma로 seed가 고정된 Gaussian noise를 더한다:
+
+```bash
+python sb_workflow.py simulate CONFIG.json --out NEW_DIR --seed 7 --truth truth.json
+python run.py NEW_DIR/fit.json --no-pdf
+```
+
+`--truth`는 선택 사항이며, 시작값을 바꿀 항목을 담은 JSON object다. 파라미터 이름(그룹
+없는 이름은 모든 field group에 적용)이나, 2-state 모델에서는 `kex`와 `pB`를 함께 쓸 수
+있다. `NEW_DIR`는 존재하지 않아야 하며 `data/dataset_N.txt`, `fit.json`(새 데이터를
+가리키고 활성 residue만 남기며 waveform 경로를 절대 경로로 바꾼 config),
+`truth.json`(`"synthetic": true`, seed, 생성에 쓴 모든 파라미터)이 만들어진다. 이
+데이터는 합성이고 noise가 정확히 제공된 sigma이므로, 여기에 대한 fitting은 실측
+데이터에 대한 모델의 적합성을 말해 주지 않는다.
+
 ## 8.3. Checkpoint, 재개, 저장 결과 보고서
 
 일반 fitting은 기본적으로 `PROJECT_checkpoint/`를 만든다. 변경하지 않는
@@ -1083,6 +1100,7 @@ sbonest report demo/fit_result.json --out demo/report
 `sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
 `sbonest report RESULT_JSON --out PREFIX`, `sbonest init-demo --out DIR`,
 `sbonest design DESIGN_JSON --out DIR`, `sbonest compare CONFIG --out DIR`,
+`sbonest simulate CONFIG --out DIR --seed N`(8.2절),
 `sbonest import-bruker ...`(14절), `sbonest serve`(15절),
 `sbonest benchmark CONFIG [profile]`, 그리고 패키지 버전과 provenance에 기록되는
 실행 소스 해시를 출력하는 `sbonest version`이다. 모든 명령은 스크립트(`run.py`,

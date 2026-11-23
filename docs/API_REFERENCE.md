@@ -157,10 +157,11 @@ Compare a shared-exchange (global) Sideband fit with per-residue individual fits
 
 ## `sb_workflow.py`
 
-Sideband workflow helpers: demo setup, saved-result reports, design and model comparison.
+Sideband workflow helpers: demo setup, saved-result reports, design, model comparison and simulation.
 
 - `init_demo(out)` — Copy bundled synthetic two-RF inputs into a new, exclusively owned folder.
-- `main(argv=None)` — Command line: init-demo, report, design and compare; returns the exit status.
+- `main(argv=None)` — Command line: init-demo, report, design, compare and simulate; returns the exit status.
+- `simulate(config, config_dir, out, *, seed, truth=None)` — Write seeded synthetic data at the offsets, sigmas and conditions of a configuration's datasets.
 
 ## `sb_import.py`
 

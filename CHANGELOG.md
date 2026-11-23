@@ -4,6 +4,10 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- New `sb_workflow.py simulate CONFIG --out NEW_DIR --seed N [--truth JSON]`
+  (`sbonest simulate`): seeded synthetic datasets at the offsets, sigmas and
+  conditions of an existing Sideband configuration, with a ready-to-fit
+  `fit.json` and a `truth.json` recording the generating parameters (manual 8.2).
 - Web runner uploads: a non-list `sideband.datasets`, data or waveform files named
   like runner files (`config.json`, `job.json`, `check.json`, `check.log`,
   `fit.log`, `fit_result.json`) or like the job's fit outputs
