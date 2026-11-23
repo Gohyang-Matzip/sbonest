@@ -4,6 +4,8 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+## 1.3.0 — 2026-11-23
+
 - Release automation: pushing a tag `vX.Y.Z` that matches `pyproject.toml` and
   `CITATION.cff` builds the wheel and sdist, checks them with twine and publishes
   a GitHub release with that version's changelog section; the test suite now

@@ -1,13 +1,13 @@
 # HANDOFF: SBONEST deep debugging round, input-boundary fixes and `simulate`
 
 **Written:** 2026-11-23 (Asia/Seoul) · **Working dir:** `/Users/donghanlee/project/sbonest` · **Branch:** `codex/deep-round` (from `main` at `14277df`, the merge of PR #18)
-**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Last release:** v1.2.0 · **This round's PR:** not opened yet (see "Blocked")
+**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Last release:** v1.3.0 · **This round's PR:** #19 (merged)
 **Previous handoffs:** `.archive/HANDOFF.before-deep-round-20261123.md` (debug/refactor round, PR #18). `.archive/` is gitignored.
 
 ## State
 
-`codex/deep-round` is ahead of `main` and has never been pushed. It holds three
-pieces of work, all recorded under "Unreleased" in `CHANGELOG.md`:
+PR #19 (`codex/deep-round`) delivered four pieces of work, all in the 1.3.0
+section of `CHANGELOG.md`:
 
 1. The deep debugging round of 2026-10-22 (ten commits; plan, reproduction scripts
    and the prepared PR text are in `.archive/deep-round-20261022/`, `pr_body.md`).
@@ -39,17 +39,16 @@ pieces of work, all recorded under "Unreleased" in `CHANGELOG.md`:
    GitHub. `tests/test_sb_cli.py::check_packaging_metadata` checks that the
    three version records agree.
 
-## Blocked
+## Delivery
 
-Pushing and merging need write access to `Gohyang-Matzip/sbonest`. The `gh`
-accounts on this machine (`dleess`, `deepnmr`) have read access only, and the
-helper named in the previous handoff
-(`session_artifacts/improve_20261004/github.py`) does not exist in this checkout.
-Once an account with write access is logged in:
-`git push -u origin codex/deep-round`, open the PR (body: the archived
-`pr_body.md` plus items 2 and 3 above), wait for the ten CI jobs,
-`gh pr merge N --merge --match-head-commit <full sha>`, verify the merge commit's
-CI, then `git fetch && git merge --ff-only origin/main` on `main`.
+Everything above was merged as PR #19 (merge commit `f1d3dcc`, CI green on the PR
+and on `main`) and released as v1.3.0. Push rights: the `Gohyang-Matzip` `gh`
+account (`gh auth switch -u Gohyang-Matzip`; its token needs the `workflow` scope
+to push workflow files, `gh auth refresh -s workflow`). Push with
+`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push`,
+because the keychain holds another account. Merge with
+`gh pr merge N --merge --match-head-commit <full sha>` after the ten CI jobs
+pass, verify the merge commit's CI, then `git merge --ff-only origin/main`.
 
 ## Verification (local, Python 3.12, `.venv` in the repository root)
 
@@ -57,7 +56,7 @@ CI, then `git fetch && git merge --ff-only origin/main` on `main`.
 `scripts/generate_api_reference.py --check`, and the test list of
 `.github/workflows/ci.yml` (23 tests) plus `tests/test_sb_golden.py`,
 `tests/test_sb_distribution.py` and `scripts/demo_sideband.py` all pass on the
-branch head.
+branch head; CI passed on PR #19 and on its merge commit.
 
 ## Remaining round 3 proposals (not started)
 

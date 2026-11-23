@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use SBONEST, please cite it as below and acknowledge the inherited ONEST work."
 title: "SBONEST: exact NH sideband CEST fitting with checkpoints, uncertainty analysis and design tools"
 type: software
-version: 1.2.0
-date-released: 2026-10-04
+version: 1.3.0
+date-released: 2026-11-23
 license: GPL-3.0-or-later
 repository-code: "https://github.com/Gohyang-Matzip/sbonest"
 authors:
