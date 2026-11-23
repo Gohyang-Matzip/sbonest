@@ -1,0 +1,27 @@
+site_name: SBONEST
+site_description: Exact NH sideband CEST fitting with checkpoints, uncertainty analysis and design tools
+repo_url: https://github.com/Gohyang-Matzip/sbonest
+edit_uri: ""
+theme: readthedocs
+hooks:
+  - scripts/docs_hooks.py
+exclude_docs: |
+  superpowers/
+nav:
+  - Home: index.md
+  - Manual:
+      - SBONEST manual: manual/SBONEST_MANUAL.md
+      - SBONEST 매뉴얼 (한국어): manual/SBONEST_MANUAL.ko.md
+      - Inherited ONEST manual: manual/ONEST_MANUAL.md
+      - ONEST 매뉴얼 (한국어): manual/ONEST_MANUAL.ko.md
+  - Guides:
+      - First fit, step by step: guides/DUMMY_GUIDE.md
+      - 첫 fitting 따라 하기: guides/DUMMY_GUIDE.ko.md
+      - Sideband notes (한국어): guides/SIDEBAND.md
+  - Reports:
+      - Validation: reports/VALIDATION.md
+      - Two-RF fit check: reports/TWO_RF_FIT_CHECK.md
+      - Proton relaxation fit check: reports/PROTON_RELAXATION_FIT_CHECK.md
+      - Random proton relaxation check: reports/RANDOM_PROTON_RELAXATION_CHECK.md
+      - ONEST cluster result (한국어): reports/ONEST_CLUSTER_RESULT.ko.md
+  - API reference: API_REFERENCE.md

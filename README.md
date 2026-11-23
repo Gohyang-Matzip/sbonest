@@ -224,6 +224,11 @@ sbonest resume demo/fit.json --no-pdf --workers 1
 sbonest report demo/fit_result.json --out demo/report
 ```
 
+A container image with the same command is published with each release
+(`docker run --rm -v "$PWD:/work" ghcr.io/gohyang-matzip/sbonest:VERSION ...`,
+manual section 13), and the documentation is browsable at
+<https://gohyang-matzip.github.io/sbonest/>.
+
 After installation, run the commands in a writable directory outside the checkout
 with a fresh `demo` name. Wheel and source-distribution installs include the
 synthetic two-RF inputs; `init-demo` does not need an `example/` directory.

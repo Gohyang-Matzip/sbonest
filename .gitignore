@@ -9,6 +9,7 @@ session_artifacts/
 .venv/
 .ruff_cache/
 .serena/
+/site/
 # Preserve large raw experimental data outside version control.
 **/fid
 **/ser

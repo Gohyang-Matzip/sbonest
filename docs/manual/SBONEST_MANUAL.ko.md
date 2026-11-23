@@ -456,6 +456,27 @@ SBONEST는 두 자기장에서 모두 300 s⁻¹을 복원한다. 120 ppm 기준
 하나에 대한 결과다. ONEST의 국소 SE는 모델 불일치를 포함하지 않으며,
 다른 peak 위치·측정 창·pulse 조건과 실제 측정 데이터는 별도 검증이 필요하다.
 
+`scripts/compare_field_seeds.py`는 같은 무잡음 profile에 독립적인 잡음 표본을 더해
+잡음 포함 비교를 반복한다(같은 파라미터 조합·sigma·초기값 3개, `--source`는 위와 같고
+`--seeds N`, `--workers N`). 자기장별 100개 표본으로 실행한 보관 결과는
+`results/field_seeds_20261123/`(`REPORT.txt`, `summary.json`, `seeds.csv`)에 있다.
+
+| ¹H 자기장 | 모델 | kex bias ± SE (s⁻¹) | 실측 SD | 평균 국소 SE | 1 SE / 2 SE 이내 |
+|---|---|---:|---:|---:|---:|
+| 600 MHz | SBONEST | −0.07 ± 0.17 | 1.67 | 1.64 | 69% / 93% |
+| 600 MHz | ONEST Matrix | −0.07 ± 0.17 | 1.65 | 1.65 | 68% / 93% |
+| 800 MHz | SBONEST | −0.10 ± 0.10 | 1.05 | 1.23 | 78% / 97% |
+| 800 MHz | ONEST Matrix | +1.44 ± 0.10 | 1.04 | 1.23 | 43% / 82% |
+
+800 MHz에서 ONEST − SBONEST의 paired 차이는 kex +1.539 ± 0.003 s⁻¹이다. 즉
+무잡음 대조의 +0.5% 변위는 한 표본의 우연이 아니라 체계적 변위이며, ONEST 국소
+오차의 coverage를 낮춘다. 600 MHz에서는 두 모델을 구별할 수 없다. SBONEST의 kex는
+두 자기장 모두 이 연구의 분해능 안에서 bias가 없다. 다만 800 MHz에서 pB(+0.00010 ±
+0.00003, 값의 0.2%)와 RF scale(−0.0014 ± 0.0004)에 bias 표준오차의 약 3배인 작은
+bias가 보이며, 이 연구는 그 원인을 설명하지 않는다. 초기값 3개가 같은 최솟값에
+도달한 표본은 SBONEST 100개 중 99개와 100개, ONEST 100개 중 77개와 82개다. 한계는
+같다: 합성 데이터, 한 파라미터 조합, 고정 H rate.
+
 `summary.json`에는 모든 초기값·공분산·진단·소스 해시가, `parameters.csv`에는
 전체 파라미터가, `predictions_*.npz`에는 그림의 수치 데이터가 있다.
 `verification.json`은 저장 결과를 확인한 기록이다.
@@ -1114,6 +1135,23 @@ python -m pip install . -c constraints-sideband.txt
 sbonest --help
 sbonest version
 ```
+
+릴리스마다 wheel과 sdist가 GitHub release 페이지에 올라가고, entry point가
+`sbonest`인 container image도 함께 게시된다. 작업 디렉터리를 `/work`에 mount하며,
+명령의 경로는 그 디렉터리 기준이다:
+
+```bash
+docker run --rm -v "$PWD:/work" ghcr.io/gohyang-matzip/sbonest:1.3.0 init-demo --out demo
+docker run --rm -v "$PWD:/work" ghcr.io/gohyang-matzip/sbonest:1.3.0 fit demo/fit.json --no-pdf
+docker build -t sbonest .    # checkout에서 직접 image를 만들 수도 있다
+```
+
+image에는 1절의 단일 thread 수치 변수가 설정되어 있다. container 안에서 만든 demo는
+출력 접두사를 `/work/...`로 기록하므로 같은 mount를 계속 쓴다. image와 로컬 설치의
+결과는 platform·package provenance가 다르며, checkpoint는 그것을 만든 환경에서만
+재개된다(8.3절). 웹 러너는 port를 공개하고 container 밖에서 접속할 수 있는 host로
+띄운다: `docker run --rm -p 5050:5050 -v "$PWD:/work" IMAGE serve --host 0.0.0.0 --token SECRET`.
+job은 `/work/SB_JOBS`에 저장된다.
 
 Wheel과 source distribution에는 합성 two-RF 예제와 runtime 진단 모듈이
 포함된다. 설치 후에는 checkout이나 `example/` 폴더가 필요 없다. 1절의 수치

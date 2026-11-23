@@ -1,7 +1,7 @@
-# HANDOFF: SBONEST deep debugging round, input-boundary fixes and `simulate`
+# HANDOFF: SBONEST 1.3.0 and the round 3 proposals
 
-**Written:** 2026-11-23 (Asia/Seoul) · **Working dir:** `/Users/donghanlee/project/sbonest` · **Branch:** `codex/deep-round` (from `main` at `14277df`, the merge of PR #18)
-**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Last release:** v1.3.0 · **This round's PR:** #19 (merged)
+**Written:** 2026-11-23 (Asia/Seoul) · **Working dir:** `/Users/donghanlee/project/sbonest` · **Branch:** `main` after PRs #19 to #22
+**Repository:** https://github.com/Gohyang-Matzip/sbonest · **Last release:** v1.3.0 · **PRs this round:** #19, #20, #21, #22
 **Previous handoffs:** `.archive/HANDOFF.before-deep-round-20261123.md` (debug/refactor round, PR #18). `.archive/` is gitignored.
 
 ## State
@@ -58,18 +58,34 @@ pass, verify the merge commit's CI, then `git merge --ff-only origin/main`.
 `tests/test_sb_distribution.py` and `scripts/demo_sideband.py` all pass on the
 branch head; CI passed on PR #19 and on its merge commit.
 
-## Remaining round 3 proposals (not started)
+## After v1.3.0 (all under "Unreleased" in `CHANGELOG.md`)
 
-2 multi-seed field benchmark, 4 global optimizer for three-state fits, 5 MCMC
-option, 6 Bruker fixture from real data, 7 Docker image (release automation is
-done), 9 documentation site. Proposal 8 (further Ruff rules) was surveyed and
-dropped: the bug-prone families (B, ARG, RET, BLE, PLE, PLW) report 37 findings
-in the root modules, none a defect (loop closures called inside their iteration,
-deliberate broad excepts around worker and optimizer failures), and enforcing
-them would churn hashed sources. PR #16
-(`execute/sbonest-user-trust-c`, another agent's branch) still needs a rebase.
-The original proposal text was in a handoff of the earlier checkout and is not in
-this one.
+- PR #20: release 1.3.0; tag `v1.3.0` ran `.github/workflows/release.yml` for the
+  first time (wheel and sdist on the GitHub release).
+- PR #21: `init.mcmc` (`sb_mcmc.py`, manual 8.9) and `init.multistart.global`
+  (`sb_analysis.global_start`, manual 8.1). Checks: `tests/test_sb_mcmc.py`,
+  `tests/test_sb_analysis.py::check_global_start`, pooled identity in
+  `tests/test_sb_parallel.py`.
+- PR #22: `Dockerfile` with a CI `container` job and image publishing in the
+  release workflow (first publication happens with the next tag; no Docker on
+  the development machine, CI is the only test), the MkDocs site
+  (`mkdocs.yml`, `.github/workflows/docs.yml`, GitHub Pages enabled with
+  workflow builds, https://gohyang-matzip.github.io/sbonest/), and
+  `scripts/compare_field_seeds.py` with `results/field_seeds_20261123/`.
+
+## Round 3 proposals: status
+
+Done: 2 (direction labels earlier, multi-seed benchmark in PR #22), 3 simulate,
+4 global search, 5 MCMC, 7 release automation and Docker, 9 documentation site.
+Dropped: 8 further Ruff rules (the bug-prone families B, ARG, RET, BLE, PLE, PLW
+report 37 findings in the root modules, none a defect, and enforcing them would
+churn hashed sources).
+Not possible here: 6 Bruker fixture from real data. No measured Bruker dataset
+exists in this checkout or on this machine (`**/ser`, `**/pdata/` are
+gitignored); `tests/test_sb_import.py` still uses the synthetic `write_bruker`.
+It needs a small processed pseudo-2D (`pdata/1` with `procs`, `proc2s`, `2rr`)
+and its offset list from the user.
+PR #16 (`execute/sbonest-user-trust-c`, another agent's branch) still needs a rebase.
 
 ## Key files & commands
 
@@ -85,5 +101,13 @@ this one.
 - `simulate` uses the configuration's starting point as the default truth. With a
   `kex`/`pB` grid that point depends on the template data, so pass `--truth` when
   the generating values matter.
+- The 100-seed study shows small SBONEST biases at 800 MHz in pB (+0.00010 ±
+  0.00003) and RF scale (−0.0014 ± 0.0004), about three bias standard errors;
+  unexplained (nonlinear-estimator bias, the fixed H rates or chance over six
+  tested quantities are all possible). kex is unbiased there.
+- `init.mcmc` uses flat priors inside the bounds and needs a positive-definite
+  local covariance; with the default automatic H rates (weak, often at bounds)
+  users must fix those parameters first.
+- The MkDocs site is public; the next release tag publishes the first container image.
 - Bug hunting by reading has reached low yield after three rounds; the importer
   and web runner boundaries were the last places with findings.

@@ -4,6 +4,18 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- New study `scripts/compare_field_seeds.py` and its archived 100-seed run
+  `results/field_seeds_20261123/`: at 800 MHz the RF-matched ONEST Matrix model
+  is displaced by +1.44 ± 0.10 s⁻¹ in kex (paired difference to SBONEST
+  +1.539 ± 0.003), at 600 MHz the models agree (manual section 7, synthetic).
+
+- Container image: `Dockerfile` (entry point `sbonest`, working directory
+  `/work`), built and exercised in CI and published to
+  `ghcr.io/gohyang-matzip/sbonest` by the release workflow (manual 13).
+- Documentation site: `docs/` is built with MkDocs and published on GitHub
+  Pages on every push to `main`; links to sources and results resolve to the
+  repository.
+
 - New `init.mcmc` (`sb_mcmc.py`): seeded Metropolis chains sample exp(-chi2/2)
   inside the fit bounds after the fit and report posterior medians, intervals,
   split R-hat and effective sample sizes for the free parameters and for

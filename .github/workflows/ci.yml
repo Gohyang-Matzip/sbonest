@@ -114,3 +114,17 @@ jobs:
             .omo/evidence/task-8/ci_distribution/manifest.json
             .omo/evidence/task-8/ci_distribution/*.log
           if-no-files-found: warn
+
+  container:
+    name: container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t sbonest .
+      - name: Run the image on a mounted working directory
+        run: |
+          docker run --rm sbonest version
+          mkdir work && chmod 777 work
+          docker run --rm -v "$PWD/work:/work" sbonest init-demo --out demo
+          docker run --rm -v "$PWD/work:/work" sbonest check demo/fit.json --no-pdf

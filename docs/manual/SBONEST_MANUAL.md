@@ -467,6 +467,29 @@ These findings concern one parameter set and one noise realization per field.
 ONEST's local SE excludes model mismatch; different peak positions, windows,
 pulse conditions, and experimental data require their own validation.
 
+`scripts/compare_field_seeds.py` repeats the noisy comparison over independent
+noise draws of the same noise-free profiles (same parameter set, sigma and three
+starts; `--source` as above, `--seeds N`, `--workers N`). The archived run with
+100 draws per field is `results/field_seeds_20261123/` (`REPORT.txt`,
+`summary.json`, `seeds.csv`):
+
+| ¹H field | Model | kex bias ± SE (s⁻¹) | Empirical SD | Mean local SE | Within 1 SE / 2 SE |
+|---|---|---:|---:|---:|---:|
+| 600 MHz | SBONEST | −0.07 ± 0.17 | 1.67 | 1.64 | 69% / 93% |
+| 600 MHz | ONEST Matrix | −0.07 ± 0.17 | 1.65 | 1.65 | 68% / 93% |
+| 800 MHz | SBONEST | −0.10 ± 0.10 | 1.05 | 1.23 | 78% / 97% |
+| 800 MHz | ONEST Matrix | +1.44 ± 0.10 | 1.04 | 1.23 | 43% / 82% |
+
+At 800 MHz the paired difference ONEST − SBONEST is +1.539 ± 0.003 s⁻¹ in kex,
+so the +0.5% shift of the noise-free control is a systematic displacement, not
+one draw's luck, and it lowers the coverage of ONEST's local error. At 600 MHz
+the two models are indistinguishable. SBONEST's kex is unbiased within the
+study's resolution at both fields; at 800 MHz its pB (+0.00010 ± 0.00003,
+0.2% of the value) and RF scale (−0.0014 ± 0.0004) show small biases of about
+three bias standard errors that this study does not explain. The three starts
+reached the same minimum in 99 and 100 of 100 SBONEST draws and in 77 and 82 of
+100 ONEST draws. Same caveats: synthetic data, one parameter set, fixed H rates.
+
 Inspect `summary.json` for all starts, covariance matrices, diagnostics, and
 source hashes; `parameters.csv` for every fitted parameter; `predictions_*.npz`
 for plotted data; and `verification.json` for saved-result checks. The
@@ -1181,6 +1204,25 @@ sbonest version
 
 Wheel and source-distribution installs include the synthetic two-RF demo and
 runtime diagnostics. No checkout or `example/` directory is needed afterward.
+
+Each release also publishes its wheel and sdist on the GitHub release page and
+a container image whose entry point is `sbonest`. Mount the working directory
+at `/work`; paths in commands are relative to it:
+
+```bash
+docker run --rm -v "$PWD:/work" ghcr.io/gohyang-matzip/sbonest:1.3.0 init-demo --out demo
+docker run --rm -v "$PWD:/work" ghcr.io/gohyang-matzip/sbonest:1.3.0 fit demo/fit.json --no-pdf
+docker build -t sbonest .    # or build the image from a checkout
+```
+
+The image sets the single-thread numerical variables of section 1. A demo
+created inside the container records `/work/...` as its output prefix, so keep
+using the same mount. Results from the image and from a local install carry
+different platform and package provenance, and a checkpoint resumes only in the
+environment that created it (section 8.3). The web runner needs a published
+port and a host that listens outside the container:
+`docker run --rm -p 5050:5050 -v "$PWD:/work" IMAGE serve --host 0.0.0.0 --token SECRET`;
+its jobs go to `/work/SB_JOBS`.
 In a writable working directory, with the numerical thread settings from section 1
 and a new `demo` directory name, run:
 

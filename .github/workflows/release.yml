@@ -1,13 +1,15 @@
 name: Release
 
 # Pushing a tag vX.Y.Z publishes a GitHub release with the wheel, the sdist and
-# that version's CHANGELOG section. The tag must match pyproject.toml.
+# that version's CHANGELOG section, and the container image on ghcr.io. The tag
+# must match pyproject.toml.
 on:
   push:
     tags: ["v*"]
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -39,3 +41,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --title "SBONEST ${{ steps.version.outputs.version }}" --notes-file notes.md --verify-tag
+      - name: Publish the container image
+        env:
+          IMAGE: ghcr.io/gohyang-matzip/sbonest
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
+          docker run --rm "$IMAGE:$VERSION" version
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:latest"
