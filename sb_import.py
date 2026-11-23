@@ -123,6 +123,8 @@ def read_offsets(path, *, unit, carrier_ppm=None, field_mhz=None):
     if not values:
         raise ValueError("Offset list is empty")
     offsets = np.asarray(values, dtype=float)
+    if not np.isfinite(offsets).all():
+        raise ValueError("Offset list contains a non-finite value")
     unit = file_unit or unit
     if unit == "ppm":
         return offsets
@@ -179,7 +181,10 @@ def peaks_from_reference(pdata, reference_row, noise_region, *, snr=10.0, min_se
 
 
 def qa_pdf(path, data, axis, peaks, half_width, reference_row, noise_region, offsets, keep, heights, sigma):
-    """QA figure: reference row with windows and noise region, then each extracted profile."""
+    """QA figure: reference row with windows and noise region, then each extracted profile.
+
+    ``sigma`` maps each peak label to its absolute error on the intensities.
+    """
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
 
@@ -201,7 +206,7 @@ def qa_pdf(path, data, axis, peaks, half_width, reference_row, noise_region, off
         fig, axes = plt.subplots(1, len(peaks), figsize=(5 * len(peaks), 4), squeeze=False)
         for ax, (label, position) in zip(axes[0], peaks.items()):
             reference = heights[label][reference_row]
-            ax.errorbar(offsets[keep], heights[label][keep] / reference, yerr=sigma / reference, fmt="o", markersize=3)
+            ax.errorbar(offsets[keep], heights[label][keep] / reference, yerr=sigma[label] / reference, fmt="o", markersize=3)
             ax.set(xlabel="saturation offset (ppm)", ylabel="I/I0", title=f"{label} at {position:.3f} ppm")
             ax.grid(alpha=.25)
         fig.tight_layout()
@@ -227,9 +232,7 @@ def convert(pdata, offsets_path, out, *, peaks, half_width, reference_row, noise
     if saturation_s <= 0 or v1_hz <= 0 or v1err_hz < 0 or half_width <= 0:
         raise ValueError("Saturation time, RF amplitude and half width must be positive; v1err nonnegative")
     heights = peak_intensities(data, axis["ppm"], peaks, half_width, mode=mode)
-    sigma = noise_sigma(data[reference_row], axis["ppm"], noise_region)
-    if mode == "sum":
-        sigma *= np.sqrt(int(np.sum(np.abs(axis["ppm"] - next(iter(peaks.values()))) <= half_width)))
+    raw_sigma = noise_sigma(data[reference_row], axis["ppm"], noise_region)
     excluded = {reference_row, *exclude_rows}
     keep = [i for i in range(axis["rows"]) if i not in excluded]
     if not keep:
@@ -238,27 +241,32 @@ def convert(pdata, offsets_path, out, *, peaks, half_width, reference_row, noise
              "# offset(ppm) intensity error  (normalized to the reference row)"]
     summary = {"pdata": str(Path(pdata).resolve()), "rows": axis["rows"], "points": axis["points"],
                "field_mhz": field_mhz, "proton_sf_mhz": axis["sf_mhz"], "reference_row": reference_row,
-               "noise_sigma_raw": sigma, "peaks": {}, "excluded_rows": sorted(excluded)}
+               "noise_sigma_raw": raw_sigma, "peaks": {}, "excluded_rows": sorted(excluded)}
+    sigma = {}
     for label, position in peaks.items():
         reference = float(heights[label][reference_row])
         if reference <= 0:
             raise ValueError(f"Reference intensity of {label} is not positive")
+        window_points = int(np.count_nonzero(np.abs(axis["ppm"] - position) <= half_width))
+        sigma[label] = raw_sigma * np.sqrt(window_points) if mode == "sum" else raw_sigma
         normalized = heights[label][keep] / reference
-        error = sigma / reference
+        error = sigma[label] / reference
         dw = dw_ppm.get(label, 0.0) if isinstance(dw_ppm, dict) else (dw_ppm or 0.0)
         lines.append(f"# {label} R2a: {r2a:g} R2b: {r2b:g} dw: {dw:g}")
         lines.extend(f"{o:.8g} {v:.10g} {error:.6g}" for o, v in zip(offsets[keep], normalized))
         summary["peaks"][label] = {"ppm": position, "reference_intensity": reference,
-                                   "normalized_error": error, "n_points": len(keep)}
+                                   "normalized_error": error, "noise_sigma": float(sigma[label]),
+                                   "n_points": len(keep)}
     out = Path(out)
     if out.exists() or out.is_symlink():
         raise FileExistsError(f"Output already exists: {out}")
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    summary["output"] = str(out.resolve())
     if qa_path is not None:
         qa_path = Path(qa_path)
         if qa_path.exists() or qa_path.is_symlink():
             raise FileExistsError(f"QA output already exists: {qa_path}")
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    summary["output"] = str(out.resolve())
+    if qa_path is not None:
         qa_pdf(qa_path, data, axis, peaks, half_width, reference_row, noise_region, offsets, keep, heights, sigma)
         summary["qa_pdf"] = str(qa_path.resolve())
     return summary
@@ -308,6 +316,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.peak:
         peaks = {label: position for label, position, _ in args.peak}
+        if len(peaks) != len(args.peak):
+            parser.error("--peak labels must be unique")
         dw = {label: value for label, _, value in args.peak}
     elif args.peaks_from_reference:
         try:

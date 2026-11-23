@@ -23,6 +23,7 @@ session_artifacts/
 !/manuscript/sideband_30ppm/results/1200/
 # Published manuscript, its uncertainty-revision baseline, and numerical evidence.
 !/manuscript/sideband_30ppm/README.md
+!/manuscript/sideband_30ppm/AGENTS.md
 !/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_errors.docx
 !/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_errors_tracked.docx
 !/manuscript/sideband_30ppm/Sideband_CEST_1p2GHz_parameters_13C.docx

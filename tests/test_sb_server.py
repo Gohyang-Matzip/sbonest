@@ -179,6 +179,53 @@ def check_rejections():
                    for p in JOBS.iterdir())
 
 
+def check_upload_validation():
+    """Invalid uploads get HTTP 400 and no job folder; a preflight timeout gives 504 with check.json."""
+    import subprocess
+    from unittest import mock
+
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-web-validation-'))
+    path = write_synthetic(folder, {'A1': (15., 285.), 'G2': (15., 285.), 'S3': (15., 285.)})
+    config = json.loads(path.read_text())
+    datasets = config['datasets']
+    client = sb_server.app.test_client()
+
+    def send(cfg, names, waveform=None, **form):
+        data = {'config': (io.BytesIO(json.dumps(cfg).encode()), 'fit.json'),
+                'data': [(io.BytesIO(b'1\n'), name) for name in names]}
+        if waveform:
+            data['waveform'] = (io.BytesIO(b'{}'), waveform)
+        data.update(form)
+        return client.post('/jobs', data=data, content_type='multipart/form-data')
+
+    cases = [
+        ('sideband.datasets not a list',
+         {**config, 'sideband': {**config.get('sideband', {}), 'datasets': 'oops'}}, datasets, None),
+        ('reserved data name', {**config, 'datasets': ['fit_result.json']}, ['fit_result.json'], None),
+        ('data named like a fit output', {**config, 'datasets': ['fit_predictions.csv']}, ['fit_predictions.csv'], None),
+        ('data named like the checkpoint', {**config, 'datasets': ['fit_checkpoint']}, ['fit_checkpoint'], None),
+        ('reserved waveform name', config, datasets, 'check.log'),
+        ('waveform equals data name', config, datasets, datasets[0]),
+    ]
+    for label, cfg, names, waveform in cases:
+        before = set(os.listdir(JOBS))
+        response = send(cfg, names, waveform)
+        assert response.status_code == 400, (label, response.get_data(as_text=True))
+        assert response.get_json()['error'], label
+        assert set(os.listdir(JOBS)) == before, f'{label} left a job folder'
+
+    before = set(os.listdir(JOBS))
+    with mock.patch('sb_server.subprocess.run', side_effect=subprocess.TimeoutExpired('x', 600)):
+        response = send(config, datasets, workers='1')
+    assert response.status_code == 504, response.get_data(as_text=True)
+    body = response.get_json()
+    assert body['check']['valid'] is False and body['check']['errors'] == ['preflight timed out after 600 s']
+    job_dir = JOBS / body['job_id']
+    assert set(os.listdir(JOBS)) - before == {job_dir.name}
+    assert json.loads((job_dir / 'check.json').read_text())['valid'] is False
+    assert (job_dir / 'check.log').exists()
+
+
 def check_running_archive():
     """Rejected archives preserve files while a real child is awaiting input."""
     import subprocess
@@ -209,6 +256,7 @@ def check_running_archive():
 if __name__ == '__main__':
     check_running_archive()
     check_rejections()
+    check_upload_validation()
     check_workflow()
     check_analyses_token_and_expiry()
     print('PASS: web runner upload, preflight, background fit, resume, report, preview, archive, analyses, token and expiry')

@@ -11,6 +11,7 @@ import importlib
 import contextlib
 import io
 import json
+import re
 import subprocess
 import tempfile
 import tomllib
@@ -110,6 +111,10 @@ def check_compare_and_serve_contracts():
 def check_packaging_metadata():
     meta = tomllib.loads((ROOT / 'pyproject.toml').read_text())
     assert meta['project']['name'] == 'sbonest' and meta['project']['scripts'] == {'sbonest': 'sb_cli:main'}
+    # Versions stay in step: package, citation and a dated changelog section (the release workflow requires it).
+    version = meta['project']['version']
+    assert re.search(rf'^version: {re.escape(version)}$', (ROOT / 'CITATION.cff').read_text(), re.M), version
+    assert re.search(rf'^## {re.escape(version)} ', (ROOT / 'CHANGELOG.md').read_text(), re.M), version
     modules = meta['tool']['setuptools']['py-modules']
     missing = [m for m in modules if not (ROOT / f'{m}.py').exists()]
     assert not missing, missing
@@ -136,7 +141,7 @@ def check_commands():
     folder = Path(tempfile.mkdtemp(prefix='sbonest-cli-'))
     assert run_cli('version').stdout.startswith('sbonest')
     assert run_cli('--help').returncode == 0
-    for passthrough in (('import-bruker', '--help'), ('benchmark', '--help')):
+    for passthrough in (('import-bruker', '--help'), ('benchmark', '--help'), ('simulate', '--help')):
         run = run_cli(*passthrough)
         assert run.returncode == 0 and 'usage' in run.stdout, passthrough
     demo = run_cli('init-demo', '--out', str(folder / 'demo'))

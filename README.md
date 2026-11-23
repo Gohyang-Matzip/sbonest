@@ -230,7 +230,7 @@ synthetic two-RF inputs; `init-demo` does not need an `example/` directory.
 Existing demo folders and fit outputs are protected. Resume requires the same
 inputs, source/dependency identity, thread settings and PDF mode.
 
-`sbonest check|fit|resume|report|init-demo|design|compare|import-bruker|serve|benchmark|version`
+`sbonest check|fit|resume|report|init-demo|design|compare|simulate|import-bruker|serve|benchmark|version`
 call the same functions as the scripts, so outputs and provenance are identical
 (manual section 13). `check`, `fit` and `resume` accept Sideband configurations
 only; the inherited ONEST models run through `run.py`. The scripts keep working

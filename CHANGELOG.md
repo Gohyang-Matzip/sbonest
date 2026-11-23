@@ -4,6 +4,51 @@ All notable changes to SBONEST. Versions follow `pyproject.toml`; dates are Asia
 
 ## Unreleased
 
+- Release automation: pushing a tag `vX.Y.Z` that matches `pyproject.toml` and
+  `CITATION.cff` builds the wheel and sdist, checks them with twine and publishes
+  a GitHub release with that version's changelog section; the test suite now
+  checks that the three version records agree.
+- New `sb_workflow.py simulate CONFIG --out NEW_DIR --seed N [--truth JSON]`
+  (`sbonest simulate`): seeded synthetic datasets at the offsets, sigmas and
+  conditions of an existing Sideband configuration, with a ready-to-fit
+  `fit.json` and a `truth.json` recording the generating parameters (manual 8.2).
+- Web runner uploads: a non-list `sideband.datasets`, data or waveform files named
+  like runner files (`config.json`, `job.json`, `check.json`, `check.log`,
+  `fit.log`, `fit_result.json`) or like the job's fit outputs
+  (`fit_result.txt`, `fit_predictions.csv`, `fit.pdf`, `fit_data.pdf`,
+  `fit_checkpoint`, `preview.png`), a waveform named like a data file and
+  non-finite `profile_kex` values are rejected with HTTP 400 before a job folder
+  exists (previously a 500 or a silent overwrite); preflight and report timeouts
+  return HTTP 504 with the job marked invalid instead of a 500.
+- `mcrun.py` without `--seed` reseeds each Monte Carlo run from fresh entropy, so
+  forked pool workers no longer draw identical noise.
+- Data files accept numbers written with a leading decimal point (`.5`).
+- `sb_import.py --mode sum`: each peak's error uses the point count of its own
+  window (previously the first peak's); `noise_sigma_raw` is the unscaled noise
+  and each peak records its `noise_sigma`.
+- `sb_import.py`: an existing `--qa-pdf` target is refused before the dataset
+  is written (previously the dataset was left behind and blocked the rerun),
+  repeated `--peak` labels are an error instead of silently keeping the last,
+  and non-finite offsets (`nan`, `inf`) in the list are rejected.
+- Configuration errors name a missing `sideband.decoupling`, `h_larmor_mhz`,
+  `h_carrier_ppm` or `p90_s` instead of a bare `KeyError`, and a non-object
+  `init.kex`/`init.pB` is reported as such.
+- A checkpoint held by another run reports "Another run holds checkpoint ..."
+  instead of a bare `Errno 35`.
+- `sb_workflow.py design`: with as many scenario datasets as base datasets,
+  each scenario dataset inherits its own base field and decoupling (previously
+  dataset 0's); with a different count and several base field groups, every
+  scenario dataset must set `decoupling.h_larmor_mhz`. The uniform comparison
+  design now uses exactly the optimization budget.
+- `validate_uncertainty.py --workers N` parallelizes plain bootstrap studies
+  (previously serial), counts profile intervals that raised as failed rather
+  than open, and omits two-state `kex`/`pB` rows for three-state models.
+- Reports reject a saved result without a valid `n_parameters` with a clear
+  error instead of a `KeyError`.
+- Documentation: hierarchical agent guides (`tests/`, `results/`,
+  `manuscript/sideband_30ppm/`), and the manuscript reproduction commands set
+  `PYTHONPATH=tests`.
+
 - Fix `sb_workflow.py compare`: residues present in the data but absent from
   `config.residues` are active (as documented) and are now switched off in the
   per-residue fits and given state-C shifts in `--models` comparisons; previously

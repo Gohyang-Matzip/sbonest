@@ -20,8 +20,11 @@ def check_checkpoint():
             journal.save('baseline', {'chi2': 3.5, 'parameters': [1., 2.]})
             with Checkpoint(folder, identity, resume=True):
                 raise AssertionError('Concurrent resume obtained the lock')
-    except BlockingIOError:
-        pass
+    except BlockingIOError as exc:
+        assert 'Another run holds checkpoint' in str(exc)
+        assert str(folder) in str(exc)
+    else:
+        raise AssertionError('Concurrent resume did not raise BlockingIOError')
     assert json.loads((folder / 'baseline.json').read_text())['value']['chi2'] == 3.5
     with Checkpoint(folder, identity, resume=True) as journal:
         assert journal.read('baseline')['parameters'] == [1., 2.]

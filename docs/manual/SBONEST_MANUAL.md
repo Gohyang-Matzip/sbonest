@@ -695,6 +695,25 @@ Each replicate costs one fit plus about six refits per interval quantity plus B
 fits, so use `--workers N` (replicates run in parallel and the serial result is
 identical). Fewer than 100 replicates remain a demonstration.
 
+For a single synthetic dataset to practise on or to test a planned analysis, use
+`simulate`. It evaluates the model of an existing Sideband configuration at that
+configuration's starting point and adds seeded Gaussian noise with the template
+datasets' own sigma, at the same offsets and acquisition conditions:
+
+```bash
+python sb_workflow.py simulate CONFIG.json --out NEW_DIR --seed 7 --truth truth.json
+python run.py NEW_DIR/fit.json --no-pdf
+```
+
+`--truth` is optional: a JSON object whose entries replace starting values, by
+parameter name (ungrouped names address every field group) or as `kex` together
+with `pB` for two-state models. `NEW_DIR` must not exist; it receives
+`data/dataset_N.txt`, `fit.json` (the configuration pointed at the new data,
+with only the active residues and absolute waveform paths) and `truth.json`
+(`"synthetic": true`, the seed and every generating parameter). The data are
+synthetic and the noise is exactly the supplied sigma, so a fit to them says
+nothing about the model's adequacy for measured data.
+
 ## 8.3. Checkpoints, resume and saved-result reports
 
 A normal fit creates `PROJECT_checkpoint/` by default. It preserves an immutable
@@ -836,7 +855,10 @@ is a planning assumption, not independent knowledge). Each scenario dataset
 gives the nitrogen RF amplitude, saturation time, absolute sigma and an offset
 grid, either absolute (`offsets_ppm`) or relative to each residue's `peak_ppm`
 (`offsets_rel_ppm`); `v1err_hz`, `field_mhz` and a `decoupling` override are
-optional. For every scenario the command writes complete noise-free synthetic
+optional. When a scenario has as many datasets as the base configuration,
+scenario dataset i inherits base dataset i's field and decoupling override;
+otherwise it inherits dataset 1's, and a base configuration with several field
+groups then requires `decoupling.h_larmor_mhz` in every scenario dataset. For every scenario the command writes complete noise-free synthetic
 inputs and `design_config.json` under `scenarios/<name>/`, evaluates the grouped
 Jacobian at the truth and reports, in `design.json`, `design.txt` and
 `design.pdf`, the point count, the acquisition proxy Σ(points × T), rank and
@@ -1137,6 +1159,7 @@ The console command groups every tool: `sbonest check CONFIG [--identifiability]
 `sbonest fit CONFIG [--no-pdf] [--workers N]`, `sbonest resume CONFIG`,
 `sbonest report RESULT_JSON --out PREFIX`, `sbonest init-demo --out DIR`,
 `sbonest design DESIGN_JSON --out DIR`, `sbonest compare CONFIG --out DIR`,
+`sbonest simulate CONFIG --out DIR --seed N` (section 8.2),
 `sbonest import-bruker ...` (section 14), `sbonest serve` (section 15),
 `sbonest benchmark CONFIG [profile]` and `sbonest version`, which prints the
 package version and the executed-source hashes recorded in provenance. Every
@@ -1173,7 +1196,10 @@ starting `dw` (repeatable); `--reference-row K` names the reference spectrum
 that normalizes intensities and is excluded from the output; `--noise-region
 LO HI` is a signal-free proton range whose standard deviation in the reference
 row becomes the absolute error; `--saturation-s` and `--v1-hz` fill the header.
-`--half-width` (ppm) and `--mode max|sum` select the window statistic, `--r2a`,
+`--half-width` (ppm) and `--mode max|sum` select the window statistic (with
+`sum`, each peak's error is the noise times the square root of the number of
+points in that peak's own window; the summary keeps the unscaled
+`noise_sigma_raw` and lists each peak's `noise_sigma`), `--r2a`,
 `--r2b` set the header starting values, `--exclude-row` removes further rows,
 and the saturated-nucleus field defaults to `SF × γ(15N)/γ(1H)` (`--nucleus`,
 `--field-mhz`). The output is the text format of section 2 and a JSON summary is

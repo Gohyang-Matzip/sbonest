@@ -48,9 +48,12 @@ are available at the repository-relative paths listed above.
 Install the repository's `requirements-sideband.txt` in a Python 3.12 environment.
 The scripts resolve inputs relative to this directory. Their output paths are
 fixed and intentionally refuse to overwrite existing artifacts. In a separate
-checkout, move the output being regenerated to an archival path before running:
+checkout, move the output being regenerated to an archival path before running.
+Run from the repository root; `tests/` must be importable because the carbon
+check uses the independent reference in `tests/test_sideband.py`:
 
 ```bash
+export PYTHONPATH=tests
 python manuscript/sideband_30ppm/compare_conventional.py
 python manuscript/sideband_30ppm/check_carbon_configuration.py
 python manuscript/sideband_30ppm/collect_fit_errors.py

@@ -21,6 +21,9 @@ def run_single_mc_iteration(args_tuple):
     if seed is not None:
         # Reproducible noise per run: the same seed and run index give the same draws.
         np.random.seed(seed + _worker_id)
+    else:
+        # Fresh OS entropy: forked pool workers would otherwise share the parent's RNG state.
+        np.random.seed()
     mmc = est_model()
     mmc.verbose = False
     try:

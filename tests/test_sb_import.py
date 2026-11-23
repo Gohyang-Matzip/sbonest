@@ -15,7 +15,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 from est_data import EstDataSet
-from sb_import import convert, find_peaks, peaks_from_reference, read_offsets, read_parameters, read_pseudo2d
+from sb_import import convert, find_peaks, noise_sigma, peaks_from_reference, read_offsets, read_parameters, read_pseudo2d
 
 SF = 600.13
 SW = 7200.0
@@ -136,6 +136,11 @@ def check_cli():
                           '--noise-region', '2', '4', '--saturation-s', '0.4', '--v1-hz', '25'],
                          capture_output=True, text=True, env=env, cwd=ROOT)
     assert bad.returncode == 2 and 'residue number' in bad.stderr
+    twice = subprocess.run([sys.executable, str(ROOT / 'sb_import.py'), str(pdata), str(pdata / 'offsets.txt'),
+                            '--out', str(folder / 'cli3.txt'), '--peak', 'A1=8.3', '--peak', 'A1=7.6', '--reference-row', '0',
+                            '--noise-region', '2', '4', '--saturation-s', '0.4', '--v1-hz', '25'],
+                           capture_output=True, text=True, env=env, cwd=ROOT)
+    assert twice.returncode == 2 and 'unique' in twice.stderr and not (folder / 'cli3.txt').exists()
 
 
 def check_fqlist_peaks_and_qa():
@@ -175,6 +180,14 @@ def check_fqlist_peaks_and_qa():
         pass
     else:
         raise AssertionError('QA PDF was overwritten')
+    assert not (folder / 'again.txt').exists(), 'dataset written although the QA output was refused'
+    (folder / 'nan.txt').write_text('1.0\nnan\n')
+    try:
+        read_offsets(folder / 'nan.txt', unit='ppm')
+    except ValueError as exc:
+        assert 'non-finite' in str(exc)
+    else:
+        raise AssertionError('Non-finite offset accepted')
     env = dict(os.environ, PYTHONPATH=str(ROOT))
     run = subprocess.run([sys.executable, str(ROOT / 'sb_import.py'), str(pdata), str(fq), '--out', str(folder / 'auto.txt'),
                           '--peaks-from-reference', '--reference-row', '0', '--noise-region', '2', '4',
@@ -188,9 +201,31 @@ def check_fqlist_peaks_and_qa():
     assert neither.returncode == 2
 
 
+def check_sum_mode_edge_peak():
+    folder = Path(tempfile.mkdtemp(prefix='sbonest-bruker-sum-'))
+    pdata, *_ = write_bruker(folder / 'pdata')
+    data, axis = read_pseudo2d(pdata)
+    ppm = axis['ppm']
+    half = 4 * abs(ppm[1] - ppm[0])
+    # G2 sits at the high-ppm edge, so its window holds fewer points than A1's.
+    peaks = {'A1': 8.30, 'G2': float(ppm.max())}
+    summary = convert(pdata, pdata / 'offsets.txt', folder / 'sum.txt', peaks=peaks, half_width=half,
+                      reference_row=0, noise_region=(2.0, 4.0), saturation_s=0.4, v1_hz=25., mode='sum')
+    raw = noise_sigma(data[0], ppm, (2.0, 4.0))
+    assert abs(summary['noise_sigma_raw'] - raw) <= 1e-12 * raw, 'noise_sigma_raw must stay unscaled'
+    counts = {label: int(np.count_nonzero(np.abs(ppm - position) <= half)) for label, position in peaks.items()}
+    assert counts['A1'] != counts['G2'], counts
+    for label, n in counts.items():
+        entry = summary['peaks'][label]
+        expected = raw * np.sqrt(n) / entry['reference_intensity']
+        assert_allclose(entry['normalized_error'], expected, rtol=1e-12, atol=0)
+        assert_allclose(entry['noise_sigma'], raw * np.sqrt(n), rtol=1e-12, atol=0)
+
+
 if __name__ == '__main__':
     check_reader_and_parameters()
     check_convert_and_reload()
     check_cli()
     check_fqlist_peaks_and_qa()
+    check_sum_mode_edge_peak()
     print('PASS: Bruker pseudo-2D reader, conversion, reload, CLI, fq lists, peak extraction and QA figure')

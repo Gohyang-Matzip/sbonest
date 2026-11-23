@@ -178,6 +178,61 @@ def check_loader_formats_and_noise():
         expect_error(lambda: EstDataSet().addData(str(invalid)), (ValueError,))
 
 
+class _FakeMCModel:
+    """Stand-in model: the loader draws one random number, the fit returns it."""
+
+    verbose = False
+
+    def fit(self, p0=None, fitting_config=None):
+        return [self.draw]
+
+
+def _fake_load_datasets(model, conf, with_error=True):
+    model.draw = float(np.random.random())
+
+
+def check_unseeded_mc_independent():
+    """Unseeded MC workers must not share the parent's RNG state; seeded runs repeat."""
+    if "fork" not in multiprocessing.get_all_start_methods():
+        print("SKIP check_unseeded_mc_independent: 'fork' start method unavailable here")
+        return
+    conf = {"init": {}}
+    with patch("mcrun.est_model", _FakeMCModel), patch(
+        "mcrun.load_datasets", _fake_load_datasets
+    ):
+        np.random.seed(123)
+        with multiprocessing.get_context("fork").Pool(4) as pool:
+            draws = pool.map(
+                run_single_mc_iteration,
+                [(conf, None, i, None) for i in range(4)],
+                chunksize=1,
+            )
+        assert len(set(draws)) == 4, draws
+        first = run_single_mc_iteration((conf, None, 0, 7))
+        second = run_single_mc_iteration((conf, None, 0, 7))
+    assert first == second, (first, second)
+
+
+def check_leading_dot_numbers():
+    """Accept leading-dot decimals such as '.5' and reject lone or malformed dots."""
+    import est_data
+    from est_data import EstDataSet
+
+    for text in [".5", "-.5", ".5e3", "+.25"]:
+        assert est_data._SCALAR_RE.match(text), text
+    for text in [".", "+", "e5", ".e5"]:
+        assert est_data._SCALAR_RE.match(text) is None, text
+    assert est_data._DATA_RE.match(" .5 1.0 0.1") is not None
+
+    folder = Path(tempfile.mkdtemp(prefix="onest-leading-dot-"))
+    path = folder / "leading_dot.txt"
+    path.write_text("120\n0.4\n25 0\n# columns\n# A1\n.5 0.9 0.01\n")
+    data = EstDataSet()
+    data.addData(str(path))
+    spec = data.res[0].estSpecs[0]
+    assert spec.offset == [0.5] and spec.int == [0.9] and spec.intstd == [0.01]
+
+
 def check_config_and_benchmark():
     folder = Path(tempfile.mkdtemp(prefix="onest-config-check-"))
     (folder / "sample.txt").write_bytes((ROOT / "example/syn10.txt").read_bytes())
@@ -347,6 +402,8 @@ if __name__ == "__main__":
         check_loader_errors,
         check_loader_structure,
         check_loader_formats_and_noise,
+        check_unseeded_mc_independent,
+        check_leading_dot_numbers,
         check_config_and_benchmark,
         check_web_inputs,
         check_web_roundtrip,

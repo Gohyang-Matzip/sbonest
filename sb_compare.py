@@ -6,7 +6,7 @@ larger, nesting model. Both are fitted with the configured settings through the
 normal run_config path, so each sub-fit has its own checkpoint, result JSON and
 predictions. Statistics use the supplied absolute sigma: chi2, AICc, BIC and a
 nested F-test. They compare models conditional on that sigma and on the shared
-RF/proton settings; they do not establish which description is physically true.
+RF/proton settings: the global fit shares one RF scale across residues, while each individual fit has its own (manual section 8.7). They do not establish which description is physically true.
 """
 import copy
 import json
@@ -148,13 +148,15 @@ def summarize(global_fit, individual, labels):
         if n_total != g['n_points']:
             summary['warnings'].append('Individual fits do not cover the same points as the global fit')
         n = g['n_points']
+        global_ic = information_criteria(g['chi2'], g['n_parameters'], n)
+        individual_ic = information_criteria(total_chi2, total_k, n)
         summary['comparison'] = {
             'n_points': n,
-            'global': {'chi2': g['chi2'], 'k': g['n_parameters'], **information_criteria(g['chi2'], g['n_parameters'], n)},
-            'individual_sum': {'chi2': total_chi2, 'k': total_k, **information_criteria(total_chi2, total_k, n)},
+            'global': {'chi2': g['chi2'], 'k': g['n_parameters'], **global_ic},
+            'individual_sum': {'chi2': total_chi2, 'k': total_k, **individual_ic},
             'delta_chi2': g['chi2'] - total_chi2,
-            'delta_aicc_individual_minus_global': information_criteria(total_chi2, total_k, n)['aicc'] - information_criteria(g['chi2'], g['n_parameters'], n)['aicc'],
-            'delta_bic_individual_minus_global': information_criteria(total_chi2, total_k, n)['bic'] - information_criteria(g['chi2'], g['n_parameters'], n)['bic'],
+            'delta_aicc_individual_minus_global': individual_ic['aicc'] - global_ic['aicc'],
+            'delta_bic_individual_minus_global': individual_ic['bic'] - global_ic['bic'],
             'f_test': nested_f_test(g['chi2'], g['n_parameters'], total_chi2, total_k, n),
         }
         summary['comparison']['preferred_by_aicc'] = ('global' if summary['comparison']['delta_aicc_individual_minus_global'] > 0 else 'individual')
